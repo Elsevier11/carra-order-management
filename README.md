@@ -28,6 +28,7 @@ Frontend Angular: `http://localhost:4200`
 - `GET /api/consegne/:id/attachments/:attachmentId` (auth)
 - `DELETE /api/consegne/:id/attachments/:attachmentId` (auth: `admin|operativo`)
 - `GET /api/audit` (auth: `admin`)
+- `GET /api/audit/export` (auth: `admin`)
 - `POST /api/import/preview` (auth: `admin|operativo`)
 - `POST /api/consegne` (auth: `admin|operativo`)
 - `PUT /api/consegne/:id` (auth: `admin|operativo`)
@@ -88,8 +89,15 @@ Puoi anche passare un file custom:
   - `NODE_ENV=production`
   - `JWT_SECRET`
   - `ATTACHMENTS_DIR`
-  - `ATTACHMENTS_ALLOWED_EXTENSIONS`
-  - `ATTACHMENTS_ALLOWED_MIME`
+- `ATTACHMENTS_ALLOWED_EXTENSIONS`
+- `ATTACHMENTS_ALLOWED_MIME`
+  - `ATTACHMENTS_ALLOWED_EXTENSIONS_ADMIN`
+  - `ATTACHMENTS_ALLOWED_EXTENSIONS_OPERATIVO`
+  - `ATTACHMENTS_MAX_SIZE_ADMIN`
+  - `ATTACHMENTS_MAX_SIZE_OPERATIVO`
+  - `ATTACHMENTS_ANTIVIRUS_MODE=mock|''`
+  - `ATTACHMENTS_ANTIVIRUS_COMMAND` (esempio: `clamscan --no-summary {file}`)
+  - `ATTACHMENTS_RETENTION_DAYS`
 
 ### Frontend su Netlify
 
@@ -113,3 +121,14 @@ Aggiorna `frontend/src/environments/environment.production.ts`:
 ### Checklist Go-Live
 
 - Vedi [docs/go-live-checklist.md](./docs/go-live-checklist.md)
+- Deploy guidato: [docs/deploy-production.md](./docs/deploy-production.md)
+
+## Operativita Produzione
+
+- Cleanup retention allegati:
+  - dry-run: `npm run attachments:cleanup:dry`
+  - esecuzione: `npm run attachments:cleanup`
+  - override giorni: `npm run attachments:cleanup -- --days=180`
+- Smoke test produzione:
+  - imposta env `SMOKE_API_BASE` (+ opzionale `SMOKE_USERNAME`, `SMOKE_PASSWORD`, `SMOKE_ATTACHMENT_ORDER_ID`)
+  - esegui: `npm run smoke:prod`

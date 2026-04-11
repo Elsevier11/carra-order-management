@@ -28,6 +28,18 @@ body {
   font-size: 0.85rem;
 }
 
+.audit-table tbody tr {
+  cursor: pointer;
+}
+
+.audit-table tbody tr:hover {
+  background: #f1f8f5;
+}
+
+.audit-table tbody tr.active {
+  background: #d9eee6;
+}
+
 .audit-footer {
   display: flex;
   align-items: center;
@@ -46,4 +58,15 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 6px 0 0;
+  padding: 8px;
+  border: 1px solid #c6d9d3;
+  border-radius: 8px;
+  background: #f7fbfa;
+  font-size: 0.8rem;
 }

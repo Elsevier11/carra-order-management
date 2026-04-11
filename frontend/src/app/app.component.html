@@ -46,6 +46,7 @@
         <input type="date" [(ngModel)]="auditFilters.toDate" />
         <button type="button" (click)="loadAudit(1)">Filtra</button>
         <button type="button" class="ghost" (click)="resetAuditFilters()">Reset</button>
+        <button type="button" class="ghost" (click)="exportAuditCsv()">Export Audit CSV</button>
       </section>
 
       <section class="table-card">
@@ -65,7 +66,7 @@
             </thead>
             <tbody>
               @for (item of auditRows; track item.id) {
-                <tr>
+                <tr (click)="selectAuditRow(item)" [class.active]="selectedAuditRow?.id === item.id">
                   <td>{{ item.id }}</td>
                   <td>{{ item.createdAt }}</td>
                   <td>{{ item.username || '-' }}</td>
@@ -81,6 +82,35 @@
             <button type="button" class="ghost" [disabled]="auditPage <= 1" (click)="loadAudit(auditPage - 1)">Prev</button>
             <span>Pag {{ auditPage }}</span>
             <button type="button" class="ghost" [disabled]="auditPage * auditPageSize >= auditTotal" (click)="loadAudit(auditPage + 1)">Next</button>
+          </div>
+        }
+      </section>
+
+      <section class="detail-card">
+        <h2>Dettaglio audit</h2>
+        @if (!selectedAuditRow) {
+          <p>Seleziona una riga audit per vedere dettaglio completo.</p>
+        } @else {
+          <div class="detail-grid">
+            <div><strong>ID:</strong> {{ selectedAuditRow.id }}</div>
+            <div><strong>Data:</strong> {{ selectedAuditRow.createdAt }}</div>
+            <div><strong>Utente:</strong> {{ selectedAuditRow.username || '-' }}</div>
+            <div><strong>Ruolo:</strong> {{ selectedAuditRow.role || '-' }}</div>
+            <div><strong>Azione:</strong> {{ selectedAuditRow.action }}</div>
+            <div><strong>Esito:</strong> {{ selectedAuditRow.success ? 'OK' : 'KO' }} ({{ selectedAuditRow.statusCode }})</div>
+            <div><strong>Metodo:</strong> {{ selectedAuditRow.method }}</div>
+            <div><strong>Path:</strong> {{ selectedAuditRow.path }}</div>
+            <div><strong>Entity:</strong> {{ selectedAuditRow.entity || '-' }}</div>
+            <div><strong>Entity ID:</strong> {{ selectedAuditRow.entityId ?? '-' }}</div>
+            <div><strong>IP:</strong> {{ selectedAuditRow.ipAddress || '-' }}</div>
+            <div class="full-row"><strong>User-Agent:</strong> {{ selectedAuditRow.userAgent || '-' }}</div>
+            <div class="full-row">
+              <strong>Details:</strong>
+              <pre>{{ auditDetailsAsJson(selectedAuditRow) }}</pre>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="ghost" (click)="closeAuditDetail()">Chiudi dettaglio</button>
           </div>
         }
       </section>

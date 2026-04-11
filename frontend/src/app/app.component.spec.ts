@@ -28,6 +28,7 @@ describe('AppComponent', () => {
     downloadAttachment: () => of(new Blob(['x'])),
     deleteAttachment: () => of(undefined),
     listAudit: () => of({ data: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } }),
+    exportAuditCsv: () => of('id,action'),
     exportCsv: () => of('rif,cliente'),
     transition: () => of({}),
     getById: () => of({}),

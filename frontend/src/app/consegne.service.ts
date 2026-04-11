@@ -83,6 +83,19 @@ export class ConsegneService {
     return this.http.get<AuditLogResponse>(this.auditUrl, { params });
   }
 
+  exportAuditCsv(query: { username?: string; action?: string; entity?: string; fromDate?: string; toDate?: string; success?: string }): Observable<string> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        params = params.set(key, String(value));
+      }
+    }
+    return this.http.get(`${this.auditUrl}/export`, {
+      params,
+      responseType: 'text',
+    });
+  }
+
   getById(id: number) {
     return this.http.get(`${this.baseUrl}/${id}`);
   }

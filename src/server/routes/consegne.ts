@@ -9,6 +9,7 @@ import { orderAttachments, ordini } from '../../db/schema'
 import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
+import { scanBufferWithAntivirus } from '../security/antivirus'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
@@ -31,6 +32,22 @@ const allowedAttachmentMimeTypes = (process.env.ATTACHMENTS_ALLOWED_MIME ?? 'app
   .split(',')
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean)
+const roleAttachmentLimits = {
+  admin: {
+    maxBytes: Number(process.env.ATTACHMENTS_MAX_SIZE_ADMIN ?? 15 * 1024 * 1024),
+    allowedExtensions: (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS_ADMIN ?? allowedAttachmentExtensions.join(','))
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  },
+  operativo: {
+    maxBytes: Number(process.env.ATTACHMENTS_MAX_SIZE_OPERATIVO ?? 10 * 1024 * 1024),
+    allowedExtensions: (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS_OPERATIVO ?? allowedAttachmentExtensions.join(','))
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  },
+} as const
 
 function parseInputDate(value: string): Date {
   const parsed = new Date(value)
@@ -136,6 +153,20 @@ function validateAttachment(fileName: string, mimeType: string) {
   }
   if (!allowedAttachmentMimeTypes.includes((mimeType || '').toLowerCase())) {
     throw new BadRequestError(`Unsupported mime type: ${mimeType || 'unknown'}`)
+  }
+}
+
+function validateAttachmentByRole(role: 'admin' | 'operativo' | 'lettura' | undefined, fileName: string, sizeBytes: number) {
+  if (!role || role === 'lettura') {
+    throw new BadRequestError('Attachment upload role not allowed')
+  }
+  const limits = roleAttachmentLimits[role]
+  const extension = getFileExtension(fileName)
+  if (!limits.allowedExtensions.includes(extension)) {
+    throw new BadRequestError(`Extension ${extension || 'none'} not allowed for role ${role}`)
+  }
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > limits.maxBytes) {
+    throw new BadRequestError(`File too large for role ${role}: max ${limits.maxBytes} bytes`)
   }
 }
 
@@ -501,7 +532,12 @@ router.post('/:id/attachments', requireAuth, requireRole(['admin', 'operativo'])
     if (!file) {
       return res.status(400).json({ message: 'Missing file' })
     }
+    validateAttachmentByRole(req.user?.role, file.originalname || '', file.size)
     validateAttachment(file.originalname || '', file.mimetype || '')
+    const scanResult = await scanBufferWithAntivirus(file.buffer, file.originalname || '')
+    if (!scanResult.clean) {
+      return res.status(400).json({ message: 'Attachment blocked by antivirus scan' })
+    }
 
     const safeName = safeFilename(file.originalname || 'attachment.bin')
     const uniqueName = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}_${safeName}`
@@ -534,7 +570,7 @@ router.post('/:id/attachments', requireAuth, requireRole(['admin', 'operativo'])
     await addOrderEvent({
       orderId: id,
       eventType: 'ATTACHMENT_ADDED',
-      note: created.fileName,
+      note: `${created.fileName} [scan:${scanResult.scanner}]`,
       actor: req.user?.username ?? null,
     })
 

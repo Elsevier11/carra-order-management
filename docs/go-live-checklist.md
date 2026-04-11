@@ -7,6 +7,12 @@
 - Optional hardening:
   - `ATTACHMENTS_ALLOWED_EXTENSIONS`
   - `ATTACHMENTS_ALLOWED_MIME`
+  - `ATTACHMENTS_ALLOWED_EXTENSIONS_ADMIN`
+  - `ATTACHMENTS_ALLOWED_EXTENSIONS_OPERATIVO`
+  - `ATTACHMENTS_MAX_SIZE_ADMIN`
+  - `ATTACHMENTS_MAX_SIZE_OPERATIVO`
+  - `ATTACHMENTS_ANTIVIRUS_COMMAND` (es. `clamscan --no-summary {file}`)
+  - `ATTACHMENTS_RETENTION_DAYS`
 
 ## 2. Frontend Environment
 - Set `frontend/src/environments/environment.production.ts` with production API URL.
@@ -33,6 +39,9 @@
   - upload/list/download/delete
 - Audit:
   - `GET /api/audit` with admin token
+  - `GET /api/audit/export` with admin token
+- Esecuzione script automatico:
+  - `SMOKE_API_BASE=https://... npm run smoke:prod`
 
 ## 5. Automated Validation
 - Run full tests:
@@ -46,3 +55,5 @@
   - HTTP 5xx
   - DB connection failures
   - Disk usage for attachments storage
+- Scheduler (cron Railway/esterno):
+  - `npm run attachments:cleanup -- --days=365`

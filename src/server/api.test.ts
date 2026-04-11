@@ -16,9 +16,15 @@ describe.runIf(runDbTests)('Consegne API', () => {
   let gte: (typeof import('drizzle-orm'))['gte']
   let token = ''
   let letturaToken = ''
+  let operativoToken = ''
   let auditStartId = 0
 
   beforeAll(async () => {
+    process.env.ATTACHMENTS_ALLOWED_EXTENSIONS_ADMIN = 'pdf,txt,csv'
+    process.env.ATTACHMENTS_ALLOWED_EXTENSIONS_OPERATIVO = 'pdf'
+    process.env.ATTACHMENTS_ANTIVIRUS_MODE = 'mock'
+    process.env.ATTACHMENTS_ANTIVIRUS_FAIL_PATTERN = 'eicar'
+
     const appModule = await import('./app')
     const dbModule = await import('./db')
     const schemaModule = await import('../db/schema')
@@ -79,6 +85,12 @@ describe.runIf(runDbTests)('Consegne API', () => {
       password: 'lettura123',
     })
     letturaToken = loginLettura.body.token as string
+
+    const loginOperativo = await request(app).post('/api/auth/login').send({
+      username: 'operativo',
+      password: 'operativo123',
+    })
+    operativoToken = loginOperativo.body.token as string
 
     const [maxAudit] = await db.select({ max: drizzleModule.max(auditLogs.id) }).from(auditLogs)
     auditStartId = Number(maxAudit?.max ?? 0)
@@ -316,6 +328,57 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(res.headers['content-type']).toContain('text/csv')
     expect(res.text).toContain('rif,cliente,tipoImpianto,dataConsegna,cantiere,vettore,stato,note')
     expect(res.text).toContain('__TEST__A-001')
+  })
+
+  it('exports audit csv for admin', async () => {
+    const res = await request(app)
+      .get('/api/audit/export')
+      .set('Authorization', `Bearer ${token}`)
+      .query({ action: 'CONSEGNE', pageSize: 10 })
+
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toContain('text/csv')
+    expect(res.text).toContain('id,createdAt,username,role,action')
+  })
+
+  it('rejects attachment upload when role policy blocks extension', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__ROLE-ATT',
+      cliente: 'Cliente Role Policy',
+      stato: 'IN CORSO',
+      dataConsegna: '2026-07-18',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const upload = await request(app)
+      .post(`/api/consegne/${id}/attachments`)
+      .set('Authorization', `Bearer ${operativoToken}`)
+      .attach('file', Buffer.from('file txt blocked for operativo', 'utf8'), 'blocked-operativo.txt')
+    expect(upload.status).toBe(400)
+    expect(String(upload.body.message)).toContain('not allowed for role operativo')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('rejects attachment upload when antivirus scan fails', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__AV-ATT',
+      cliente: 'Cliente Antivirus',
+      stato: 'IN CORSO',
+      dataConsegna: '2026-07-19',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const upload = await request(app)
+      .post(`/api/consegne/${id}/attachments`)
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('simulated malware', 'utf8'), 'simulated-eicar.txt')
+    expect(upload.status).toBe(400)
+    expect(String(upload.body.message)).toContain('antivirus')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })
 
   it('provides import preview report with duplicates and invalid rows', async () => {

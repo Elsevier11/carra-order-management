@@ -140,6 +140,7 @@ export class AppComponent implements OnInit {
   auditPage = 1;
   auditPageSize = 20;
   auditTotal = 0;
+  selectedAuditRow: AuditLogRecord | null = null;
   auditFilters: { username: string; action: string; entity: string; success: string; fromDate: string; toDate: string } = {
     username: '',
     action: '',
@@ -172,6 +173,7 @@ export class AppComponent implements OnInit {
       if (user) {
         this.loginState.error = '';
         this.restorePreset();
+        this.restoreAuditPreset();
         this.loadFilters();
         this.refreshData();
         this.ensureDashboardChartsLoaded();
@@ -180,6 +182,7 @@ export class AppComponent implements OnInit {
 
     if (this.user) {
       this.restorePreset();
+      this.restoreAuditPreset();
       this.loadFilters();
       this.refreshData();
       this.ensureDashboardChartsLoaded();
@@ -205,6 +208,7 @@ export class AppComponent implements OnInit {
     this.selectedDetail = null;
     this.attachments = [];
     this.formVisible = false;
+    this.selectedAuditRow = null;
   }
 
   refreshData(page = this.page, allowAutoRecover = true): void {
@@ -439,7 +443,7 @@ export class AppComponent implements OnInit {
       fromDate: '',
       toDate: '',
     };
-    localStorage.removeItem('carra_filters_preset');
+    localStorage.removeItem(this.userScopedStorageKey('carra_filters_preset'));
     this.refreshData(1, false);
   }
 
@@ -638,6 +642,7 @@ export class AppComponent implements OnInit {
     if (!this.isAdmin) return;
     this.auditLoading = true;
     this.auditPage = page;
+    this.saveAuditPreset();
     this.consegneService
       .listAudit({
         page: this.auditPage,
@@ -653,6 +658,9 @@ export class AppComponent implements OnInit {
         next: (response) => {
           this.auditRows = response.data;
           this.auditTotal = response.pagination.total;
+          if (this.selectedAuditRow) {
+            this.selectedAuditRow = this.auditRows.find((row) => row.id === this.selectedAuditRow?.id) ?? this.selectedAuditRow;
+          }
           this.auditLoading = false;
         },
         error: (error) => {
@@ -671,7 +679,53 @@ export class AppComponent implements OnInit {
       fromDate: '',
       toDate: '',
     };
+    localStorage.removeItem(this.userScopedStorageKey('carra_audit_filters_preset'));
+    this.selectedAuditRow = null;
     this.loadAudit(1);
+  }
+
+  selectAuditRow(item: AuditLogRecord): void {
+    this.selectedAuditRow = item;
+  }
+
+  closeAuditDetail(): void {
+    this.selectedAuditRow = null;
+  }
+
+  exportAuditCsv(): void {
+    if (!this.isAdmin) return;
+    this.consegneService
+      .exportAuditCsv({
+        username: this.auditFilters.username || undefined,
+        action: this.auditFilters.action || undefined,
+        entity: this.auditFilters.entity || undefined,
+        success: this.auditFilters.success || undefined,
+        fromDate: this.auditFilters.fromDate || undefined,
+        toDate: this.auditFilters.toDate || undefined,
+      })
+      .subscribe({
+        next: (csv) => {
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `audit_${new Date().toISOString().slice(0, 10)}.csv`;
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (error) => {
+          this.operationError = error?.error?.message ?? 'Errore export audit CSV';
+        },
+      });
+  }
+
+  auditDetailsAsJson(item: AuditLogRecord | null): string {
+    if (!item?.details) return '-';
+    try {
+      return JSON.stringify(item.details, null, 2);
+    } catch {
+      return String(item.details);
+    }
   }
 
   private syncBoardCounts(): void {
@@ -752,18 +806,39 @@ export class AppComponent implements OnInit {
   }
 
   private savePreset(): void {
-    localStorage.setItem('carra_filters_preset', JSON.stringify(this.filters));
+    localStorage.setItem(this.userScopedStorageKey('carra_filters_preset'), JSON.stringify(this.filters));
   }
 
   private restorePreset(): void {
     try {
-      const raw = localStorage.getItem('carra_filters_preset');
+      const raw = localStorage.getItem(this.userScopedStorageKey('carra_filters_preset'));
       if (!raw) return;
       this.filters = { ...this.filters, ...(JSON.parse(raw) as ConsegnaFilters) };
       this.normalizeDateFilters();
     } catch {
-      localStorage.removeItem('carra_filters_preset');
+      localStorage.removeItem(this.userScopedStorageKey('carra_filters_preset'));
     }
+  }
+
+  private saveAuditPreset(): void {
+    localStorage.setItem(this.userScopedStorageKey('carra_audit_filters_preset'), JSON.stringify(this.auditFilters));
+  }
+
+  private restoreAuditPreset(): void {
+    try {
+      const raw = localStorage.getItem(this.userScopedStorageKey('carra_audit_filters_preset'));
+      if (!raw) return;
+      this.auditFilters = { ...this.auditFilters, ...(JSON.parse(raw) as typeof this.auditFilters) };
+      const isValidDate = (value?: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
+      if (!isValidDate(this.auditFilters.fromDate)) this.auditFilters.fromDate = '';
+      if (!isValidDate(this.auditFilters.toDate)) this.auditFilters.toDate = '';
+    } catch {
+      localStorage.removeItem(this.userScopedStorageKey('carra_audit_filters_preset'));
+    }
+  }
+
+  private userScopedStorageKey(key: string): string {
+    return this.user?.username ? `${key}_${this.user.username}` : key;
   }
 
   private normalizeFiltersAgainstAvailableOptions(): void {
