@@ -1,0 +1,221 @@
+{
+  "inputFile": "c:\\Users\\Paolo Pedron\\OneDrive - ZEROBYTE SRL\\Desktop\\CARRA_CONSEGNE.xlsx",
+  "sheetsUsed": [
+    "IN CORSO",
+    "IN LAVORAZIONE",
+    "CONCLUSI",
+    "PRONTI & AVVISATI"
+  ],
+  "extractedRows": 105,
+  "sheetReports": [
+    {
+      "sheet": "IN CORSO",
+      "headerRow": 1,
+      "totalRows": 59,
+      "extractedRows": 48,
+      "skippedRows": 11,
+      "skippedExamples": [
+        {
+          "excelRow": 35,
+          "reason": "missing_cliente",
+          "rif": "R1681/23 Ordine 02",
+          "cliente": ""
+        },
+        {
+          "excelRow": 44,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "TRATTAMENTO INDUSTRIALE"
+        },
+        {
+          "excelRow": 52,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 53,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "DA PROCESSARE"
+        },
+        {
+          "excelRow": 54,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 55,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "A.M.P. BOZZA - con DDT"
+        },
+        {
+          "excelRow": 56,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 57,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "Sollecito disegno da firmare"
+        },
+        {
+          "excelRow": 58,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "A.M.P. BOZZA - Senza DDT"
+        },
+        {
+          "excelRow": 59,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 60,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        }
+      ]
+    },
+    {
+      "sheet": "IN LAVORAZIONE",
+      "headerRow": 2,
+      "totalRows": 26,
+      "extractedRows": 14,
+      "skippedRows": 12,
+      "skippedExamples": [
+        {
+          "excelRow": 9,
+          "reason": "missing_cliente",
+          "rif": "Simone Gelosini",
+          "cliente": ""
+        },
+        {
+          "excelRow": 11,
+          "reason": "missing_cliente",
+          "rif": "Non completato attesa CLIENTE",
+          "cliente": ""
+        },
+        {
+          "excelRow": 13,
+          "reason": "missing_cliente",
+          "rif": "Pontini Paolo",
+          "cliente": ""
+        },
+        {
+          "excelRow": 15,
+          "reason": "missing_cliente",
+          "rif": "In attesa per l'assegnazione",
+          "cliente": ""
+        },
+        {
+          "excelRow": 21,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "DA PROCESSARE"
+        },
+        {
+          "excelRow": 22,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 23,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "A.M.P. BOZZA - con DDT"
+        },
+        {
+          "excelRow": 24,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 25,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "Sollecito disegno da firmare"
+        },
+        {
+          "excelRow": 26,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "A.M.P. BOZZA - Senza DDT"
+        },
+        {
+          "excelRow": 27,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 28,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        }
+      ]
+    },
+    {
+      "sheet": "CONCLUSI",
+      "headerRow": 2,
+      "totalRows": 13,
+      "extractedRows": 7,
+      "skippedRows": 6,
+      "skippedExamples": [
+        {
+          "excelRow": 10,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 11,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "DA PROCESSARE"
+        },
+        {
+          "excelRow": 12,
+          "reason": "missing_rif_and_cliente",
+          "rif": "",
+          "cliente": ""
+        },
+        {
+          "excelRow": 13,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "A.M.P. BOZZA - con DDT"
+        },
+        {
+          "excelRow": 14,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "Sollecito disegno da firmare"
+        },
+        {
+          "excelRow": 15,
+          "reason": "missing_rif",
+          "rif": "",
+          "cliente": "A.M.P. BOZZA - Senza DDT"
+        }
+      ]
+    },
+    {
+      "sheet": "PRONTI & AVVISATI",
+      "headerRow": 2,
+      "totalRows": 36,
+      "extractedRows": 36,
+      "skippedRows": 0,
+      "skippedExamples": []
+    }
+  ]
+}

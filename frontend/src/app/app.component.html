@@ -1,0 +1,286 @@
+@if (!user) {
+  <div class="login-page">
+    <div class="login-card">
+      <h1>Accesso Piattaforma Carra</h1>
+      <p>Utenti demo: admin/admin123, operativo/operativo123, lettura/lettura123</p>
+      <input type="text" [(ngModel)]="loginState.username" placeholder="Username" />
+      <input type="password" [(ngModel)]="loginState.password" placeholder="Password" />
+      <button type="button" (click)="login()">Login</button>
+      @if (loginState.error) {
+        <div class="error">{{ loginState.error }}</div>
+      }
+    </div>
+  </div>
+} @else {
+  <div class="page">
+    <header class="hero">
+      <div>
+        <h1>Dashboard Consegne Carra</h1>
+        <p>Monitoraggio operativo consegne 2026</p>
+      </div>
+      <div class="user-box">
+        <span>{{ user.username }} ({{ user.role }})</span>
+        <button class="ghost" type="button" (click)="logout()">Logout</button>
+      </div>
+    </header>
+
+    <section class="view-switch">
+      <button type="button" [class.ghost]="activeView !== 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
+      <button type="button" [class.ghost]="activeView !== 'kanban'" (click)="changeView('kanban')">Kanban Stati</button>
+    </section>
+
+    <section class="kpi-grid">
+      <article class="kpi-card">
+        <span class="kpi-label">Settimana Corrente</span>
+        <strong class="kpi-value">{{ stats.kpi.consegneSettimanaCorrente }}</strong>
+      </article>
+      <article class="kpi-card alert">
+        <span class="kpi-label">Ritardi</span>
+        <strong class="kpi-value">{{ stats.kpi.ritardi }}</strong>
+      </article>
+    </section>
+
+    <section class="filters">
+      <input type="text" [(ngModel)]="filters.q" placeholder="Ricerca libera (rif, cliente, impianto...)" />
+      <select [(ngModel)]="filters.cliente">
+        <option value="">Tutti i clienti</option>
+        @for (cliente of availableFilters.clienti; track cliente) {
+          <option [value]="cliente">{{ cliente }}</option>
+        }
+      </select>
+      <select [(ngModel)]="filters.vettore">
+        <option value="">Tutti i vettori</option>
+        @for (vettore of availableFilters.vettori; track vettore) {
+          <option [value]="vettore">{{ vettore }}</option>
+        }
+      </select>
+      <select [(ngModel)]="filters.stato">
+        <option value="">Tutti gli stati</option>
+        @for (stato of availableFilters.stati; track stato) {
+          <option [value]="stato">{{ stato }}</option>
+        }
+      </select>
+      <input type="date" [(ngModel)]="filters.fromDate" />
+      <input type="date" [(ngModel)]="filters.toDate" />
+      <button type="button" (click)="applyFilters()">Filtra</button>
+      <button type="button" class="ghost" (click)="resetFilters()">Reset</button>
+      <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
+    </section>
+
+    @if (operationError) {
+      <div class="error">{{ operationError }}</div>
+    }
+    @if (operationSuccess) {
+      <div class="success">{{ operationSuccess }}</div>
+    }
+
+    @if (activeView === 'dashboard') {
+      @if (dashboardChartsComponent) {
+        <ng-container *ngComponentOutlet="dashboardChartsComponent; inputs: { stats: stats }"></ng-container>
+      } @else {
+        <section class="charts">
+          <article class="chart-card full">
+            <p>Caricamento grafici...</p>
+          </article>
+        </section>
+      }
+    } @else {
+      <section class="kanban-toolbar">
+        <label class="kanban-toggle">
+          <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
+          <span>Solo ritardi</span>
+        </label>
+        <div class="kanban-kpi">
+          <span class="sla-badge late">Totale ritardi: {{ totalLateCount }}</span>
+          @for (status of statusFlow; track status) {
+            @if (lateCountByStatus(status) > 0) {
+              <span class="status-chip" [ngClass]="columnClass(status)">{{ status }}: {{ lateCountByStatus(status) }}</span>
+            }
+          }
+        </div>
+      </section>
+
+      <section class="kanban-grid">
+        @if (loadingBoard) {
+          <article class="chart-card full"><p>Caricamento board...</p></article>
+        } @else {
+          @for (column of boardColumns; track column.status) {
+            <article class="kanban-column" [ngClass]="columnClass(column.status)">
+              <header>
+                <h2>{{ column.status }}</h2>
+                <div class="kanban-header-meta">
+                  <span>{{ visibleKanbanCount(column.items) }}</span>
+                  @if (lateCount(column.items) > 0) {
+                    <span class="sla-badge late">{{ lateCount(column.items) }} ritardi</span>
+                  }
+                </div>
+              </header>
+              <div
+                class="kanban-items"
+                cdkDropList
+                [id]="dropListId(column.status)"
+                [cdkDropListData]="column.items"
+                [cdkDropListConnectedTo]="boardDropListIds"
+                [cdkDropListDisabled]="showOnlyLateInKanban"
+                (cdkDropListDropped)="onKanbanDrop($event, column.status)"
+              >
+                @for (item of filteredKanbanItems(column.items); track item.id) {
+                  <button
+                    type="button"
+                    class="kanban-card"
+                    cdkDrag
+                    [disabled]="!canWrite || showOnlyLateInKanban"
+                    (click)="selectFromBoard(item)"
+                  >
+                    <strong>{{ item.rif }}</strong>
+                    <span>{{ item.cliente }}</span>
+                    <small>{{ item.vettore || 'N/D' }} - {{ item.dataConsegna || '-' }}</small>
+                    @if (isLate(item)) {
+                      <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
+                    }
+                  </button>
+                }
+              </div>
+            </article>
+          }
+        }
+      </section>
+    }
+
+    <section class="actions">
+      @if (canWrite) {
+        <button type="button" (click)="openCreate()">Nuova consegna</button>
+        <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openEdit()">Modifica selezionata</button>
+        <button type="button" class="danger" [disabled]="!selectedDetail" (click)="deleteSelected()">Elimina selezionata</button>
+      }
+      <span class="hint">Clicca una riga per vedere il dettaglio</span>
+    </section>
+
+    <section class="table-card">
+      <ngx-datatable
+        class="material striped"
+        [rows]="rows"
+        [columns]="columns"
+        [columnMode]="'force'"
+        [headerHeight]="48"
+        [rowHeight]="44"
+        [footerHeight]="52"
+        [count]="total"
+        [offset]="page - 1"
+        [limit]="pageSize"
+        [loadingIndicator]="loading"
+        [externalPaging]="true"
+        (activate)="onActivate($event)"
+        (page)="onPage($event)"
+      >
+      </ngx-datatable>
+    </section>
+
+    <section class="detail-card">
+      <h2>Dettaglio consegna</h2>
+      @if (loadingDetails) {
+        <p>Caricamento...</p>
+      } @else if (!selectedDetail) {
+        <p>Seleziona una consegna dalla tabella.</p>
+      } @else {
+        <div class="detail-grid">
+          <div><strong>Rif:</strong> {{ selectedDetail.rif }}</div>
+          <div><strong>Cliente:</strong> {{ selectedDetail.cliente }}</div>
+          <div><strong>Stato:</strong> {{ selectedDetail.stato }}</div>
+          <div><strong>Data consegna:</strong> {{ selectedDetail.dataConsegna || '-' }}</div>
+          <div><strong>Vettore:</strong> {{ selectedDetail.vettore || '-' }}</div>
+          <div><strong>Cantiere:</strong> {{ selectedDetail.cantiere || '-' }}</div>
+          <div class="full-row"><strong>Tipo impianto:</strong> {{ selectedDetail.tipoImpianto || '-' }}</div>
+          <div class="full-row"><strong>Note:</strong> {{ selectedDetail.note || '-' }}</div>
+        </div>
+
+        @if (canWrite) {
+          <div class="transition-box">
+            <h3>Cambio stato rapido</h3>
+            <div class="transition-grid">
+              <select [(ngModel)]="transitionModel.toStatus">
+                <option value="">Seleziona stato</option>
+                @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
+                  <option [value]="status">{{ status }}</option>
+                }
+              </select>
+              <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
+              <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
+            </div>
+          </div>
+        }
+
+        <div class="history-box">
+          <h3>Storico stato</h3>
+          @if (loadingHistory) {
+            <p>Caricamento storico...</p>
+          } @else if (!history.length) {
+            <p>Nessun evento registrato.</p>
+          } @else {
+            <ul class="history-list">
+              @for (event of history; track event.id) {
+                <li>
+                  <strong>{{ event.eventType }}</strong>
+                  <span>{{ event.fromStatus || '-' }} -> {{ event.toStatus || '-' }}</span>
+                  <small>{{ event.createdAt }} - {{ event.actor || 'sistema' }}</small>
+                  @if (event.note) {
+                    <em>{{ event.note }}</em>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </section>
+  </div>
+
+  @if (formVisible) {
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h2>{{ editingId ? 'Modifica consegna' : 'Nuova consegna' }}</h2>
+        <div class="modal-grid">
+          <input type="text" [(ngModel)]="formModel.rif" placeholder="Rif" />
+          <input type="text" [(ngModel)]="formModel.cliente" placeholder="Cliente" />
+          <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="Tipo impianto" />
+          <input type="date" [(ngModel)]="formModel.dataConsegna" />
+          <input type="text" [(ngModel)]="formModel.cantiere" placeholder="Cantiere" />
+          <input type="date" [(ngModel)]="formModel.dataOrdine" />
+          <input type="text" [(ngModel)]="formModel.vettore" placeholder="Vettore" />
+          <input type="text" [(ngModel)]="formModel.stato" placeholder="Stato" />
+          <textarea [(ngModel)]="formModel.note" placeholder="Note"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" (click)="saveForm()">Salva</button>
+          <button type="button" class="ghost" (click)="closeForm()">Annulla</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (dropTransitionModal.open && dropTransitionModal.order) {
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h2>Conferma cambio stato</h2>
+        <p>
+          Ordine <strong>{{ dropTransitionModal.order.rif }}</strong>:
+          <strong>{{ dropTransitionModal.fromStatus }}</strong> -> <strong>{{ dropTransitionModal.toStatus }}</strong>
+        </p>
+        <div class="modal-grid">
+          <input
+            type="text"
+            [(ngModel)]="dropTransitionModal.note"
+            [placeholder]="dropTransitionModal.toStatus === 'SOSPESO' ? 'Motivo sospensione (obbligatorio)' : 'Nota opzionale'"
+          />
+        </div>
+        @if (dropTransitionModal.error) {
+          <div class="error">{{ dropTransitionModal.error }}</div>
+        }
+        <div class="modal-actions">
+          <button type="button" [disabled]="pendingTransitionId === dropTransitionModal.order.id" (click)="confirmDropTransition()">Conferma</button>
+          <button type="button" class="ghost" [disabled]="pendingTransitionId === dropTransitionModal.order.id" (click)="closeDropTransitionModal()">Annulla</button>
+        </div>
+      </div>
+    </div>
+  }
+}

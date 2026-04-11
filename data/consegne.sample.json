@@ -1,0 +1,26 @@
+[
+  {
+    "rif": "57025",
+    "cliente": "BOLDARINO",
+    "tipoImpianto": "N1 VA220R N1 POZZETTO",
+    "dataConsegna": "2026-01-14",
+    "vettore": "1 COTRAM",
+    "stato": "IN CORSO"
+  },
+  {
+    "rif": "50025",
+    "cliente": "Lucchini Costruzioni",
+    "tipoImpianto": "N1 METEOTANK MPSD 11.000",
+    "dataConsegna": "2026-03-13",
+    "vettore": "2 COTRAM",
+    "stato": "IN CORSO"
+  },
+  {
+    "rif": "ARCA 15226",
+    "cliente": "LUCCHINI COSTRUZIONI",
+    "tipoImpianto": "N1 METEOTANK MPSD",
+    "dataConsegna": "2026-02-15",
+    "vettore": "COTRAM",
+    "stato": "IN CORSO"
+  }
+]
