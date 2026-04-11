@@ -25,6 +25,7 @@
   - `order_events`
   - `order_attachments`
   - `audit_logs`
+  - `app_users`
 
 ## 4. Smoke Tests
 - API health:

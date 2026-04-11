@@ -2,13 +2,14 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AttachmentRecord, AuditLogResponse, BoardColumn, ConsegnaFilters, ConsegneResponse, ConsegnaStats, FilterOptions, OrderEvent } from './consegne.types';
+import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardColumn, ConsegnaFilters, ConsegneResponse, ConsegnaStats, FilterOptions, OrderEvent } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/consegne`;
   private readonly auditUrl = `${environment.apiUrl}/audit`;
+  private readonly usersUrl = `${environment.apiUrl}/users`;
 
   list(query: ConsegnaFilters & { page: number; pageSize: number; sortBy: string; sortDir: string }): Observable<ConsegneResponse> {
     let params = new HttpParams();
@@ -94,6 +95,22 @@ export class ConsegneService {
       params,
       responseType: 'text',
     });
+  }
+
+  listUsers(): Observable<{ data: AppUserRecord[] }> {
+    return this.http.get<{ data: AppUserRecord[] }>(this.usersUrl);
+  }
+
+  createUser(payload: { username: string; role: 'admin' | 'operativo' | 'lettura'; password: string; isActive: boolean }): Observable<AppUserRecord> {
+    return this.http.post<AppUserRecord>(this.usersUrl, payload);
+  }
+
+  updateUser(id: number, payload: { role?: 'admin' | 'operativo' | 'lettura'; isActive?: boolean }): Observable<AppUserRecord> {
+    return this.http.put<AppUserRecord>(`${this.usersUrl}/${id}`, payload);
+  }
+
+  resetUserPassword(id: number, password: string): Observable<void> {
+    return this.http.put<void>(`${this.usersUrl}/${id}/password`, { password });
   }
 
   getById(id: number) {

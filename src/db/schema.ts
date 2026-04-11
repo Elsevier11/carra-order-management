@@ -45,3 +45,13 @@ export const auditLogs = pgTable('audit_logs', {
   details: jsonb('details'),
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+export const appUsers = pgTable('app_users', {
+  id: serial('id').primaryKey(),
+  username: text('username').notNull().unique(),
+  role: text('role').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})

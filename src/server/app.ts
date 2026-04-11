@@ -5,6 +5,7 @@ import consegneRoutes from './routes/consegne'
 import authRoutes from './routes/auth'
 import auditRoutes from './routes/audit'
 import importRoutes from './routes/import'
+import usersRoutes from './routes/users'
 import { BadRequestError } from './errors'
 import { auditMiddleware } from './audit'
 
@@ -32,6 +33,7 @@ export function createApp() {
   app.use('/api/consegne', consegneRoutes)
   app.use('/api/audit', auditRoutes)
   app.use('/api/import', importRoutes)
+  app.use('/api/users', usersRoutes)
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof ZodError) {

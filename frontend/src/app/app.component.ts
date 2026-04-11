@@ -6,6 +6,7 @@ import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { AuthService } from './auth.service';
 import { ConsegneService } from './consegne.service';
 import {
+  AppUserRecord,
   AttachmentRecord,
   AuditLogRecord,
   AuthUser,
@@ -33,7 +34,7 @@ type EditableConsegna = {
   note: string;
 };
 
-type ViewMode = 'dashboard' | 'kanban' | 'audit';
+type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'users';
 
 @Component({
   selector: 'app-root',
@@ -148,6 +149,18 @@ export class AppComponent implements OnInit {
     success: '',
     fromDate: '',
     toDate: '',
+  };
+  usersRows: AppUserRecord[] = [];
+  usersLoading = false;
+  newUserModel: { username: string; role: 'admin' | 'operativo' | 'lettura'; password: string; isActive: boolean } = {
+    username: '',
+    role: 'operativo',
+    password: '',
+    isActive: true,
+  };
+  passwordResetModel: { userId: number | null; password: string } = {
+    userId: null,
+    password: '',
   };
 
   readonly columns = [
@@ -280,14 +293,16 @@ export class AppComponent implements OnInit {
   }
 
   changeView(view: ViewMode): void {
-    if (view === 'audit' && !this.isAdmin) return;
+    if ((view === 'audit' || view === 'users') && !this.isAdmin) return;
     this.activeView = view;
     if (view === 'dashboard') {
       this.ensureDashboardChartsLoaded();
     } else if (view === 'kanban') {
       this.loadBoard();
-    } else {
+    } else if (view === 'audit') {
       this.loadAudit(1);
+    } else {
+      this.loadUsers();
     }
   }
 
@@ -682,6 +697,85 @@ export class AppComponent implements OnInit {
     localStorage.removeItem(this.userScopedStorageKey('carra_audit_filters_preset'));
     this.selectedAuditRow = null;
     this.loadAudit(1);
+  }
+
+  loadUsers(): void {
+    if (!this.isAdmin) return;
+    this.usersLoading = true;
+    this.consegneService.listUsers().subscribe({
+      next: (response) => {
+        this.usersRows = response.data;
+        this.usersLoading = false;
+      },
+      error: (error) => {
+        this.usersLoading = false;
+        this.operationError = error?.error?.message ?? 'Errore caricamento utenti';
+      },
+    });
+  }
+
+  createUser(): void {
+    if (!this.isAdmin) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createUser(this.newUserModel).subscribe({
+      next: () => {
+        this.operationSuccess = `Utente ${this.newUserModel.username} creato`;
+        this.newUserModel = {
+          username: '',
+          role: 'operativo',
+          password: '',
+          isActive: true,
+        };
+        this.loadUsers();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore creazione utente';
+      },
+    });
+  }
+
+  updateUserRole(userId: number, role: 'admin' | 'operativo' | 'lettura'): void {
+    if (!this.isAdmin) return;
+    this.consegneService.updateUser(userId, { role }).subscribe({
+      next: () => {
+        this.operationSuccess = 'Ruolo utente aggiornato';
+        this.loadUsers();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore aggiornamento ruolo';
+      },
+    });
+  }
+
+  toggleUserActive(user: AppUserRecord): void {
+    if (!this.isAdmin) return;
+    this.consegneService.updateUser(user.id, { isActive: !user.isActive }).subscribe({
+      next: () => {
+        this.operationSuccess = `Utente ${!user.isActive ? 'attivato' : 'disattivato'}`;
+        this.loadUsers();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore aggiornamento stato utente';
+      },
+    });
+  }
+
+  openPasswordReset(userId: number): void {
+    this.passwordResetModel = { userId, password: '' };
+  }
+
+  resetUserPassword(): void {
+    if (!this.isAdmin || !this.passwordResetModel.userId) return;
+    this.consegneService.resetUserPassword(this.passwordResetModel.userId, this.passwordResetModel.password).subscribe({
+      next: () => {
+        this.operationSuccess = 'Password utente aggiornata';
+        this.passwordResetModel = { userId: null, password: '' };
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore reset password';
+      },
+    });
   }
 
   selectAuditRow(item: AuditLogRecord): void {

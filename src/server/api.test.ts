@@ -11,9 +11,11 @@ describe.runIf(runDbTests)('Consegne API', () => {
   let ordini: (typeof import('../db/schema'))['ordini']
   let orderAttachments: (typeof import('../db/schema'))['orderAttachments']
   let auditLogs: (typeof import('../db/schema'))['auditLogs']
+  let appUsers: (typeof import('../db/schema'))['appUsers']
   let eq: (typeof import('drizzle-orm'))['eq']
   let ilike: (typeof import('drizzle-orm'))['ilike']
   let gte: (typeof import('drizzle-orm'))['gte']
+  let like: (typeof import('drizzle-orm'))['like']
   let token = ''
   let letturaToken = ''
   let operativoToken = ''
@@ -37,13 +39,16 @@ describe.runIf(runDbTests)('Consegne API', () => {
     ordini = schemaModule.ordini
     orderAttachments = schemaModule.orderAttachments
     auditLogs = schemaModule.auditLogs
+    appUsers = schemaModule.appUsers
     eq = drizzleModule.eq
     ilike = drizzleModule.ilike
     gte = drizzleModule.gte
+    like = drizzleModule.like
 
     await ensureDatabaseObjects()
 
     await db.delete(ordini).where(ilike(ordini.rifto, '__TEST__%'))
+    await db.delete(appUsers).where(like(appUsers.username, 'test_user_%'))
     await db.insert(ordini).values([
       {
         rifto: '__TEST__A-001',
@@ -98,6 +103,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
 
   afterAll(async () => {
     await db.delete(ordini).where(ilike(ordini.rifto, '__TEST__%'))
+    await db.delete(appUsers).where(like(appUsers.username, 'test_user_%'))
     await pgClient.end()
   })
 
@@ -139,6 +145,56 @@ describe.runIf(runDbTests)('Consegne API', () => {
 
     const forbiddenForReadOnly = await request(app).get('/api/audit').set('Authorization', `Bearer ${letturaToken}`)
     expect(forbiddenForReadOnly.status).toBe(403)
+  })
+
+  it('manages users lifecycle for admin', async () => {
+    const create = await request(app)
+      .post('/api/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        username: 'test_user_ops',
+        role: 'operativo',
+        password: 'testpass123',
+        isActive: true,
+      })
+    expect(create.status).toBe(201)
+    const userId = create.body.id as number
+
+    const list = await request(app).get('/api/users').set('Authorization', `Bearer ${token}`)
+    expect(list.status).toBe(200)
+    expect(Array.isArray(list.body.data)).toBe(true)
+    expect(list.body.data.some((x: { username: string }) => x.username === 'test_user_ops')).toBe(true)
+
+    const roleUpdate = await request(app)
+      .put(`/api/users/${userId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ role: 'lettura', isActive: true })
+    expect(roleUpdate.status).toBe(200)
+    expect(roleUpdate.body.role).toBe('lettura')
+
+    const resetPassword = await request(app)
+      .put(`/api/users/${userId}/password`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ password: 'testpass456' })
+    expect(resetPassword.status).toBe(204)
+
+    const login = await request(app).post('/api/auth/login').send({
+      username: 'test_user_ops',
+      password: 'testpass456',
+    })
+    expect(login.status).toBe(200)
+
+    const deactivate = await request(app)
+      .put(`/api/users/${userId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ isActive: false })
+    expect(deactivate.status).toBe(200)
+    expect(deactivate.body.isActive).toBe(false)
+  })
+
+  it('forbids user management for non-admin', async () => {
+    const list = await request(app).get('/api/users').set('Authorization', `Bearer ${operativoToken}`)
+    expect(list.status).toBe(403)
   })
 
   it('GET /api/consegne/stats returns grouped status and carrier', async () => {

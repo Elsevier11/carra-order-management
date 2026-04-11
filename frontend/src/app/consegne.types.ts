@@ -110,3 +110,12 @@ export interface AuditLogResponse {
     totalPages: number;
   };
 }
+
+export interface AppUserRecord {
+  id: number;
+  username: string;
+  role: 'admin' | 'operativo' | 'lettura';
+  isActive: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}

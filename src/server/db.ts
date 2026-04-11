@@ -1,7 +1,9 @@
 import 'dotenv/config'
 import postgres from 'postgres'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import * as schema from '../db/schema'
+import { parseSeedUsersFromEnv } from './user-seed'
 
 const connectionString = process.env.DATABASE_URL
 
@@ -80,4 +82,30 @@ export async function ensureDatabaseObjects() {
     create index if not exists idx_audit_logs_username
     on audit_logs(username);
   `)
+
+  await pgClient.unsafe(`
+    create table if not exists app_users (
+      id serial primary key,
+      username text not null unique,
+      role text not null,
+      password_hash text not null,
+      is_active boolean not null default true,
+      created_at timestamp not null default now(),
+      updated_at timestamp not null default now()
+    );
+  `)
+
+  await pgClient.unsafe(`
+    create index if not exists idx_app_users_username
+    on app_users(username);
+  `)
+
+  const seedUsers = parseSeedUsersFromEnv()
+  for (const user of seedUsers) {
+    await db.execute(sql`
+      insert into app_users (username, role, password_hash, is_active)
+      values (${user.username}, ${user.role}, ${user.passwordHash}, ${user.isActive !== false})
+      on conflict (username) do nothing
+    `)
+  }
 }

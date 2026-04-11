@@ -1,13 +1,10 @@
 import crypto from 'node:crypto'
 import bcrypt from 'bcryptjs'
+import { and, eq } from 'drizzle-orm'
+import { appUsers } from '../db/schema'
+import { db } from './db'
 
 export type UserRole = 'admin' | 'operativo' | 'lettura'
-
-type AuthUser = {
-  username: string
-  role: UserRole
-  passwordHash: string
-}
 
 type AuthTokenPayload = {
   sub: string
@@ -15,51 +12,33 @@ type AuthTokenPayload = {
   exp: number
 }
 
-const defaultUsers: AuthUser[] = [
-  {
-    username: 'admin',
-    role: 'admin',
-    passwordHash: '$2a$10$LTMCqnFzt52SiOOd/SL6zuth4IG.8vCrQ8ZJ5jmCmjHyAMIKKyYbO', // admin123
-  },
-  {
-    username: 'operativo',
-    role: 'operativo',
-    passwordHash: '$2a$10$hRgri/LbyEZnPxmZgiR9XeNMRdVc155ViUAkcQ.KjMbollmRMyPNC', // operativo123
-  },
-  {
-    username: 'lettura',
-    role: 'lettura',
-    passwordHash: '$2a$10$q5XIUbDRpR9Ln6YSa/37Cuxl4c6Xosf/P00lWmNeQTQckDJUw5JL6', // lettura123
-  },
-]
 
 function base64url(value: Buffer | string): string {
   return Buffer.from(value).toString('base64url')
 }
 
-function parseUsersFromEnv(): AuthUser[] {
-  const raw = process.env.AUTH_USERS_JSON
-  if (!raw) return defaultUsers
-
-  try {
-    const parsed = JSON.parse(raw) as AuthUser[]
-    if (!Array.isArray(parsed) || parsed.length === 0) return defaultUsers
-    return parsed
-  } catch {
-    return defaultUsers
-  }
-}
-
-const authUsers = parseUsersFromEnv()
 const secret = process.env.JWT_SECRET || 'carra-consegne-dev-secret'
 
 export async function verifyCredentials(username: string, password: string): Promise<{ username: string; role: UserRole } | null> {
-  const user = authUsers.find((item) => item.username === username)
+  const [user] = await db
+    .select({
+      username: appUsers.username,
+      role: appUsers.role,
+      passwordHash: appUsers.passwordHash,
+    })
+    .from(appUsers)
+    .where(and(eq(appUsers.username, username), eq(appUsers.isActive, true)))
+    .limit(1)
+
   if (!user) return null
 
-  const isValid = await bcrypt.compare(password, user.passwordHash)
+  const isValid = await bcrypt.compare(password, user.passwordHash ?? '')
   if (!isValid) return null
-  return { username: user.username, role: user.role }
+  return { username: user.username, role: user.role as UserRole }
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10)
 }
 
 export function signToken(payload: { username: string; role: UserRole }, expiresInSeconds = 60 * 60 * 8): string {
