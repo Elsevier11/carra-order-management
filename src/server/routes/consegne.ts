@@ -1,12 +1,17 @@
+import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { Router } from 'express'
 import { and, asc, count, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
+import multer from 'multer'
 import { z } from 'zod'
-import { ordini } from '../../db/schema'
+import { orderAttachments, ordini } from '../../db/schema'
 import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
 
 const router = Router()
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/
 const dateOrDateTimeRegex = /^\d{4}-\d{2}-\d{2}(?:T.*)?$/
 const allowedStatuses = ['IN CORSO', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONCLUSI', 'SOSPESO'] as const
@@ -17,6 +22,15 @@ const transitionMap: Record<(typeof allowedStatuses)[number], (typeof allowedSta
   CONCLUSI: [],
   SOSPESO: ['IN CORSO', 'IN LAVORAZIONE'],
 }
+const attachmentsRoot = path.resolve(process.env.ATTACHMENTS_DIR ?? './data/uploads')
+const allowedAttachmentExtensions = (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS ?? 'pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx')
+  .split(',')
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean)
+const allowedAttachmentMimeTypes = (process.env.ATTACHMENTS_ALLOWED_MIME ?? 'application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+  .split(',')
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean)
 
 function parseInputDate(value: string): Date {
   const parsed = new Date(value)
@@ -71,6 +85,16 @@ type OrderEvent = {
   createdAt: string
 }
 
+type Attachment = {
+  id: number
+  orderId: number
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  uploadedBy: string | null
+  createdAt: string
+}
+
 function toIsoDate(value: Date | null): string | null {
   return value ? value.toISOString().slice(0, 10) : null
 }
@@ -93,6 +117,34 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     note: row.note,
     createdAt: row.createdAt,
   }
+}
+
+function safeFilename(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/g, '_')
+}
+
+function getFileExtension(value: string): string {
+  const index = value.lastIndexOf('.')
+  if (index <= 0) return ''
+  return value.slice(index + 1).toLowerCase()
+}
+
+function validateAttachment(fileName: string, mimeType: string) {
+  const extension = getFileExtension(fileName)
+  if (!extension || !allowedAttachmentExtensions.includes(extension)) {
+    throw new BadRequestError(`Unsupported file extension: ${extension || 'none'}`)
+  }
+  if (!allowedAttachmentMimeTypes.includes((mimeType || '').toLowerCase())) {
+    throw new BadRequestError(`Unsupported mime type: ${mimeType || 'unknown'}`)
+  }
+}
+
+function resolveAttachmentPath(storagePath: string): string {
+  const resolved = path.resolve(attachmentsRoot, storagePath)
+  if (!resolved.startsWith(attachmentsRoot)) {
+    throw new BadRequestError('Invalid attachment path')
+  }
+  return resolved
 }
 
 async function addOrderEvent(payload: {
@@ -185,8 +237,89 @@ router.get('/', async (req, res, next) => {
         totalPages: Math.ceil((totalRows[0]?.count ?? 0) / query.pageSize),
       },
     })
+    ;(req as AuthenticatedRequest).auditMeta = {
+      action: 'CONSEGNE_LIST',
+      entity: 'consegna',
+      details: { total: totalRows[0]?.count ?? 0 },
+    }
   } catch (error) {
     next(error)
+  }
+})
+
+router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const query = listQuerySchema.parse(req.query)
+    const filters = []
+
+    if (query.q) {
+      const pattern = `%${query.q.trim()}%`
+      filters.push(
+        or(
+          ilike(ordini.rifto, pattern),
+          ilike(ordini.cliente, pattern),
+          ilike(ordini.tipoImpianto, pattern),
+          ilike(ordini.cantiere, pattern),
+        ),
+      )
+    }
+
+    if (query.cliente) filters.push(ilike(ordini.cliente, `%${query.cliente.trim()}%`))
+    if (query.vettore) filters.push(ilike(ordini.traspor, `%${query.vettore.trim()}%`))
+    if (query.stato) filters.push(ilike(ordini.stato, `%${query.stato.trim()}%`))
+
+    if (query.fromDate) filters.push(gte(ordini.dataConsegna, parseInputDate(query.fromDate)))
+    if (query.toDate) {
+      const endOfDay = parseInputDate(query.toDate)
+      endOfDay.setHours(23, 59, 59, 999)
+      filters.push(lte(ordini.dataConsegna, endOfDay))
+    }
+
+    const whereClause = filters.length ? and(...filters) : undefined
+    const sortColumn = {
+      rif: ordini.rifto,
+      cliente: ordini.cliente,
+      dataConsegna: ordini.dataConsegna,
+      vettore: ordini.traspor,
+      stato: ordini.stato,
+    }[query.sortBy]
+
+    const rows = await db
+      .select()
+      .from(ordini)
+      .where(whereClause)
+      .orderBy(query.sortDir === 'asc' ? asc(sortColumn) : desc(sortColumn))
+      .limit(10000)
+
+    const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'cantiere', 'vettore', 'stato', 'note']
+    const csvRows = rows.map((row) => {
+      const normalized = normalizeRow(row)
+      return [
+        normalized.rif,
+        normalized.cliente,
+        normalized.tipoImpianto ?? '',
+        normalized.dataConsegna ?? '',
+        normalized.cantiere ?? '',
+        normalized.vettore ?? '',
+        normalized.stato ?? '',
+        normalized.note ?? '',
+      ]
+        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .join(',')
+    })
+    const csv = [headers.join(','), ...csvRows].join('\n')
+
+    req.auditMeta = {
+      action: 'CONSEGNE_EXPORT',
+      entity: 'consegna',
+      details: { exportedRows: rows.length },
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="consegne_export_${new Date().toISOString().slice(0, 10)}.csv"`)
+    return res.status(200).send(csv)
+  } catch (error) {
+    return next(error)
   }
 })
 
@@ -320,6 +453,164 @@ router.get('/:id/history', async (req, res, next) => {
     return res.json({
       data: events as unknown as OrderEvent[],
     })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/:id/attachments', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const rows = await db
+      .select({
+        id: orderAttachments.id,
+        orderId: orderAttachments.orderId,
+        fileName: orderAttachments.fileName,
+        mimeType: orderAttachments.mimeType,
+        sizeBytes: orderAttachments.sizeBytes,
+        uploadedBy: orderAttachments.uploadedBy,
+        createdAt: sql<string>`to_char(${orderAttachments.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+      })
+      .from(orderAttachments)
+      .where(eq(orderAttachments.orderId, id))
+      .orderBy(desc(orderAttachments.createdAt), desc(orderAttachments.id))
+
+    return res.json({ data: rows as Attachment[] })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:id/attachments', requireAuth, requireRole(['admin', 'operativo']), upload.single('file'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const [row] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    if (!row) {
+      return res.status(404).json({ message: 'Consegna not found' })
+    }
+
+    const file = req.file
+    if (!file) {
+      return res.status(400).json({ message: 'Missing file' })
+    }
+    validateAttachment(file.originalname || '', file.mimetype || '')
+
+    const safeName = safeFilename(file.originalname || 'attachment.bin')
+    const uniqueName = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}_${safeName}`
+    const relativePath = path.join(String(id), uniqueName)
+    const absolutePath = resolveAttachmentPath(relativePath)
+
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true })
+    await fs.writeFile(absolutePath, file.buffer)
+
+    const [created] = await db
+      .insert(orderAttachments)
+      .values({
+        orderId: id,
+        fileName: file.originalname || uniqueName,
+        mimeType: file.mimetype || 'application/octet-stream',
+        sizeBytes: file.size,
+        storagePath: relativePath,
+        uploadedBy: req.user?.username ?? null,
+      })
+      .returning({
+        id: orderAttachments.id,
+        orderId: orderAttachments.orderId,
+        fileName: orderAttachments.fileName,
+        mimeType: orderAttachments.mimeType,
+        sizeBytes: orderAttachments.sizeBytes,
+        uploadedBy: orderAttachments.uploadedBy,
+        createdAt: orderAttachments.createdAt,
+      })
+
+    await addOrderEvent({
+      orderId: id,
+      eventType: 'ATTACHMENT_ADDED',
+      note: created.fileName,
+      actor: req.user?.username ?? null,
+    })
+
+    return res.status(201).json({
+      id: created.id,
+      orderId: created.orderId,
+      fileName: created.fileName,
+      mimeType: created.mimeType,
+      sizeBytes: created.sizeBytes,
+      uploadedBy: created.uploadedBy,
+      createdAt: created.createdAt?.toISOString?.() ?? null,
+    })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/:id/attachments/:attachmentId', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    const attachmentId = Number(req.params.attachmentId)
+    if (!Number.isFinite(id) || !Number.isFinite(attachmentId)) {
+      return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const [attachment] = await db
+      .select()
+      .from(orderAttachments)
+      .where(and(eq(orderAttachments.id, attachmentId), eq(orderAttachments.orderId, id)))
+      .limit(1)
+    if (!attachment) {
+      return res.status(404).json({ message: 'Attachment not found' })
+    }
+
+    const absolutePath = resolveAttachmentPath(attachment.storagePath)
+    const content = await fs.readFile(absolutePath)
+    res.setHeader('Content-Type', attachment.mimeType)
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(attachment.fileName)}"`)
+    return res.send(content)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.delete('/:id/attachments/:attachmentId', requireAuth, requireRole(['admin', 'operativo']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    const attachmentId = Number(req.params.attachmentId)
+    if (!Number.isFinite(id) || !Number.isFinite(attachmentId)) {
+      return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const [deleted] = await db
+      .delete(orderAttachments)
+      .where(and(eq(orderAttachments.id, attachmentId), eq(orderAttachments.orderId, id)))
+      .returning({
+        id: orderAttachments.id,
+        fileName: orderAttachments.fileName,
+        storagePath: orderAttachments.storagePath,
+      })
+
+    if (!deleted) {
+      return res.status(404).json({ message: 'Attachment not found' })
+    }
+
+    const absolutePath = resolveAttachmentPath(deleted.storagePath)
+    await fs.rm(absolutePath, { force: true })
+
+    await addOrderEvent({
+      orderId: id,
+      eventType: 'ATTACHMENT_REMOVED',
+      note: deleted.fileName,
+      actor: req.user?.username ?? null,
+    })
+
+    return res.status(204).send()
   } catch (error) {
     return next(error)
   }

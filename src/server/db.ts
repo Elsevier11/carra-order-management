@@ -33,4 +33,51 @@ export async function ensureDatabaseObjects() {
     create index if not exists idx_order_events_order_id_created_at
     on order_events(order_id, created_at desc);
   `)
+
+  await pgClient.unsafe(`
+    create table if not exists order_attachments (
+      id serial primary key,
+      order_id integer not null references ordini(id) on delete cascade,
+      file_name text not null,
+      mime_type text not null,
+      size_bytes bigint not null,
+      storage_path text not null,
+      uploaded_by text,
+      created_at timestamp not null default now()
+    );
+  `)
+
+  await pgClient.unsafe(`
+    create index if not exists idx_order_attachments_order_id_created_at
+    on order_attachments(order_id, created_at desc);
+  `)
+
+  await pgClient.unsafe(`
+    create table if not exists audit_logs (
+      id serial primary key,
+      username text,
+      role text,
+      action text not null,
+      method text not null,
+      path text not null,
+      entity text,
+      entity_id integer,
+      success boolean not null,
+      status_code integer not null,
+      ip_address text,
+      user_agent text,
+      details jsonb,
+      created_at timestamp not null default now()
+    );
+  `)
+
+  await pgClient.unsafe(`
+    create index if not exists idx_audit_logs_created_at
+    on audit_logs(created_at desc);
+  `)
+
+  await pgClient.unsafe(`
+    create index if not exists idx_audit_logs_username
+    on audit_logs(username);
+  `)
 }

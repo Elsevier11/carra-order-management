@@ -14,3 +14,36 @@ body {
   margin: 0;
   padding: 0;
 }
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.audit-table th,
+.audit-table td {
+  border-bottom: 1px solid #c6d9d3;
+  text-align: left;
+  padding: 8px;
+  font-size: 0.85rem;
+}
+
+.audit-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.attachment-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.attachment-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

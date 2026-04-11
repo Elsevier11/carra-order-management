@@ -6,6 +6,12 @@ export type AuthenticatedRequest = Request & {
     username: string
     role: UserRole
   }
+  auditMeta?: {
+    action?: string
+    entity?: string
+    entityId?: number
+    details?: Record<string, unknown>
+  }
 }
 
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {

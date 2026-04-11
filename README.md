@@ -22,6 +22,13 @@ Frontend Angular: `http://localhost:4200`
 - `GET /api/consegne/:id`
 - `GET /api/consegne/stats`
 - `GET /api/consegne/filters`
+- `GET /api/consegne/export` (auth)
+- `GET /api/consegne/:id/attachments` (auth)
+- `POST /api/consegne/:id/attachments` (auth: `admin|operativo`, multipart campo `file`)
+- `GET /api/consegne/:id/attachments/:attachmentId` (auth)
+- `DELETE /api/consegne/:id/attachments/:attachmentId` (auth: `admin|operativo`)
+- `GET /api/audit` (auth: `admin`)
+- `POST /api/import/preview` (auth: `admin|operativo`)
 - `POST /api/consegne` (auth: `admin|operativo`)
 - `PUT /api/consegne/:id` (auth: `admin|operativo`)
 - `DELETE /api/consegne/:id` (auth: `admin|operativo`)
@@ -80,6 +87,9 @@ Puoi anche passare un file custom:
   - `PORT` (Railway la imposta automaticamente)
   - `NODE_ENV=production`
   - `JWT_SECRET`
+  - `ATTACHMENTS_DIR`
+  - `ATTACHMENTS_ALLOWED_EXTENSIONS`
+  - `ATTACHMENTS_ALLOWED_MIME`
 
 ### Frontend su Netlify
 
@@ -99,3 +109,7 @@ Puoi anche passare un file custom:
 
 Aggiorna `frontend/src/environments/environment.production.ts`:
 - `apiUrl: 'https://<tuo-backend>/api'`
+
+### Checklist Go-Live
+
+- Vedi [docs/go-live-checklist.md](./docs/go-live-checklist.md)

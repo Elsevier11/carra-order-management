@@ -73,3 +73,40 @@ export interface BoardColumn {
   count: number;
   items: ConsegnaRecord[];
 }
+
+export interface AttachmentRecord {
+  id: number;
+  orderId: number;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedBy: string | null;
+  createdAt: string | null;
+}
+
+export interface AuditLogRecord {
+  id: number;
+  username: string | null;
+  role: string | null;
+  action: string;
+  method: string;
+  path: string;
+  entity: string | null;
+  entityId: number | null;
+  success: boolean;
+  statusCode: number;
+  ipAddress: string | null;
+  userAgent: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AuditLogResponse {
+  data: AuditLogRecord[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}

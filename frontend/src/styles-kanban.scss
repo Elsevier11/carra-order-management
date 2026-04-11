@@ -125,11 +125,36 @@
 .kanban-card {
   text-align: left;
   border: 1px solid var(--border, #c6d9d3);
-  background: #f7fcfa;
+  background: #eef9f7;
   border-radius: 10px;
   padding: 10px;
   display: grid;
   gap: 4px;
+}
+
+.kanban-column.status-in-corso .kanban-card {
+  background: #ecfdf3;
+  border-color: #86efac;
+}
+
+.kanban-column.status-in-lavorazione .kanban-card {
+  background: #ecfeff;
+  border-color: #67e8f9;
+}
+
+.kanban-column.status-pronti-avvisati .kanban-card {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.kanban-column.status-conclusi .kanban-card {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.kanban-column.status-sospeso .kanban-card {
+  background: #fff1f2;
+  border-color: #fda4af;
 }
 
 .kanban-card strong {
@@ -162,7 +187,7 @@
   box-sizing: border-box;
   border-radius: 10px;
   border: 1px solid var(--border, #c6d9d3);
-  background: #f7fcfa;
+  background: #eef9f7;
   padding: 10px;
 }
 

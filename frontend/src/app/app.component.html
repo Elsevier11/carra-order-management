@@ -27,212 +27,295 @@
     <section class="view-switch">
       <button type="button" [class.ghost]="activeView !== 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
       <button type="button" [class.ghost]="activeView !== 'kanban'" (click)="changeView('kanban')">Kanban Stati</button>
-    </section>
-
-    <section class="kpi-grid">
-      <article class="kpi-card">
-        <span class="kpi-label">Settimana Corrente</span>
-        <strong class="kpi-value">{{ stats.kpi.consegneSettimanaCorrente }}</strong>
-      </article>
-      <article class="kpi-card alert">
-        <span class="kpi-label">Ritardi</span>
-        <strong class="kpi-value">{{ stats.kpi.ritardi }}</strong>
-      </article>
-    </section>
-
-    <section class="filters">
-      <input type="text" [(ngModel)]="filters.q" placeholder="Ricerca libera (rif, cliente, impianto...)" />
-      <select [(ngModel)]="filters.cliente">
-        <option value="">Tutti i clienti</option>
-        @for (cliente of availableFilters.clienti; track cliente) {
-          <option [value]="cliente">{{ cliente }}</option>
-        }
-      </select>
-      <select [(ngModel)]="filters.vettore">
-        <option value="">Tutti i vettori</option>
-        @for (vettore of availableFilters.vettori; track vettore) {
-          <option [value]="vettore">{{ vettore }}</option>
-        }
-      </select>
-      <select [(ngModel)]="filters.stato">
-        <option value="">Tutti gli stati</option>
-        @for (stato of availableFilters.stati; track stato) {
-          <option [value]="stato">{{ stato }}</option>
-        }
-      </select>
-      <input type="date" [(ngModel)]="filters.fromDate" />
-      <input type="date" [(ngModel)]="filters.toDate" />
-      <button type="button" (click)="applyFilters()">Filtra</button>
-      <button type="button" class="ghost" (click)="resetFilters()">Reset</button>
-      <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
-    </section>
-
-    @if (operationError) {
-      <div class="error">{{ operationError }}</div>
-    }
-    @if (operationSuccess) {
-      <div class="success">{{ operationSuccess }}</div>
-    }
-
-    @if (activeView === 'dashboard') {
-      @if (dashboardChartsComponent) {
-        <ng-container *ngComponentOutlet="dashboardChartsComponent; inputs: { stats: stats }"></ng-container>
-      } @else {
-        <section class="charts">
-          <article class="chart-card full">
-            <p>Caricamento grafici...</p>
-          </article>
-        </section>
+      @if (isAdmin) {
+        <button type="button" [class.ghost]="activeView !== 'audit'" (click)="changeView('audit')">Audit Log</button>
       }
-    } @else {
-      <section class="kanban-toolbar">
-        <label class="kanban-toggle">
-          <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
-          <span>Solo ritardi</span>
-        </label>
-        <div class="kanban-kpi">
-          <span class="sla-badge late">Totale ritardi: {{ totalLateCount }}</span>
-          @for (status of statusFlow; track status) {
-            @if (lateCountByStatus(status) > 0) {
-              <span class="status-chip" [ngClass]="columnClass(status)">{{ status }}: {{ lateCountByStatus(status) }}</span>
-            }
-          }
-        </div>
+    </section>
+
+    @if (activeView === 'audit') {
+      <section class="filters">
+        <input type="text" [(ngModel)]="auditFilters.username" placeholder="Utente" />
+        <input type="text" [(ngModel)]="auditFilters.action" placeholder="Azione" />
+        <input type="text" [(ngModel)]="auditFilters.entity" placeholder="Entity" />
+        <select [(ngModel)]="auditFilters.success">
+          <option value="">Esito: tutti</option>
+          <option value="true">Successo</option>
+          <option value="false">Errore</option>
+        </select>
+        <input type="date" [(ngModel)]="auditFilters.fromDate" />
+        <input type="date" [(ngModel)]="auditFilters.toDate" />
+        <button type="button" (click)="loadAudit(1)">Filtra</button>
+        <button type="button" class="ghost" (click)="resetAuditFilters()">Reset</button>
       </section>
 
-      <section class="kanban-grid">
-        @if (loadingBoard) {
-          <article class="chart-card full"><p>Caricamento board...</p></article>
+      <section class="table-card">
+        @if (auditLoading) {
+          <p>Caricamento audit...</p>
         } @else {
-          @for (column of boardColumns; track column.status) {
-            <article class="kanban-column" [ngClass]="columnClass(column.status)">
-              <header>
-                <h2>{{ column.status }}</h2>
-                <div class="kanban-header-meta">
-                  <span>{{ visibleKanbanCount(column.items) }}</span>
-                  @if (lateCount(column.items) > 0) {
-                    <span class="sla-badge late">{{ lateCount(column.items) }} ritardi</span>
-                  }
-                </div>
-              </header>
-              <div
-                class="kanban-items"
-                cdkDropList
-                [id]="dropListId(column.status)"
-                [cdkDropListData]="column.items"
-                [cdkDropListConnectedTo]="boardDropListIds"
-                [cdkDropListDisabled]="showOnlyLateInKanban"
-                (cdkDropListDropped)="onKanbanDrop($event, column.status)"
-              >
-                @for (item of filteredKanbanItems(column.items); track item.id) {
-                  <button
-                    type="button"
-                    class="kanban-card"
-                    cdkDrag
-                    [disabled]="!canWrite || showOnlyLateInKanban"
-                    (click)="selectFromBoard(item)"
-                  >
-                    <strong>{{ item.rif }}</strong>
-                    <span>{{ item.cliente }}</span>
-                    <small>{{ item.vettore || 'N/D' }} - {{ item.dataConsegna || '-' }}</small>
-                    @if (isLate(item)) {
-                      <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
-                    }
-                  </button>
-                }
-              </div>
-            </article>
-          }
-        }
-      </section>
-    }
-
-    <section class="actions">
-      @if (canWrite) {
-        <button type="button" (click)="openCreate()">Nuova consegna</button>
-        <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openEdit()">Modifica selezionata</button>
-        <button type="button" class="danger" [disabled]="!selectedDetail" (click)="deleteSelected()">Elimina selezionata</button>
-      }
-      <span class="hint">Clicca una riga per vedere il dettaglio</span>
-    </section>
-
-    <section class="table-card">
-      <ngx-datatable
-        class="material striped"
-        [rows]="rows"
-        [columns]="columns"
-        [columnMode]="'force'"
-        [headerHeight]="48"
-        [rowHeight]="44"
-        [footerHeight]="52"
-        [count]="total"
-        [offset]="page - 1"
-        [limit]="pageSize"
-        [loadingIndicator]="loading"
-        [externalPaging]="true"
-        (activate)="onActivate($event)"
-        (page)="onPage($event)"
-      >
-      </ngx-datatable>
-    </section>
-
-    <section class="detail-card">
-      <h2>Dettaglio consegna</h2>
-      @if (loadingDetails) {
-        <p>Caricamento...</p>
-      } @else if (!selectedDetail) {
-        <p>Seleziona una consegna dalla tabella.</p>
-      } @else {
-        <div class="detail-grid">
-          <div><strong>Rif:</strong> {{ selectedDetail.rif }}</div>
-          <div><strong>Cliente:</strong> {{ selectedDetail.cliente }}</div>
-          <div><strong>Stato:</strong> {{ selectedDetail.stato }}</div>
-          <div><strong>Data consegna:</strong> {{ selectedDetail.dataConsegna || '-' }}</div>
-          <div><strong>Vettore:</strong> {{ selectedDetail.vettore || '-' }}</div>
-          <div><strong>Cantiere:</strong> {{ selectedDetail.cantiere || '-' }}</div>
-          <div class="full-row"><strong>Tipo impianto:</strong> {{ selectedDetail.tipoImpianto || '-' }}</div>
-          <div class="full-row"><strong>Note:</strong> {{ selectedDetail.note || '-' }}</div>
-        </div>
-
-        @if (canWrite) {
-          <div class="transition-box">
-            <h3>Cambio stato rapido</h3>
-            <div class="transition-grid">
-              <select [(ngModel)]="transitionModel.toStatus">
-                <option value="">Seleziona stato</option>
-                @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
-                  <option [value]="status">{{ status }}</option>
-                }
-              </select>
-              <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
-              <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
-            </div>
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Data</th>
+                <th>Utente</th>
+                <th>Azione</th>
+                <th>Path</th>
+                <th>Esito</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of auditRows; track item.id) {
+                <tr>
+                  <td>{{ item.id }}</td>
+                  <td>{{ item.createdAt }}</td>
+                  <td>{{ item.username || '-' }}</td>
+                  <td>{{ item.action }}</td>
+                  <td>{{ item.path }}</td>
+                  <td>{{ item.success ? 'OK' : 'KO' }} ({{ item.statusCode }})</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="audit-footer">
+            <span>{{ auditTotal }} record</span>
+            <button type="button" class="ghost" [disabled]="auditPage <= 1" (click)="loadAudit(auditPage - 1)">Prev</button>
+            <span>Pag {{ auditPage }}</span>
+            <button type="button" class="ghost" [disabled]="auditPage * auditPageSize >= auditTotal" (click)="loadAudit(auditPage + 1)">Next</button>
           </div>
         }
+      </section>
+    } @else {
+      <section class="kpi-grid">
+        <article class="kpi-card">
+          <span class="kpi-label">Settimana Corrente</span>
+          <strong class="kpi-value">{{ stats.kpi.consegneSettimanaCorrente }}</strong>
+        </article>
+        <article class="kpi-card alert">
+          <span class="kpi-label">Ritardi</span>
+          <strong class="kpi-value">{{ stats.kpi.ritardi }}</strong>
+        </article>
+      </section>
 
-        <div class="history-box">
-          <h3>Storico stato</h3>
-          @if (loadingHistory) {
-            <p>Caricamento storico...</p>
-          } @else if (!history.length) {
-            <p>Nessun evento registrato.</p>
-          } @else {
-            <ul class="history-list">
-              @for (event of history; track event.id) {
-                <li>
-                  <strong>{{ event.eventType }}</strong>
-                  <span>{{ event.fromStatus || '-' }} -> {{ event.toStatus || '-' }}</span>
-                  <small>{{ event.createdAt }} - {{ event.actor || 'sistema' }}</small>
-                  @if (event.note) {
-                    <em>{{ event.note }}</em>
-                  }
-                </li>
-              }
-            </ul>
+      <section class="filters">
+        <input type="text" [(ngModel)]="filters.q" placeholder="Ricerca libera (rif, cliente, impianto...)" />
+        <select [(ngModel)]="filters.cliente">
+          <option value="">Tutti i clienti</option>
+          @for (cliente of availableFilters.clienti; track cliente) {
+            <option [value]="cliente">{{ cliente }}</option>
           }
-        </div>
+        </select>
+        <select [(ngModel)]="filters.vettore">
+          <option value="">Tutti i vettori</option>
+          @for (vettore of availableFilters.vettori; track vettore) {
+            <option [value]="vettore">{{ vettore }}</option>
+          }
+        </select>
+        <select [(ngModel)]="filters.stato">
+          <option value="">Tutti gli stati</option>
+          @for (stato of availableFilters.stati; track stato) {
+            <option [value]="stato">{{ stato }}</option>
+          }
+        </select>
+        <input type="date" [(ngModel)]="filters.fromDate" />
+        <input type="date" [(ngModel)]="filters.toDate" />
+        <button type="button" (click)="applyFilters()">Filtra</button>
+        <button type="button" class="ghost" (click)="resetFilters()">Reset</button>
+        <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
+      </section>
+
+      @if (operationError) {
+        <div class="error">{{ operationError }}</div>
       }
-    </section>
+      @if (operationSuccess) {
+        <div class="success">{{ operationSuccess }}</div>
+      }
+
+      @if (activeView === 'dashboard') {
+        @if (dashboardChartsComponent) {
+          <ng-container *ngComponentOutlet="dashboardChartsComponent; inputs: { stats: stats }"></ng-container>
+        } @else {
+          <section class="charts">
+            <article class="chart-card full">
+              <p>Caricamento grafici...</p>
+            </article>
+          </section>
+        }
+      } @else {
+        <section class="kanban-toolbar">
+          <label class="kanban-toggle">
+            <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
+            <span>Solo ritardi</span>
+          </label>
+          <div class="kanban-kpi">
+            <span class="sla-badge late">Totale ritardi: {{ totalLateCount }}</span>
+            @for (status of statusFlow; track status) {
+              @if (lateCountByStatus(status) > 0) {
+                <span class="status-chip" [ngClass]="columnClass(status)">{{ status }}: {{ lateCountByStatus(status) }}</span>
+              }
+            }
+          </div>
+        </section>
+
+        <section class="kanban-grid">
+          @if (loadingBoard) {
+            <article class="chart-card full"><p>Caricamento board...</p></article>
+          } @else {
+            @for (column of boardColumns; track column.status) {
+              <article class="kanban-column" [ngClass]="columnClass(column.status)">
+                <header>
+                  <h2>{{ column.status }}</h2>
+                  <div class="kanban-header-meta">
+                    <span>{{ visibleKanbanCount(column.items) }}</span>
+                    @if (lateCount(column.items) > 0) {
+                      <span class="sla-badge late">{{ lateCount(column.items) }} ritardi</span>
+                    }
+                  </div>
+                </header>
+                <div
+                  class="kanban-items"
+                  cdkDropList
+                  [id]="dropListId(column.status)"
+                  [cdkDropListData]="column.items"
+                  [cdkDropListConnectedTo]="boardDropListIds"
+                  [cdkDropListDisabled]="showOnlyLateInKanban"
+                  (cdkDropListDropped)="onKanbanDrop($event, column.status)"
+                >
+                  @for (item of filteredKanbanItems(column.items); track item.id) {
+                    <button type="button" class="kanban-card" cdkDrag [disabled]="!canWrite || showOnlyLateInKanban" (click)="selectFromBoard(item)">
+                      <strong>{{ item.rif }}</strong>
+                      <span>{{ item.cliente }}</span>
+                      <small>{{ item.vettore || 'N/D' }} - {{ item.dataConsegna || '-' }}</small>
+                      @if (isLate(item)) {
+                        <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
+                      }
+                    </button>
+                  }
+                </div>
+              </article>
+            }
+          }
+        </section>
+      }
+
+      <section class="actions">
+        @if (canWrite) {
+          <button type="button" (click)="openCreate()">Nuova consegna</button>
+          <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openEdit()">Modifica selezionata</button>
+          <button type="button" class="danger" [disabled]="!selectedDetail" (click)="deleteSelected()">Elimina selezionata</button>
+        }
+        <span class="hint">Clicca una riga per vedere il dettaglio</span>
+      </section>
+
+      <section class="table-card">
+        <ngx-datatable
+          class="material striped"
+          [rows]="rows"
+          [columns]="columns"
+          [columnMode]="'force'"
+          [headerHeight]="48"
+          [rowHeight]="44"
+          [footerHeight]="52"
+          [count]="total"
+          [offset]="page - 1"
+          [limit]="pageSize"
+          [loadingIndicator]="loading"
+          [externalPaging]="true"
+          (activate)="onActivate($event)"
+          (page)="onPage($event)"
+        >
+        </ngx-datatable>
+      </section>
+
+      <section class="detail-card">
+        <h2>Dettaglio consegna</h2>
+        @if (loadingDetails) {
+          <p>Caricamento...</p>
+        } @else if (!selectedDetail) {
+          <p>Seleziona una consegna dalla tabella.</p>
+        } @else {
+          <div class="detail-grid">
+            <div><strong>Rif:</strong> {{ selectedDetail.rif }}</div>
+            <div><strong>Cliente:</strong> {{ selectedDetail.cliente }}</div>
+            <div><strong>Stato:</strong> {{ selectedDetail.stato }}</div>
+            <div><strong>Data consegna:</strong> {{ selectedDetail.dataConsegna || '-' }}</div>
+            <div><strong>Vettore:</strong> {{ selectedDetail.vettore || '-' }}</div>
+            <div><strong>Cantiere:</strong> {{ selectedDetail.cantiere || '-' }}</div>
+            <div class="full-row"><strong>Tipo impianto:</strong> {{ selectedDetail.tipoImpianto || '-' }}</div>
+            <div class="full-row"><strong>Note:</strong> {{ selectedDetail.note || '-' }}</div>
+          </div>
+
+          <div class="history-box">
+            <h3>Allegati</h3>
+            @if (loadingAttachments) {
+              <p>Caricamento allegati...</p>
+            } @else {
+              @if (canWrite) {
+                <div class="attachment-upload">
+                  <input type="file" (change)="onAttachmentSelected($event)" />
+                  <button type="button" [disabled]="!selectedUploadFile" (click)="uploadAttachment()">Upload</button>
+                </div>
+              }
+              @if (!attachments.length) {
+                <p>Nessun allegato.</p>
+              } @else {
+                <ul class="history-list">
+                  @for (attachment of attachments; track attachment.id) {
+                    <li>
+                      <strong>{{ attachment.fileName }}</strong>
+                      <small>{{ attachment.mimeType }} - {{ attachment.sizeBytes }} bytes - {{ attachment.uploadedBy || 'sistema' }}</small>
+                      <div class="attachment-actions">
+                        <button type="button" class="ghost" (click)="downloadAttachment(attachment)">Download</button>
+                        @if (canWrite) {
+                          <button type="button" class="danger" (click)="deleteAttachment(attachment)">Elimina</button>
+                        }
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
+            }
+          </div>
+
+          @if (canWrite) {
+            <div class="transition-box">
+              <h3>Cambio stato rapido</h3>
+              <div class="transition-grid">
+                <select [(ngModel)]="transitionModel.toStatus">
+                  <option value="">Seleziona stato</option>
+                  @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
+                    <option [value]="status">{{ status }}</option>
+                  }
+                </select>
+                <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
+                <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
+              </div>
+            </div>
+          }
+
+          <div class="history-box">
+            <h3>Storico stato</h3>
+            @if (loadingHistory) {
+              <p>Caricamento storico...</p>
+            } @else if (!history.length) {
+              <p>Nessun evento registrato.</p>
+            } @else {
+              <ul class="history-list">
+                @for (event of history; track event.id) {
+                  <li>
+                    <strong>{{ event.eventType }}</strong>
+                    <span>{{ event.fromStatus || '-' }} -> {{ event.toStatus || '-' }}</span>
+                    <small>{{ event.createdAt }} - {{ event.actor || 'sistema' }}</small>
+                    @if (event.note) {
+                      <em>{{ event.note }}</em>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </section>
+    }
   </div>
 
   @if (formVisible) {

@@ -32,6 +32,48 @@ export const rawRowSchema = z
 
 const batchSize = 200
 
+export function buildDedupKey(row: typeof ordini.$inferInsert): string {
+  const rif = (row.rifto ?? '').trim().toUpperCase()
+  const cliente = (row.cliente ?? '').trim().toUpperCase()
+  const dataConsegna = row.dataConsegna ? row.dataConsegna.toISOString().slice(0, 10) : ''
+  return `${rif}|${cliente}|${dataConsegna}`
+}
+
+export function analyzeImportRows(rawRows: z.infer<typeof rawRowSchema>[]) {
+  const validRows: typeof ordini.$inferInsert[] = []
+  const invalidRows: Array<{ index: number; reason: string }> = []
+  const duplicates: Array<{ key: string; indexes: number[] }> = []
+  const map = new Map<string, number[]>()
+
+  rawRows.forEach((raw, index) => {
+    const normalized = normalizeRow(raw)
+    if (!normalized) {
+      invalidRows.push({ index, reason: 'missing_rif_or_cliente' })
+      return
+    }
+    validRows.push(normalized)
+    const key = buildDedupKey(normalized)
+    const list = map.get(key) ?? []
+    list.push(index)
+    map.set(key, list)
+  })
+
+  for (const [key, indexes] of map.entries()) {
+    if (indexes.length > 1) {
+      duplicates.push({ key, indexes })
+    }
+  }
+
+  return {
+    totalRows: rawRows.length,
+    validRowsCount: validRows.length,
+    invalidRowsCount: invalidRows.length,
+    duplicateGroups: duplicates.length,
+    duplicates,
+    invalidRows,
+  }
+}
+
 export function parseDate(value: string | undefined): Date | null {
   if (!value) return null
   const parsed = new Date(value)
@@ -67,6 +109,7 @@ export async function importFromJson(sourcePath: string, shouldTruncate: boolean
   const absolutePath = path.resolve(sourcePath)
   const rawFile = await fs.readFile(absolutePath, 'utf8')
   const parsed = z.array(rawRowSchema).parse(JSON.parse(rawFile))
+  const analysis = analyzeImportRows(parsed)
   const rows = parsed.map(normalizeRow).filter((row): row is typeof ordini.$inferInsert => row !== null)
 
   if (rows.length === 0) {
@@ -84,6 +127,7 @@ export async function importFromJson(sourcePath: string, shouldTruncate: boolean
   }
 
   console.log(`Import completed from ${absolutePath}: ${rows.length} rows inserted.`)
+  console.log(`Import analysis: duplicates=${analysis.duplicateGroups}, invalidRows=${analysis.invalidRowsCount}`)
   return rows.length
 }
 

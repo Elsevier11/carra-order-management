@@ -1,11 +1,21 @@
 import { CommonModule } from '@angular/common';
+import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Component, OnInit, Type, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { AuthService } from './auth.service';
 import { ConsegneService } from './consegne.service';
-import { AuthUser, BoardColumn, ConsegnaFilters, ConsegnaRecord, ConsegnaStats, ConsegnaStatus, OrderEvent } from './consegne.types';
+import {
+  AttachmentRecord,
+  AuditLogRecord,
+  AuthUser,
+  BoardColumn,
+  ConsegnaFilters,
+  ConsegnaRecord,
+  ConsegnaStats,
+  ConsegnaStatus,
+  OrderEvent,
+} from './consegne.types';
 
 type EditableConsegna = {
   rif: string;
@@ -23,7 +33,7 @@ type EditableConsegna = {
   note: string;
 };
 
-type ViewMode = 'dashboard' | 'kanban';
+type ViewMode = 'dashboard' | 'kanban' | 'audit';
 
 @Component({
   selector: 'app-root',
@@ -43,6 +53,9 @@ export class AppComponent implements OnInit {
   loadingDetails = false;
   selectedRow: ConsegnaRecord | null = null;
   selectedDetail: ConsegnaRecord | null = null;
+  attachments: AttachmentRecord[] = [];
+  loadingAttachments = false;
+  selectedUploadFile: File | null = null;
   operationError = '';
   operationSuccess = '';
   activeView: ViewMode = 'dashboard';
@@ -54,8 +67,8 @@ export class AppComponent implements OnInit {
   };
 
   user: AuthUser | null = null;
-
   canWrite = false;
+
   readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONCLUSI', 'SOSPESO'];
   readonly transitionRules: Record<ConsegnaStatus, ConsegnaStatus[]> = {
     'IN CORSO': ['IN LAVORAZIONE', 'SOSPESO'],
@@ -64,18 +77,22 @@ export class AppComponent implements OnInit {
     CONCLUSI: [],
     SOSPESO: ['IN CORSO', 'IN LAVORAZIONE'],
   };
+
   boardColumns: BoardColumn[] = [];
   loadingBoard = false;
   showOnlyLateInKanban = false;
   history: OrderEvent[] = [];
   loadingHistory = false;
+
   transitionModel = {
     toStatus: '' as ConsegnaStatus | '',
     note: '',
   };
+
   pendingTransitionId: number | null = null;
   dashboardChartsComponent: Type<unknown> | null = null;
   loadingDashboardCharts = false;
+
   dropTransitionModal: {
     open: boolean;
     order: ConsegnaRecord | null;
@@ -112,13 +129,24 @@ export class AppComponent implements OnInit {
   };
 
   stats: ConsegnaStats = {
-    kpi: {
-      consegneSettimanaCorrente: 0,
-      ritardi: 0,
-    },
+    kpi: { consegneSettimanaCorrente: 0, ritardi: 0 },
     byCarrier: [],
     byStatus: [],
     weeklyTrend: [],
+  };
+
+  auditRows: AuditLogRecord[] = [];
+  auditLoading = false;
+  auditPage = 1;
+  auditPageSize = 20;
+  auditTotal = 0;
+  auditFilters: { username: string; action: string; entity: string; success: string; fromDate: string; toDate: string } = {
+    username: '',
+    action: '',
+    entity: '',
+    success: '',
+    fromDate: '',
+    toDate: '',
   };
 
   readonly columns = [
@@ -130,9 +158,14 @@ export class AppComponent implements OnInit {
     { name: 'Stato', prop: 'stato' },
   ];
 
+  get isAdmin(): boolean {
+    return this.user?.role === 'admin';
+  }
+
   ngOnInit(): void {
     this.user = this.authService.user;
     this.canWrite = this.user?.role === 'admin' || this.user?.role === 'operativo';
+
     this.authService.user$.subscribe((user) => {
       this.user = user;
       this.canWrite = user?.role === 'admin' || user?.role === 'operativo';
@@ -170,6 +203,7 @@ export class AppComponent implements OnInit {
     this.rows = [];
     this.selectedRow = null;
     this.selectedDetail = null;
+    this.attachments = [];
     this.formVisible = false;
   }
 
@@ -205,8 +239,10 @@ export class AppComponent implements OnInit {
         },
       });
 
-    this.consegneService.stats().subscribe((stats) => {
-      this.stats = stats;
+    this.consegneService.stats().subscribe({
+      next: (stats) => {
+        this.stats = stats;
+      },
     });
 
     this.loadBoard();
@@ -231,6 +267,7 @@ export class AppComponent implements OnInit {
         this.transitionModel.note = '';
         this.loadingDetails = false;
         this.loadHistory(id);
+        this.loadAttachments(id);
       },
       error: () => {
         this.loadingDetails = false;
@@ -239,11 +276,14 @@ export class AppComponent implements OnInit {
   }
 
   changeView(view: ViewMode): void {
+    if (view === 'audit' && !this.isAdmin) return;
     this.activeView = view;
     if (view === 'dashboard') {
       this.ensureDashboardChartsLoaded();
-    } else {
+    } else if (view === 'kanban') {
       this.loadBoard();
+    } else {
+      this.loadAudit(1);
     }
   }
 
@@ -360,6 +400,7 @@ export class AppComponent implements OnInit {
     const modal = this.dropTransitionModal;
     if (!modal.open || !modal.order || !modal.fromStatus || !modal.toStatus) return;
     const orderId = modal.order.id;
+
     if (modal.toStatus === 'SOSPESO' && !modal.note.trim()) {
       this.dropTransitionModal.error = 'Inserisci il motivo della sospensione.';
       return;
@@ -384,40 +425,6 @@ export class AppComponent implements OnInit {
     });
   }
 
-  private syncBoardCounts(): void {
-    this.boardColumns = this.boardColumns.map((column) => ({
-      ...column,
-      count: column.items.length,
-    }));
-  }
-
-  private loadBoard(): void {
-    this.loadingBoard = true;
-    this.consegneService.board().subscribe({
-      next: (response) => {
-        this.boardColumns = response.columns;
-        this.loadingBoard = false;
-      },
-      error: () => {
-        this.loadingBoard = false;
-      },
-    });
-  }
-
-  private loadHistory(id: number): void {
-    this.loadingHistory = true;
-    this.consegneService.history(id).subscribe({
-      next: (response) => {
-        this.history = response.data;
-        this.loadingHistory = false;
-      },
-      error: () => {
-        this.history = [];
-        this.loadingHistory = false;
-      },
-    });
-  }
-
   applyFilters(): void {
     this.savePreset();
     this.refreshData(1);
@@ -437,24 +444,26 @@ export class AppComponent implements OnInit {
   }
 
   exportCsv(): void {
-    const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'vettore', 'stato'];
-    const body = this.rows.map((row) =>
-      headers
-        .map((key) => {
-          const value = String(row[key as keyof ConsegnaRecord] ?? '');
-          return `"${value.replace(/"/g, '""')}"`;
-        })
-        .join(','),
-    );
-
-    const csv = [headers.join(','), ...body].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `consegne_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    this.consegneService
+      .exportCsv({
+        ...this.filters,
+        sortBy: 'dataConsegna',
+        sortDir: 'desc',
+      })
+      .subscribe({
+        next: (csv) => {
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `consegne_${new Date().toISOString().slice(0, 10)}.csv`;
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (error) => {
+          this.operationError = error?.error?.message ?? 'Errore export CSV';
+        },
+      });
   }
 
   openCreate(): void {
@@ -532,6 +541,7 @@ export class AppComponent implements OnInit {
         this.selectedRow = null;
         this.selectedDetail = null;
         this.history = [];
+        this.attachments = [];
         this.refreshData(1);
       },
       error: (error) => {
@@ -569,6 +579,147 @@ export class AppComponent implements OnInit {
   allowedNextStatuses(currentStatus: string): ConsegnaStatus[] {
     const casted = currentStatus as ConsegnaStatus;
     return this.transitionRules[casted] ?? [];
+  }
+
+  onAttachmentSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedUploadFile = input.files?.[0] ?? null;
+  }
+
+  uploadAttachment(): void {
+    if (!this.selectedDetail || !this.selectedUploadFile) return;
+    this.consegneService.uploadAttachment(this.selectedDetail.id, this.selectedUploadFile).subscribe({
+      next: () => {
+        this.operationSuccess = 'Allegato caricato';
+        this.selectedUploadFile = null;
+        this.loadAttachments(this.selectedDetail!.id);
+        this.loadHistory(this.selectedDetail!.id);
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore upload allegato';
+      },
+    });
+  }
+
+  downloadAttachment(item: AttachmentRecord): void {
+    if (!this.selectedDetail) return;
+    this.consegneService.downloadAttachment(this.selectedDetail.id, item.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = item.fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore download allegato';
+      },
+    });
+  }
+
+  deleteAttachment(item: AttachmentRecord): void {
+    if (!this.selectedDetail) return;
+    const ok = confirm(`Eliminare allegato ${item.fileName}?`);
+    if (!ok) return;
+    this.consegneService.deleteAttachment(this.selectedDetail.id, item.id).subscribe({
+      next: () => {
+        this.operationSuccess = 'Allegato eliminato';
+        this.loadAttachments(this.selectedDetail!.id);
+        this.loadHistory(this.selectedDetail!.id);
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore eliminazione allegato';
+      },
+    });
+  }
+
+  loadAudit(page = this.auditPage): void {
+    if (!this.isAdmin) return;
+    this.auditLoading = true;
+    this.auditPage = page;
+    this.consegneService
+      .listAudit({
+        page: this.auditPage,
+        pageSize: this.auditPageSize,
+        username: this.auditFilters.username || undefined,
+        action: this.auditFilters.action || undefined,
+        entity: this.auditFilters.entity || undefined,
+        success: this.auditFilters.success || undefined,
+        fromDate: this.auditFilters.fromDate || undefined,
+        toDate: this.auditFilters.toDate || undefined,
+      })
+      .subscribe({
+        next: (response) => {
+          this.auditRows = response.data;
+          this.auditTotal = response.pagination.total;
+          this.auditLoading = false;
+        },
+        error: (error) => {
+          this.auditLoading = false;
+          this.operationError = error?.error?.message ?? 'Errore caricamento audit';
+        },
+      });
+  }
+
+  resetAuditFilters(): void {
+    this.auditFilters = {
+      username: '',
+      action: '',
+      entity: '',
+      success: '',
+      fromDate: '',
+      toDate: '',
+    };
+    this.loadAudit(1);
+  }
+
+  private syncBoardCounts(): void {
+    this.boardColumns = this.boardColumns.map((column) => ({
+      ...column,
+      count: column.items.length,
+    }));
+  }
+
+  private loadBoard(): void {
+    this.loadingBoard = true;
+    this.consegneService.board().subscribe({
+      next: (response) => {
+        this.boardColumns = response.columns;
+        this.loadingBoard = false;
+      },
+      error: () => {
+        this.loadingBoard = false;
+      },
+    });
+  }
+
+  private loadHistory(id: number): void {
+    this.loadingHistory = true;
+    this.consegneService.history(id).subscribe({
+      next: (response) => {
+        this.history = response.data;
+        this.loadingHistory = false;
+      },
+      error: () => {
+        this.history = [];
+        this.loadingHistory = false;
+      },
+    });
+  }
+
+  private loadAttachments(orderId: number): void {
+    this.loadingAttachments = true;
+    this.consegneService.listAttachments(orderId).subscribe({
+      next: (response) => {
+        this.attachments = response.data;
+        this.loadingAttachments = false;
+      },
+      error: () => {
+        this.attachments = [];
+        this.loadingAttachments = false;
+      },
+    });
   }
 
   private canTransition(fromStatus: ConsegnaStatus, toStatus: ConsegnaStatus): boolean {
@@ -616,15 +767,9 @@ export class AppComponent implements OnInit {
   }
 
   private normalizeFiltersAgainstAvailableOptions(): void {
-    if (this.filters.cliente && !this.availableFilters.clienti.includes(this.filters.cliente)) {
-      this.filters.cliente = '';
-    }
-    if (this.filters.vettore && !this.availableFilters.vettori.includes(this.filters.vettore)) {
-      this.filters.vettore = '';
-    }
-    if (this.filters.stato && !this.availableFilters.stati.includes(this.filters.stato)) {
-      this.filters.stato = '';
-    }
+    if (this.filters.cliente && !this.availableFilters.clienti.includes(this.filters.cliente)) this.filters.cliente = '';
+    if (this.filters.vettore && !this.availableFilters.vettori.includes(this.filters.vettore)) this.filters.vettore = '';
+    if (this.filters.stato && !this.availableFilters.stati.includes(this.filters.stato)) this.filters.stato = '';
     this.normalizeDateFilters();
   }
 

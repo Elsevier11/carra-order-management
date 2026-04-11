@@ -3,7 +3,10 @@ import express from 'express'
 import { ZodError } from 'zod'
 import consegneRoutes from './routes/consegne'
 import authRoutes from './routes/auth'
+import auditRoutes from './routes/audit'
+import importRoutes from './routes/import'
 import { BadRequestError } from './errors'
+import { auditMiddleware } from './audit'
 
 export function createApp() {
   const app = express()
@@ -15,6 +18,7 @@ export function createApp() {
     }),
   )
   app.use(express.json())
+  app.use(auditMiddleware)
 
   app.get('/health', (_req, res) => {
     res.json({
@@ -26,6 +30,8 @@ export function createApp() {
 
   app.use('/api/auth', authRoutes)
   app.use('/api/consegne', consegneRoutes)
+  app.use('/api/audit', auditRoutes)
+  app.use('/api/import', importRoutes)
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof ZodError) {
