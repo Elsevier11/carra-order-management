@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://carra-consegne-api.up.railway.app/api',
+  apiUrl: 'https://web-production-385de.up.railway.app/api',
 };
