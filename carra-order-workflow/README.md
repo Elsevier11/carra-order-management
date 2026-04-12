@@ -43,8 +43,10 @@ Digitalizzare il processo operativo oggi gestito su Excel, mantenendo tracciabil
 ## Stato attuale
 
 - Analisi iniziale del file Excel completata
-- Impostazione repository documentale pronta
-- Da completare: raffinamento requisiti con utenti, modellazione dettagliata campi, wireframe UI
+- MVP applicativo realizzato (backend API + frontend Angular)
+- Deploy produzione completato (Railway API + Netlify frontend) in data 12/04/2026
+- Smoke test produzione completo eseguito con esito positivo
+- Da consolidare in documentazione: stato disegno dedicato, task bloccanti strutturati, traccia validazione wireframe con utenti
 
 ## Modalità di lavoro consigliata
 
