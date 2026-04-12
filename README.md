@@ -126,6 +126,7 @@ Aggiorna `frontend/src/environments/environment.production.ts`:
 
 - Vedi [docs/go-live-checklist.md](./docs/go-live-checklist.md)
 - Deploy guidato: [docs/deploy-production.md](./docs/deploy-production.md)
+- Runbook produzione (URL e interventi rapidi): [docs/production-runbook.md](./docs/production-runbook.md)
 
 ## Operativita Produzione
 

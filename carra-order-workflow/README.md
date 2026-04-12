@@ -54,3 +54,7 @@ Digitalizzare il processo operativo oggi gestito su Excel, mantenendo tracciabil
 - Pull request anche se lavori da solo, per tenere traccia delle decisioni
 - Aggiornare sempre la traceability matrix quando nasce o cambia un requisito
 - Registrare le decisioni stabili in `docs/04-decisions/`
+
+## Riferimento Operativo Produzione
+
+- Runbook centralizzato: `../docs/production-runbook.md`
