@@ -73,6 +73,12 @@ button.danger {
   color: #fff;
 }
 
+button.kanban-card {
+  background: #ffffff;
+  color: var(--ink);
+  border-color: #e5e7eb;
+}
+
 .page {
   display: flex;
   height: 100vh;
