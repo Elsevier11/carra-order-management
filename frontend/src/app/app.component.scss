@@ -1,13 +1,13 @@
 :host {
-  --bg: #edf4f2;
+  --bg: #f0f2f5;
   --surface: #ffffff;
-  --surface-alt: #dcefe8;
-  --ink: #0b1c1c;
-  --muted: #5f7472;
-  --primary: #0f766e;
-  --primary-dark: #115e59;
+  --surface-alt: #eff6ff;
+  --ink: #111827;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
   --alert: #b91c1c;
-  --border: #c6d9d3;
+  --border: #e5e7eb;
   font-family: "Manrope", "Segoe UI", sans-serif;
   color: var(--ink);
 }
@@ -16,9 +16,7 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 0 0, #cce8df 0, #edf4f2 40%),
-    linear-gradient(140deg, #edf4f2 0%, #e5f0ed 100%);
+  background: #f0f2f5;
 }
 
 .login-card {
@@ -86,7 +84,8 @@ button.danger {
 .sidebar {
   width: 220px;
   flex-shrink: 0;
-  background: var(--primary-dark);
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -96,11 +95,11 @@ button.danger {
 .sidebar-brand {
   font-weight: 700;
   font-size: 1rem;
-  color: #fff;
+  color: #111827;
   padding: 20px 16px 16px;
   letter-spacing: 0.2px;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .sidebar-nav {
@@ -121,24 +120,24 @@ button.danger {
   font-size: 0.87rem;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.70);
+  color: #6b7280;
   cursor: pointer;
 }
 
 .sidebar-nav button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: #f3f4f6;
+  color: #111827;
 }
 
 .sidebar-nav button.active {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: #eff6ff;
+  color: #2563eb;
   font-weight: 600;
 }
 
 .sidebar-footer {
   padding: 12px 16px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -146,7 +145,7 @@ button.danger {
 
 .sidebar-user {
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: #6b7280;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -154,8 +153,8 @@ button.danger {
 
 .sidebar-footer button {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.80);
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
   border-radius: 8px;
   min-height: 32px;
   padding: 0 10px;
@@ -164,8 +163,8 @@ button.danger {
 }
 
 .sidebar-footer button:hover {
-  background: rgba(255, 255, 255, 0.10);
-  color: #fff;
+  background: #f3f4f6;
+  color: #111827;
 }
 
 /* ── Content area ──────────────────────────────────────── */
@@ -175,9 +174,7 @@ button.danger {
   min-width: 0;
   overflow-y: auto;
   padding: 20px 24px 24px;
-  background:
-    radial-gradient(circle at 0 0, #cce8df 0, #edf4f2 40%),
-    linear-gradient(140deg, #edf4f2 0%, #e5f0ed 100%);
+  background: #f0f2f5;
 }
 
 .content-header {
@@ -190,8 +187,8 @@ button.danger {
 
 .content-title {
   font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--primary-dark);
+  font-size: 1.2rem;
+  color: #111827;
   margin: 0;
   flex: 1;
 }
