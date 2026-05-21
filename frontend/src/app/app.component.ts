@@ -43,7 +43,8 @@ type EditableConsegna = {
   responsabileInternoId: number | null;
 };
 
-type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'users' | 'commerciali' | 'responsabili';
+type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche';
+type RegistryTab = 'users' | 'commerciali' | 'responsabili';
 
 @Component({
   selector: 'app-root',
@@ -69,6 +70,7 @@ export class AppComponent implements OnInit, OnDestroy {
   operationError = '';
   operationSuccess = '';
   activeView: ViewMode = 'dashboard';
+  activeRegistryTab: RegistryTab = 'users';
   showFiltersPanel = false;
 
   private readonly searchSubject = new Subject<void>();
@@ -208,6 +210,10 @@ export class AppComponent implements OnInit, OnDestroy {
   get activeFiltersCount(): number {
     return [this.filters.q, this.filters.cliente, this.filters.vettore, this.filters.stato, this.filters.fromDate, this.filters.toDate]
       .filter((v) => !!v).length;
+  }
+
+  get showKanbanCreateAction(): boolean {
+    return this.activeView === 'kanban' && this.canWrite;
   }
 
   ngOnInit(): void {
@@ -361,7 +367,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   changeView(view: ViewMode): void {
-    if ((view === 'audit' || view === 'users' || view === 'commerciali' || view === 'responsabili') && !this.isAdmin) return;
+    if ((view === 'audit' || view === 'anagrafiche') && !this.isAdmin) return;
     this.activeView = view;
     if (view === 'dashboard') {
       this.ensureDashboardChartsLoaded();
@@ -369,13 +375,15 @@ export class AppComponent implements OnInit, OnDestroy {
       this.loadBoard();
     } else if (view === 'audit') {
       this.loadAudit(1);
-    } else if (view === 'users') {
-      this.loadUsers();
-    } else if (view === 'commerciali') {
-      this.loadCommerciali();
-    } else if (view === 'responsabili') {
-      this.loadResponsabili();
+    } else if (view === 'anagrafiche') {
+      this.loadActiveRegistryTab();
     }
+  }
+
+  setRegistryTab(tab: RegistryTab): void {
+    if (!this.isAdmin) return;
+    this.activeRegistryTab = tab;
+    this.loadActiveRegistryTab();
   }
 
   selectFromBoard(row: ConsegnaRecord): void {
@@ -803,7 +811,10 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!this.isAdmin) return;
     this.operationError = '';
     this.operationSuccess = '';
-    this.consegneService.createUser(this.newUserModel).subscribe({
+    this.consegneService.createUser({
+      ...this.newUserModel,
+      username: this.newUserModel.username.trim(),
+    }).subscribe({
       next: () => {
         this.operationSuccess = `Utente ${this.newUserModel.username} creato`;
         this.newUserModel = {
@@ -1149,7 +1160,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private loadBoard(): void {
     this.loadingBoard = true;
-    this.consegneService.board().subscribe({
+    this.consegneService.board(this.filters).subscribe({
       next: (response) => {
         this.boardColumns = response.columns;
         this.loadingBoard = false;
@@ -1279,6 +1290,16 @@ export class AppComponent implements OnInit, OnDestroy {
       this.dashboardChartsComponent = module.DashboardChartsComponent;
     } finally {
       this.loadingDashboardCharts = false;
+    }
+  }
+
+  private loadActiveRegistryTab(): void {
+    if (this.activeRegistryTab === 'users') {
+      this.loadUsers();
+    } else if (this.activeRegistryTab === 'commerciali') {
+      this.loadCommerciali();
+    } else if (this.activeRegistryTab === 'responsabili') {
+      this.loadResponsabili();
     }
   }
 }

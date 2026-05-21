@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardColumn, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, FilterOptions, OrderEvent, ResponsabileRecord } from './consegne.types';
+import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, FilterOptions, OrderEvent, ResponsabileRecord } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
@@ -33,8 +33,14 @@ export class ConsegneService {
     return this.http.get<FilterOptions>(`${this.baseUrl}/filters`);
   }
 
-  board(): Observable<{ columns: BoardColumn[] }> {
-    return this.http.get<{ columns: BoardColumn[] }>(`${this.baseUrl}/board`);
+  board(query: ConsegnaFilters = {}): Observable<BoardResponse> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        params = params.set(key, String(value));
+      }
+    }
+    return this.http.get<BoardResponse>(`${this.baseUrl}/board`, { params });
   }
 
   history(id: number): Observable<{ data: OrderEvent[] }> {

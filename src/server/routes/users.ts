@@ -71,12 +71,24 @@ router.get('/', requireAuth, requireRole(['admin']), async (_req, res, next) => 
 router.post('/', requireAuth, requireRole(['admin']), async (req: AuthenticatedRequest, res, next) => {
   try {
     const payload = createUserSchema.parse(req.body)
+    const normalizedUsername = payload.username.trim()
+
+    const [existing] = await db
+      .select({ id: appUsers.id })
+      .from(appUsers)
+      .where(eq(appUsers.username, normalizedUsername))
+      .limit(1)
+
+    if (existing) {
+      throw new BadRequestError('Username gia esistente')
+    }
+
     const passwordHash = await hashPassword(payload.password)
 
     const [created] = await db
       .insert(appUsers)
       .values({
-        username: payload.username.trim(),
+        username: normalizedUsername,
         role: payload.role,
         passwordHash,
         isActive: payload.isActive,

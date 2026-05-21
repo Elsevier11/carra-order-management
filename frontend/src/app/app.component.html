@@ -12,44 +12,47 @@
     </div>
   </div>
 } @else {
-  <div class="page">
+  <div class="page app-shell">
     <nav class="sidebar">
-      <span class="sidebar-brand">Carra Consegne</span>
+      <div class="sidebar-brand">
+        <span class="sidebar-brand-mark">C</span>
+        <div class="sidebar-brand-copy">
+          <strong>Carra Consegne</strong>
+          <small>Gestione ordini e logistica</small>
+        </div>
+      </div>
       <div class="sidebar-nav">
         <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
         <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Kanban</button>
         @if (isAdmin) {
           <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Audit</button>
-          <button type="button" [class.active]="activeView === 'users'" (click)="changeView('users')">Utenti</button>
-          <button type="button" [class.active]="activeView === 'commerciali'" (click)="changeView('commerciali')">Commerciali</button>
-          <button type="button" [class.active]="activeView === 'responsabili'" (click)="changeView('responsabili')">Responsabili</button>
+          <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
         }
       </div>
       <div class="sidebar-footer">
-        <span class="sidebar-user">{{ user.username }} ({{ user.role }})</span>
+        <div class="sidebar-user-card">
+          <span class="sidebar-user-role">{{ user.role }}</span>
+          <span class="sidebar-user">{{ user.username }}</span>
+        </div>
         <button type="button" (click)="logout()">Logout</button>
       </div>
     </nav>
 
     <div class="content">
-      <div class="content-header">
-        <h1 class="content-title">
-          @if (activeView === 'dashboard') { Dashboard }
-          @else if (activeView === 'kanban') { Kanban Board }
-          @else if (activeView === 'audit') { Audit Log }
-          @else if (activeView === 'users') { Utenti }
-          @else if (activeView === 'commerciali') { Commerciali }
-          @else if (activeView === 'responsabili') { Responsabili }
-        </h1>
-        <div class="content-header-right">
-          @if ((activeView === 'dashboard' || activeView === 'kanban') && stats.kpi.ritardi > 0) {
-            <span class="sla-badge late">{{ stats.kpi.ritardi }} ritardi</span>
-          }
-          @if (canWrite) {
-            <button type="button" (click)="openCreate()">Nuova consegna</button>
-          }
+      @if (activeView !== 'kanban') {
+        <div class="content-header">
+          <h1 class="content-title">
+            @if (activeView === 'dashboard') { Dashboard }
+            @else if (activeView === 'audit') { Audit Log }
+            @else if (activeView === 'anagrafiche') { Anagrafiche }
+          </h1>
+          <div class="content-header-right">
+            @if (activeView === 'dashboard' && stats.kpi.ritardi > 0) {
+              <span class="sla-badge late">{{ stats.kpi.ritardi }} ritardi</span>
+            }
+          </div>
         </div>
-      </div>
+      }
 
     @if (activeView === 'dashboard' || activeView === 'kanban') {
       <section class="filters-panel">
@@ -74,6 +77,9 @@
         </select>
         <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
         <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
+        @if (showKanbanCreateAction) {
+          <button type="button" class="filters-panel__action" (click)="openCreate()">Nuovo ordine</button>
+        }
         <button type="button" class="ghost" (click)="resetFilters()">Reset filtri</button>
         <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
       </section>
@@ -167,146 +173,146 @@
           </div>
         }
       </section>
-    } @else if (activeView === 'users') {
+    } @else if (activeView === 'anagrafiche') {
       <section class="detail-card">
-        <h2>Gestione utenti</h2>
-        <div class="modal-grid">
-          <input type="text" [(ngModel)]="newUserModel.username" placeholder="Username" />
-          <select [(ngModel)]="newUserModel.role">
-            <option value="admin">admin</option>
-            <option value="operativo">operativo</option>
-            <option value="lettura">lettura</option>
-          </select>
-          <input type="password" [(ngModel)]="newUserModel.password" placeholder="Password iniziale" />
-          <label class="kanban-toggle">
-            <input type="checkbox" [(ngModel)]="newUserModel.isActive" />
-            <span>Attivo</span>
-          </label>
-          <button type="button" [disabled]="!newUserModel.username || !newUserModel.password" (click)="createUser()">Crea utente</button>
+        <div class="registry-tabs">
+          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'users'" (click)="setRegistryTab('users')">Utenti</button>
+          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'commerciali'" (click)="setRegistryTab('commerciali')">Commerciali</button>
+          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'responsabili'" (click)="setRegistryTab('responsabili')">Responsabili</button>
         </div>
       </section>
 
-      @if (operationError) {
-        <div class="error">{{ operationError }}</div>
-      }
-      @if (operationSuccess) {
-        <div class="success">{{ operationSuccess }}</div>
-      }
+      @if (operationError) { <div class="error">{{ operationError }}</div> }
+      @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
 
-      <section class="table-card">
-        @if (usersLoading) {
-          <p>Caricamento utenti...</p>
-        } @else {
-          <table class="audit-table">
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Ruolo</th>
-                <th>Stato</th>
-                <th>Aggiornato</th>
-                <th>Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (userRow of usersRows; track userRow.id) {
-                <tr>
-                  <td>{{ userRow.username }}</td>
-                  <td>
-                    <select [ngModel]="userRow.role" (ngModelChange)="updateUserRole(userRow.id, $event)">
-                      <option value="admin">admin</option>
-                      <option value="operativo">operativo</option>
-                      <option value="lettura">lettura</option>
-                    </select>
-                  </td>
-                  <td>{{ userRow.isActive ? 'Attivo' : 'Disattivo' }}</td>
-                  <td>{{ userRow.updatedAt || '-' }}</td>
-                  <td>
-                    <div class="attachment-actions">
-                      <button type="button" class="ghost" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
-                      <button type="button" class="ghost" (click)="openPasswordReset(userRow.id)">Reset password</button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        }
-      </section>
-
-      @if (passwordResetModel.userId) {
+      @if (activeRegistryTab === 'users') {
         <section class="detail-card">
-          <h2>Reset password utente</h2>
+          <h2>Gestione utenti</h2>
           <div class="modal-grid">
-            <input type="password" [(ngModel)]="passwordResetModel.password" placeholder="Nuova password (min 8)" />
-            <button type="button" [disabled]="passwordResetModel.password.length < 8" (click)="resetUserPassword()">Conferma reset</button>
-            <button type="button" class="ghost" (click)="passwordResetModel = { userId: null, password: '' }">Annulla</button>
+            <input type="text" [(ngModel)]="newUserModel.username" placeholder="Username" />
+            <select [(ngModel)]="newUserModel.role">
+              <option value="admin">admin</option>
+              <option value="operativo">operativo</option>
+              <option value="lettura">lettura</option>
+            </select>
+            <input type="password" [(ngModel)]="newUserModel.password" placeholder="Password iniziale" />
+            <label class="kanban-toggle">
+              <input type="checkbox" [(ngModel)]="newUserModel.isActive" />
+              <span>Attivo</span>
+            </label>
+            <button type="button" [disabled]="!newUserModel.username.trim() || !newUserModel.password" (click)="createUser()">Crea utente</button>
           </div>
         </section>
+
+        <section class="table-card">
+          @if (usersLoading) {
+            <p>Caricamento utenti...</p>
+          } @else {
+            <table class="audit-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Ruolo</th>
+                  <th>Stato</th>
+                  <th>Aggiornato</th>
+                  <th>Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (userRow of usersRows; track userRow.id) {
+                  <tr>
+                    <td>{{ userRow.username }}</td>
+                    <td>
+                      <select [ngModel]="userRow.role" (ngModelChange)="updateUserRole(userRow.id, $event)">
+                        <option value="admin">admin</option>
+                        <option value="operativo">operativo</option>
+                        <option value="lettura">lettura</option>
+                      </select>
+                    </td>
+                    <td>{{ userRow.isActive ? 'Attivo' : 'Disattivo' }}</td>
+                    <td>{{ userRow.updatedAt || '-' }}</td>
+                    <td>
+                      <div class="attachment-actions">
+                        <button type="button" class="ghost" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
+                        <button type="button" class="ghost" (click)="openPasswordReset(userRow.id)">Reset password</button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
+
+        @if (passwordResetModel.userId) {
+          <section class="detail-card">
+            <h2>Reset password utente</h2>
+            <div class="modal-grid">
+              <input type="password" [(ngModel)]="passwordResetModel.password" placeholder="Nuova password (min 8)" />
+              <button type="button" [disabled]="passwordResetModel.password.length < 8" (click)="resetUserPassword()">Conferma reset</button>
+              <button type="button" class="ghost" (click)="passwordResetModel = { userId: null, password: '' }">Annulla</button>
+            </div>
+          </section>
+        }
+      } @else if (activeRegistryTab === 'commerciali') {
+        <section class="detail-card">
+          <h2>Gestione Commerciali</h2>
+          <div class="modal-grid">
+            <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
+            <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
+          </div>
+        </section>
+
+        <section class="table-card">
+          @if (commercialiLoading) {
+            <p>Caricamento...</p>
+          } @else {
+            <table class="audit-table">
+              <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+              <tbody>
+                @for (item of commercialiRows; track item.id) {
+                  <tr>
+                    <td>{{ item.nome }}</td>
+                    <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
+                  </tr>
+                }
+                @if (!commercialiRows.length) {
+                  <tr><td colspan="2">Nessun commerciale.</td></tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
+      } @else if (activeRegistryTab === 'responsabili') {
+        <section class="detail-card">
+          <h2>Gestione Responsabili Interni</h2>
+          <div class="modal-grid">
+            <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
+            <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
+          </div>
+        </section>
+
+        <section class="table-card">
+          @if (responsabiliLoading) {
+            <p>Caricamento...</p>
+          } @else {
+            <table class="audit-table">
+              <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+              <tbody>
+                @for (item of responsabiliRows; track item.id) {
+                  <tr>
+                    <td>{{ item.nome }}</td>
+                    <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
+                  </tr>
+                }
+                @if (!responsabiliRows.length) {
+                  <tr><td colspan="2">Nessun responsabile.</td></tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
       }
-    } @else if (activeView === 'commerciali') {
-      <section class="detail-card">
-        <h2>Gestione Commerciali</h2>
-        <div class="modal-grid">
-          <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
-          <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
-        </div>
-      </section>
-
-      @if (operationError) { <div class="error">{{ operationError }}</div> }
-      @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
-
-      <section class="table-card">
-        @if (commercialiLoading) {
-          <p>Caricamento...</p>
-        } @else {
-          <table class="audit-table">
-            <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-            <tbody>
-              @for (item of commercialiRows; track item.id) {
-                <tr>
-                  <td>{{ item.nome }}</td>
-                  <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
-                </tr>
-              }
-              @if (!commercialiRows.length) {
-                <tr><td colspan="2">Nessun commerciale.</td></tr>
-              }
-            </tbody>
-          </table>
-        }
-      </section>
-    } @else if (activeView === 'responsabili') {
-      <section class="detail-card">
-        <h2>Gestione Responsabili Interni</h2>
-        <div class="modal-grid">
-          <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
-          <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
-        </div>
-      </section>
-
-      @if (operationError) { <div class="error">{{ operationError }}</div> }
-      @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
-
-      <section class="table-card">
-        @if (responsabiliLoading) {
-          <p>Caricamento...</p>
-        } @else {
-          <table class="audit-table">
-            <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-            <tbody>
-              @for (item of responsabiliRows; track item.id) {
-                <tr>
-                  <td>{{ item.nome }}</td>
-                  <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
-                </tr>
-              }
-              @if (!responsabiliRows.length) {
-                <tr><td colspan="2">Nessun responsabile.</td></tr>
-              }
-            </tbody>
-          </table>
-        }
-      </section>
     } @else {
       @if (operationError) {
         <div class="error">{{ operationError }}</div>
@@ -534,7 +540,7 @@
   @if (formVisible) {
     <div class="modal-backdrop">
       <div class="modal">
-        <h2>{{ editingId ? 'Modifica consegna' : 'Nuova consegna' }}</h2>
+        <h2>{{ editingId ? 'Modifica ordine' : 'Nuovo ordine' }}</h2>
         <div class="modal-grid">
           <input type="text" [(ngModel)]="formModel.rif" placeholder="Rif" />
           <input type="text" [(ngModel)]="formModel.cliente" placeholder="Cliente" />
@@ -543,7 +549,11 @@
           <input type="text" [(ngModel)]="formModel.cantiere" placeholder="Cantiere" />
           <input type="date" [(ngModel)]="formModel.dataOrdine" />
           <input type="text" [(ngModel)]="formModel.vettore" placeholder="Vettore" />
-          <input type="text" [(ngModel)]="formModel.stato" placeholder="Stato" />
+          <select [(ngModel)]="formModel.stato">
+            @for (status of statusFlow; track status) {
+              <option [value]="status">{{ status }}</option>
+            }
+          </select>
           <select [(ngModel)]="formModel.commercialeId">
             <option [ngValue]="null">Nessun commerciale</option>
             @for (c of commercialiRows; track c.id) {

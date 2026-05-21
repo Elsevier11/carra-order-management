@@ -72,6 +72,48 @@ const listQuerySchema = z.object({
   sortDir: z.enum(['asc', 'desc']).default('desc'),
 })
 
+type ListQuery = z.infer<typeof listQuerySchema>
+
+function buildListFilters(query: ListQuery) {
+  const filters = []
+
+  if (query.q) {
+    const pattern = `%${query.q.trim()}%`
+    filters.push(
+      or(
+        ilike(ordini.rifto, pattern),
+        ilike(ordini.cliente, pattern),
+        ilike(ordini.tipoImpianto, pattern),
+        ilike(ordini.cantiere, pattern),
+      ),
+    )
+  }
+
+  if (query.cliente) {
+    filters.push(ilike(ordini.cliente, `%${query.cliente.trim()}%`))
+  }
+
+  if (query.vettore) {
+    filters.push(ilike(ordini.traspor, `%${query.vettore.trim()}%`))
+  }
+
+  if (query.stato) {
+    filters.push(ilike(ordini.stato, `%${query.stato.trim()}%`))
+  }
+
+  if (query.fromDate) {
+    filters.push(gte(ordini.dataConsegna, parseInputDate(query.fromDate)))
+  }
+
+  if (query.toDate) {
+    const endOfDay = parseInputDate(query.toDate)
+    endOfDay.setHours(23, 59, 59, 999)
+    filters.push(lte(ordini.dataConsegna, endOfDay))
+  }
+
+  return filters.length ? and(...filters) : undefined
+}
+
 const consegnaInputSchema = z.object({
   rif: z.string().min(1),
   cliente: z.string().min(1),
@@ -218,43 +260,7 @@ router.get('/', async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query)
     const offset = (query.page - 1) * query.pageSize
-    const filters = []
-
-    if (query.q) {
-      const pattern = `%${query.q.trim()}%`
-      filters.push(
-        or(
-          ilike(ordini.rifto, pattern),
-          ilike(ordini.cliente, pattern),
-          ilike(ordini.tipoImpianto, pattern),
-          ilike(ordini.cantiere, pattern),
-        ),
-      )
-    }
-
-    if (query.cliente) {
-      filters.push(ilike(ordini.cliente, `%${query.cliente.trim()}%`))
-    }
-
-    if (query.vettore) {
-      filters.push(ilike(ordini.traspor, `%${query.vettore.trim()}%`))
-    }
-
-    if (query.stato) {
-      filters.push(ilike(ordini.stato, `%${query.stato.trim()}%`))
-    }
-
-    if (query.fromDate) {
-      filters.push(gte(ordini.dataConsegna, parseInputDate(query.fromDate)))
-    }
-
-    if (query.toDate) {
-      const endOfDay = parseInputDate(query.toDate)
-      endOfDay.setHours(23, 59, 59, 999)
-      filters.push(lte(ordini.dataConsegna, endOfDay))
-    }
-
-    const whereClause = filters.length ? and(...filters) : undefined
+    const whereClause = buildListFilters(query)
     const sortColumn = {
       rif: ordini.rifto,
       cliente: ordini.cliente,
@@ -296,32 +302,7 @@ router.get('/', async (req, res, next) => {
 router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query)
-    const filters = []
-
-    if (query.q) {
-      const pattern = `%${query.q.trim()}%`
-      filters.push(
-        or(
-          ilike(ordini.rifto, pattern),
-          ilike(ordini.cliente, pattern),
-          ilike(ordini.tipoImpianto, pattern),
-          ilike(ordini.cantiere, pattern),
-        ),
-      )
-    }
-
-    if (query.cliente) filters.push(ilike(ordini.cliente, `%${query.cliente.trim()}%`))
-    if (query.vettore) filters.push(ilike(ordini.traspor, `%${query.vettore.trim()}%`))
-    if (query.stato) filters.push(ilike(ordini.stato, `%${query.stato.trim()}%`))
-
-    if (query.fromDate) filters.push(gte(ordini.dataConsegna, parseInputDate(query.fromDate)))
-    if (query.toDate) {
-      const endOfDay = parseInputDate(query.toDate)
-      endOfDay.setHours(23, 59, 59, 999)
-      filters.push(lte(ordini.dataConsegna, endOfDay))
-    }
-
-    const whereClause = filters.length ? and(...filters) : undefined
+    const whereClause = buildListFilters(query)
     const sortColumn = {
       rif: ordini.rifto,
       cliente: ordini.cliente,
@@ -369,11 +350,14 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
   }
 })
 
-router.get('/board', async (_req, res, next) => {
+router.get('/board', async (req, res, next) => {
   try {
+    const query = listQuerySchema.parse(req.query)
+    const whereClause = buildListFilters(query)
     const rows = await db
       .select()
       .from(ordini)
+      .where(whereClause)
       .orderBy(desc(ordini.dataConsegna), desc(ordini.createdAt))
 
     const columns = allowedStatuses.map((status) => ({

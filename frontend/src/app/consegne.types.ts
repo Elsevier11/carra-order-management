@@ -43,6 +43,10 @@ export interface ConsegnaFilters {
   toDate?: string;
 }
 
+export interface BoardResponse {
+  columns: BoardColumn[];
+}
+
 export interface ConsegneResponse {
   data: ConsegnaRecord[];
   pagination: {
