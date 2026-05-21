@@ -42,13 +42,8 @@
           @else if (activeView === 'responsabili') { Responsabili }
         </h1>
         <div class="content-header-right">
-          @if (activeView === 'dashboard' || activeView === 'kanban') {
-            @if (stats.kpi.ritardi > 0) {
-              <span class="sla-badge late">{{ stats.kpi.ritardi }} ritardi</span>
-            }
-            <button type="button" class="ghost topbar-filter-btn" [class.active-filters]="activeFiltersCount > 0" (click)="toggleFiltersPanel()">
-              Filtri{{ activeFiltersCount > 0 ? ' (' + activeFiltersCount + ')' : '' }} {{ showFiltersPanel ? '▲' : '▼' }}
-            </button>
+          @if ((activeView === 'dashboard' || activeView === 'kanban') && stats.kpi.ritardi > 0) {
+            <span class="sla-badge late">{{ stats.kpi.ritardi }} ritardi</span>
           }
           @if (canWrite) {
             <button type="button" (click)="openCreate()">Nuova consegna</button>
@@ -56,7 +51,7 @@
         </div>
       </div>
 
-    @if ((activeView === 'dashboard' || activeView === 'kanban') && showFiltersPanel) {
+    @if (activeView === 'dashboard' || activeView === 'kanban') {
       <section class="filters-panel">
         <input type="text" [(ngModel)]="filters.q" (ngModelChange)="onFilterTextChange()" placeholder="Ricerca (rif, cliente, impianto...)" />
         <select [(ngModel)]="filters.cliente" (ngModelChange)="onFilterSelectChange()">
@@ -396,27 +391,6 @@
           <button type="button" class="danger" [disabled]="!selectedDetail" (click)="deleteSelected()">Elimina selezionata</button>
         }
         <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openHistoryModal(selectedDetail!)">Percorso ordine</button>
-        <span class="hint">Clicca una riga per vedere il dettaglio</span>
-      </section>
-
-      <section class="table-card">
-        <ngx-datatable
-          class="material striped"
-          [rows]="rows"
-          [columns]="columns"
-          [columnMode]="'force'"
-          [headerHeight]="48"
-          [rowHeight]="44"
-          [footerHeight]="52"
-          [count]="total"
-          [offset]="page - 1"
-          [limit]="pageSize"
-          [loadingIndicator]="loading"
-          [externalPaging]="true"
-          (activate)="onActivate($event)"
-          (page)="onPage($event)"
-        >
-        </ngx-datatable>
       </section>
 
     }
