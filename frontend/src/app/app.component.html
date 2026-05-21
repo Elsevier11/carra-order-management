@@ -13,25 +13,76 @@
   </div>
 } @else {
   <div class="page">
-    <header class="hero">
-      <div>
-        <h1>Dashboard Consegne Carra</h1>
-        <p>Monitoraggio operativo consegne 2026</p>
+    <nav class="sidebar">
+      <span class="sidebar-brand">Carra Consegne</span>
+      <div class="sidebar-nav">
+        <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
+        <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Kanban</button>
+        @if (isAdmin) {
+          <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Audit</button>
+          <button type="button" [class.active]="activeView === 'users'" (click)="changeView('users')">Utenti</button>
+          <button type="button" [class.active]="activeView === 'commerciali'" (click)="changeView('commerciali')">Commerciali</button>
+          <button type="button" [class.active]="activeView === 'responsabili'" (click)="changeView('responsabili')">Responsabili</button>
+        }
       </div>
-      <div class="user-box">
-        <span>{{ user.username }} ({{ user.role }})</span>
-        <button class="ghost" type="button" (click)="logout()">Logout</button>
+      <div class="sidebar-footer">
+        <span class="sidebar-user">{{ user.username }} ({{ user.role }})</span>
+        <button type="button" (click)="logout()">Logout</button>
       </div>
-    </header>
+    </nav>
 
-    <section class="view-switch">
-      <button type="button" [class.ghost]="activeView !== 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
-      <button type="button" [class.ghost]="activeView !== 'kanban'" (click)="changeView('kanban')">Kanban Stati</button>
-      @if (isAdmin) {
-        <button type="button" [class.ghost]="activeView !== 'audit'" (click)="changeView('audit')">Audit Log</button>
-        <button type="button" [class.ghost]="activeView !== 'users'" (click)="changeView('users')">Utenti</button>
-      }
-    </section>
+    <div class="content">
+      <div class="content-header">
+        <h1 class="content-title">
+          @if (activeView === 'dashboard') { Dashboard }
+          @else if (activeView === 'kanban') { Kanban Board }
+          @else if (activeView === 'audit') { Audit Log }
+          @else if (activeView === 'users') { Utenti }
+          @else if (activeView === 'commerciali') { Commerciali }
+          @else if (activeView === 'responsabili') { Responsabili }
+        </h1>
+        <div class="content-header-right">
+          @if (activeView === 'dashboard' || activeView === 'kanban') {
+            @if (stats.kpi.ritardi > 0) {
+              <span class="sla-badge late">{{ stats.kpi.ritardi }} ritardi</span>
+            }
+            <button type="button" class="ghost topbar-filter-btn" [class.active-filters]="activeFiltersCount > 0" (click)="toggleFiltersPanel()">
+              Filtri{{ activeFiltersCount > 0 ? ' (' + activeFiltersCount + ')' : '' }} {{ showFiltersPanel ? '▲' : '▼' }}
+            </button>
+          }
+          @if (canWrite) {
+            <button type="button" (click)="openCreate()">Nuova consegna</button>
+          }
+        </div>
+      </div>
+
+    @if ((activeView === 'dashboard' || activeView === 'kanban') && showFiltersPanel) {
+      <section class="filters-panel">
+        <input type="text" [(ngModel)]="filters.q" (ngModelChange)="onFilterTextChange()" placeholder="Ricerca (rif, cliente, impianto...)" />
+        <select [(ngModel)]="filters.cliente" (ngModelChange)="onFilterSelectChange()">
+          <option value="">Tutti i clienti</option>
+          @for (cliente of availableFilters.clienti; track cliente) {
+            <option [value]="cliente">{{ cliente }}</option>
+          }
+        </select>
+        <select [(ngModel)]="filters.vettore" (ngModelChange)="onFilterSelectChange()">
+          <option value="">Tutti i vettori</option>
+          @for (vettore of availableFilters.vettori; track vettore) {
+            <option [value]="vettore">{{ vettore }}</option>
+          }
+        </select>
+        <select [(ngModel)]="filters.stato" (ngModelChange)="onFilterSelectChange()">
+          <option value="">Tutti gli stati</option>
+          @for (stato of availableFilters.stati; track stato) {
+            <option [value]="stato">{{ stato }}</option>
+          }
+        </select>
+        <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
+        <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
+        <button type="button" class="ghost" (click)="resetFilters()">Reset filtri</button>
+        <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
+      </section>
+    }
 
     @if (activeView === 'audit') {
       <section class="filters">
@@ -61,7 +112,7 @@
                 <th>Data</th>
                 <th>Utente</th>
                 <th>Azione</th>
-                <th>Path</th>
+                <th>Entita</th>
                 <th>Esito</th>
               </tr>
             </thead>
@@ -69,11 +120,17 @@
               @for (item of auditRows; track item.id) {
                 <tr (click)="selectAuditRow(item)" [class.active]="selectedAuditRow?.id === item.id">
                   <td>{{ item.id }}</td>
-                  <td>{{ item.createdAt }}</td>
+                  <td>{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
                   <td>{{ item.username || '-' }}</td>
-                  <td>{{ item.action }}</td>
-                  <td>{{ item.path }}</td>
-                  <td>{{ item.success ? 'OK' : 'KO' }} ({{ item.statusCode }})</td>
+                  <td><span class="audit-action-badge" [ngClass]="auditActionClass(item.action)">{{ auditActionLabel(item.action) }}</span></td>
+                  <td>
+                    @if (item.entityId && item.entity === 'consegna') {
+                      <button type="button" class="link-btn" (click)="$event.stopPropagation(); openOrderFromAudit(item.entityId!)">{{ item.entity }} #{{ item.entityId }}</button>
+                    } @else {
+                      {{ item.entity || '-' }}{{ item.entityId ? ' #' + item.entityId : '' }}
+                    }
+                  </td>
+                  <td [class.cell-ok]="item.success" [class.cell-ko]="!item.success">{{ item.success ? 'OK' : 'KO' }} ({{ item.statusCode }})</td>
                 </tr>
               }
             </tbody>
@@ -191,45 +248,71 @@
           </div>
         </section>
       }
+    } @else if (activeView === 'commerciali') {
+      <section class="detail-card">
+        <h2>Gestione Commerciali</h2>
+        <div class="modal-grid">
+          <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
+          <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
+        </div>
+      </section>
+
+      @if (operationError) { <div class="error">{{ operationError }}</div> }
+      @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
+
+      <section class="table-card">
+        @if (commercialiLoading) {
+          <p>Caricamento...</p>
+        } @else {
+          <table class="audit-table">
+            <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+            <tbody>
+              @for (item of commercialiRows; track item.id) {
+                <tr>
+                  <td>{{ item.nome }}</td>
+                  <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
+                </tr>
+              }
+              @if (!commercialiRows.length) {
+                <tr><td colspan="2">Nessun commerciale.</td></tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    } @else if (activeView === 'responsabili') {
+      <section class="detail-card">
+        <h2>Gestione Responsabili Interni</h2>
+        <div class="modal-grid">
+          <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
+          <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
+        </div>
+      </section>
+
+      @if (operationError) { <div class="error">{{ operationError }}</div> }
+      @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
+
+      <section class="table-card">
+        @if (responsabiliLoading) {
+          <p>Caricamento...</p>
+        } @else {
+          <table class="audit-table">
+            <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+            <tbody>
+              @for (item of responsabiliRows; track item.id) {
+                <tr>
+                  <td>{{ item.nome }}</td>
+                  <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
+                </tr>
+              }
+              @if (!responsabiliRows.length) {
+                <tr><td colspan="2">Nessun responsabile.</td></tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
     } @else {
-      <section class="kpi-grid">
-        <article class="kpi-card">
-          <span class="kpi-label">Settimana Corrente</span>
-          <strong class="kpi-value">{{ stats.kpi.consegneSettimanaCorrente }}</strong>
-        </article>
-        <article class="kpi-card alert">
-          <span class="kpi-label">Ritardi</span>
-          <strong class="kpi-value">{{ stats.kpi.ritardi }}</strong>
-        </article>
-      </section>
-
-      <section class="filters">
-        <input type="text" [(ngModel)]="filters.q" placeholder="Ricerca libera (rif, cliente, impianto...)" />
-        <select [(ngModel)]="filters.cliente">
-          <option value="">Tutti i clienti</option>
-          @for (cliente of availableFilters.clienti; track cliente) {
-            <option [value]="cliente">{{ cliente }}</option>
-          }
-        </select>
-        <select [(ngModel)]="filters.vettore">
-          <option value="">Tutti i vettori</option>
-          @for (vettore of availableFilters.vettori; track vettore) {
-            <option [value]="vettore">{{ vettore }}</option>
-          }
-        </select>
-        <select [(ngModel)]="filters.stato">
-          <option value="">Tutti gli stati</option>
-          @for (stato of availableFilters.stati; track stato) {
-            <option [value]="stato">{{ stato }}</option>
-          }
-        </select>
-        <input type="date" [(ngModel)]="filters.fromDate" />
-        <input type="date" [(ngModel)]="filters.toDate" />
-        <button type="button" (click)="applyFilters()">Filtra</button>
-        <button type="button" class="ghost" (click)="resetFilters()">Reset</button>
-        <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
-      </section>
-
       @if (operationError) {
         <div class="error">{{ operationError }}</div>
       }
@@ -288,14 +371,17 @@
                   (cdkDropListDropped)="onKanbanDrop($event, column.status)"
                 >
                   @for (item of filteredKanbanItems(column.items); track item.id) {
-                    <button type="button" class="kanban-card" cdkDrag [disabled]="!canWrite || showOnlyLateInKanban" (click)="selectFromBoard(item)">
-                      <strong>{{ item.rif }}</strong>
-                      <span>{{ item.cliente }}</span>
-                      <small>{{ item.vettore || 'N/D' }} - {{ item.dataConsegna || '-' }}</small>
-                      @if (isLate(item)) {
-                        <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
-                      }
-                    </button>
+                    <div class="kanban-card-wrap">
+                      <button type="button" class="kanban-card" cdkDrag [disabled]="!canWrite || showOnlyLateInKanban" (click)="selectFromBoard(item)">
+                        <strong>{{ item.rif }}</strong>
+                        <span>{{ item.cliente }}</span>
+                        <small>{{ item.vettore || 'N/D' }} - {{ item.dataConsegna || '-' }}</small>
+                        @if (isLate(item)) {
+                          <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
+                        }
+                      </button>
+                      <button type="button" class="kanban-history-btn" title="Percorso ordine" (click)="openHistoryModal(item)">&#9203;</button>
+                    </div>
                   }
                 </div>
               </article>
@@ -306,10 +392,10 @@
 
       <section class="actions">
         @if (canWrite) {
-          <button type="button" (click)="openCreate()">Nuova consegna</button>
           <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openEdit()">Modifica selezionata</button>
           <button type="button" class="danger" [disabled]="!selectedDetail" (click)="deleteSelected()">Elimina selezionata</button>
         }
+        <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openHistoryModal(selectedDetail!)">Percorso ordine</button>
         <span class="hint">Clicca una riga per vedere il dettaglio</span>
       </section>
 
@@ -333,12 +419,16 @@
         </ngx-datatable>
       </section>
 
-      <section class="detail-card">
-        <h2>Dettaglio consegna</h2>
+    }
+    </div>
+  </div>
+
+  @if (detailModalOpen && selectedDetail) {
+    <div class="modal-backdrop" (click)="closeDetailModal()">
+      <div class="modal modal--detail" (click)="$event.stopPropagation()">
+        <h2>Dettaglio — {{ selectedDetail.rif }}</h2>
         @if (loadingDetails) {
           <p>Caricamento...</p>
-        } @else if (!selectedDetail) {
-          <p>Seleziona una consegna dalla tabella.</p>
         } @else {
           <div class="detail-grid">
             <div><strong>Rif:</strong> {{ selectedDetail.rif }}</div>
@@ -347,6 +437,18 @@
             <div><strong>Data consegna:</strong> {{ selectedDetail.dataConsegna || '-' }}</div>
             <div><strong>Vettore:</strong> {{ selectedDetail.vettore || '-' }}</div>
             <div><strong>Cantiere:</strong> {{ selectedDetail.cantiere || '-' }}</div>
+            <div><strong>Trasporto ns. carico:</strong> {{ selectedDetail.trasporto ? 'SI' : 'NO' }}</div>
+            <div><strong>Scarico ns. carico:</strong> {{ selectedDetail.scaricoCarico ? 'SI' : 'NO' }}</div>
+            <div>
+              <strong>Acconto pagato:</strong>
+              @if (selectedDetail.accontoPagato) {
+                <span class="badge-ok">SI</span>
+              } @else {
+                <span class="badge-warn">NO</span>
+              }
+            </div>
+            <div><strong>Commerciale:</strong> {{ nomeCommerciale(selectedDetail.commercialeId) }}</div>
+            <div><strong>Responsabile:</strong> {{ nomeResponsabile(selectedDetail.responsabileInternoId) }}</div>
             <div class="full-row"><strong>Tipo impianto:</strong> {{ selectedDetail.tipoImpianto || '-' }}</div>
             <div class="full-row"><strong>Note:</strong> {{ selectedDetail.note || '-' }}</div>
           </div>
@@ -386,6 +488,7 @@
           @if (canWrite) {
             <div class="transition-box">
               <h3>Cambio stato rapido</h3>
+              @if (operationError) { <div class="error">{{ operationError }}</div> }
               <div class="transition-grid">
                 <select [(ngModel)]="transitionModel.toStatus">
                   <option value="">Seleziona stato</option>
@@ -400,30 +503,59 @@
           }
 
           <div class="history-box">
-            <h3>Storico stato</h3>
+            <h3>Storico modifiche</h3>
             @if (loadingHistory) {
               <p>Caricamento storico...</p>
             } @else if (!history.length) {
               <p>Nessun evento registrato.</p>
             } @else {
-              <ul class="history-list">
+              <ul class="timeline">
                 @for (event of history; track event.id) {
-                  <li>
-                    <strong>{{ event.eventType }}</strong>
-                    <span>{{ event.fromStatus || '-' }} -> {{ event.toStatus || '-' }}</span>
-                    <small>{{ event.createdAt }} - {{ event.actor || 'sistema' }}</small>
-                    @if (event.note) {
-                      <em>{{ event.note }}</em>
-                    }
+                  <li class="timeline-item">
+                    <div class="timeline-dot" [ngClass]="eventTypeClass(event.eventType)"></div>
+                    <div class="timeline-content">
+                      <div class="timeline-header">
+                        <span class="event-badge" [ngClass]="eventTypeClass(event.eventType)">{{ eventTypeLabel(event.eventType) }}</span>
+                        <span class="timeline-meta">{{ event.createdAt | date:'dd/MM/yyyy HH:mm':'UTC' }} — {{ event.actor || 'sistema' }}</span>
+                      </div>
+                      @if (diffSummary(event)) {
+                        <div class="timeline-diff-summary">{{ diffSummary(event) }}</div>
+                      }
+                      @if (event.fromStatus || event.toStatus) {
+                        <div class="timeline-transition">{{ event.fromStatus || '—' }} <span class="arrow">→</span> {{ event.toStatus || '—' }}</div>
+                      }
+                      @if (event.note) {
+                        <div class="timeline-note">{{ event.note }}</div>
+                      }
+                      @if (getDiffEntries(event).length > 0) {
+                        <table class="diff-table">
+                          <thead><tr><th>Campo</th><th>Prima</th><th>Dopo</th></tr></thead>
+                          <tbody>
+                            @for (entry of getDiffEntries(event); track entry.field) {
+                              <tr><td>{{ entry.field }}</td><td class="diff-old">{{ entry.from }}</td><td class="diff-new">{{ entry.to }}</td></tr>
+                            }
+                          </tbody>
+                        </table>
+                      }
+                    </div>
                   </li>
                 }
               </ul>
             }
           </div>
         }
-      </section>
-    }
-  </div>
+
+        <div class="modal-actions">
+          @if (canWrite) {
+            <button type="button" class="ghost" (click)="openEdit()">Modifica</button>
+            <button type="button" class="danger" (click)="deleteSelected()">Elimina</button>
+          }
+          <button type="button" class="ghost" (click)="openHistoryModal(selectedDetail!)">Percorso completo</button>
+          <button type="button" class="ghost" (click)="closeDetailModal()">Chiudi</button>
+        </div>
+      </div>
+    </div>
+  }
 
   @if (formVisible) {
     <div class="modal-backdrop">
@@ -438,11 +570,84 @@
           <input type="date" [(ngModel)]="formModel.dataOrdine" />
           <input type="text" [(ngModel)]="formModel.vettore" placeholder="Vettore" />
           <input type="text" [(ngModel)]="formModel.stato" placeholder="Stato" />
+          <select [(ngModel)]="formModel.commercialeId">
+            <option [ngValue]="null">Nessun commerciale</option>
+            @for (c of commercialiRows; track c.id) {
+              <option [ngValue]="c.id">{{ c.nome }}</option>
+            }
+          </select>
+          <select [(ngModel)]="formModel.responsabileInternoId">
+            <option [ngValue]="null">Nessun responsabile</option>
+            @for (r of responsabiliRows; track r.id) {
+              <option [ngValue]="r.id">{{ r.nome }}</option>
+            }
+          </select>
+          <label class="kanban-toggle">
+            <input type="checkbox" [(ngModel)]="formModel.trasporto" />
+            <span>Trasporto a nostro carico</span>
+          </label>
+          <label class="kanban-toggle">
+            <input type="checkbox" [(ngModel)]="formModel.scaricoCarico" />
+            <span>Scarico a nostro carico</span>
+          </label>
+          <label class="kanban-toggle">
+            <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
+            <span>Acconto pagato</span>
+          </label>
           <textarea [(ngModel)]="formModel.note" placeholder="Note"></textarea>
         </div>
         <div class="modal-actions">
           <button type="button" (click)="saveForm()">Salva</button>
           <button type="button" class="ghost" (click)="closeForm()">Annulla</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (historyModalTitle) {
+    <div class="modal-backdrop">
+      <div class="modal modal--history">
+        <h2>Percorso ordine — {{ historyModalTitle }}</h2>
+        @if (loadingHistoryModal) {
+          <p>Caricamento...</p>
+        } @else if (!historyModalEvents.length) {
+          <p>Nessun evento registrato.</p>
+        } @else {
+          <ul class="timeline timeline--full">
+            @for (event of historyModalEvents; track event.id) {
+              <li class="timeline-item">
+                <div class="timeline-dot" [ngClass]="eventTypeClass(event.eventType)"></div>
+                <div class="timeline-content">
+                  <div class="timeline-header">
+                    <span class="event-badge" [ngClass]="eventTypeClass(event.eventType)">{{ eventTypeLabel(event.eventType) }}</span>
+                    <span class="timeline-meta">{{ event.createdAt | date:'dd/MM/yyyy HH:mm':'UTC' }} — {{ event.actor || 'sistema' }}</span>
+                  </div>
+                  @if (diffSummary(event)) {
+                    <div class="timeline-diff-summary">{{ diffSummary(event) }}</div>
+                  }
+                  @if (event.fromStatus || event.toStatus) {
+                    <div class="timeline-transition">{{ event.fromStatus || '—' }} <span class="arrow">→</span> {{ event.toStatus || '—' }}</div>
+                  }
+                  @if (event.note) {
+                    <div class="timeline-note">{{ event.note }}</div>
+                  }
+                  @if (getDiffEntries(event).length > 0) {
+                    <table class="diff-table">
+                      <thead><tr><th>Campo</th><th>Prima</th><th>Dopo</th></tr></thead>
+                      <tbody>
+                        @for (entry of getDiffEntries(event); track entry.field) {
+                          <tr><td>{{ entry.field }}</td><td class="diff-old">{{ entry.from }}</td><td class="diff-new">{{ entry.to }}</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+        <div class="modal-actions">
+          <button type="button" class="ghost" (click)="closeHistoryModal()">Chiudi</button>
         </div>
       </div>
     </div>
