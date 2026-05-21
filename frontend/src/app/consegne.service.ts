@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardColumn, ConsegnaFilters, ConsegneResponse, ConsegnaStats, FilterOptions, OrderEvent } from './consegne.types';
+import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardColumn, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, FilterOptions, OrderEvent, ResponsabileRecord } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
@@ -10,6 +10,8 @@ export class ConsegneService {
   private readonly baseUrl = `${environment.apiUrl}/consegne`;
   private readonly auditUrl = `${environment.apiUrl}/audit`;
   private readonly usersUrl = `${environment.apiUrl}/users`;
+  private readonly commercialiUrl = `${environment.apiUrl}/commerciali`;
+  private readonly responsabiliUrl = `${environment.apiUrl}/responsabili`;
 
   list(query: ConsegnaFilters & { page: number; pageSize: number; sortBy: string; sortDir: string }): Observable<ConsegneResponse> {
     let params = new HttpParams();
@@ -127,5 +129,37 @@ export class ConsegneService {
 
   delete(id: number) {
     return this.http.delete(`${this.baseUrl}/${id}`);
+  }
+
+  listCommerciali(): Observable<{ data: CommercialeRecord[] }> {
+    return this.http.get<{ data: CommercialeRecord[] }>(this.commercialiUrl);
+  }
+
+  createCommerciale(payload: { nome: string }): Observable<CommercialeRecord> {
+    return this.http.post<CommercialeRecord>(this.commercialiUrl, payload);
+  }
+
+  updateCommerciale(id: number, payload: { nome: string }): Observable<CommercialeRecord> {
+    return this.http.put<CommercialeRecord>(`${this.commercialiUrl}/${id}`, payload);
+  }
+
+  deleteCommerciale(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.commercialiUrl}/${id}`);
+  }
+
+  listResponsabili(): Observable<{ data: ResponsabileRecord[] }> {
+    return this.http.get<{ data: ResponsabileRecord[] }>(this.responsabiliUrl);
+  }
+
+  createResponsabile(payload: { nome: string }): Observable<ResponsabileRecord> {
+    return this.http.post<ResponsabileRecord>(this.responsabiliUrl, payload);
+  }
+
+  updateResponsabile(id: number, payload: { nome: string }): Observable<ResponsabileRecord> {
+    return this.http.put<ResponsabileRecord>(`${this.responsabiliUrl}/${id}`, payload);
+  }
+
+  deleteResponsabile(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.responsabiliUrl}/${id}`);
   }
 }

@@ -6,6 +6,8 @@ import authRoutes from './routes/auth'
 import auditRoutes from './routes/audit'
 import importRoutes from './routes/import'
 import usersRoutes from './routes/users'
+import commercialiRoutes from './routes/commerciali'
+import responsabiliRoutes from './routes/responsabili'
 import { BadRequestError } from './errors'
 import { auditMiddleware } from './audit'
 
@@ -34,6 +36,8 @@ export function createApp() {
   app.use('/api/audit', auditRoutes)
   app.use('/api/import', importRoutes)
   app.use('/api/users', usersRoutes)
+  app.use('/api/commerciali', commercialiRoutes)
+  app.use('/api/responsabili', responsabiliRoutes)
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof ZodError) {

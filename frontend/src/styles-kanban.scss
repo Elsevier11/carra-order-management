@@ -1,8 +1,10 @@
 .kanban-grid {
   margin-top: 20px;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  align-items: flex-start;
 }
 
 .kanban-toolbar {
@@ -52,9 +54,19 @@
   color: #0f766e;
 }
 
+.status-chip.status-disegno-gestione {
+  border-color: #7c3aed;
+  color: #7c3aed;
+}
+
 .status-chip.status-pronti-avvisati {
   border-color: #b45309;
   color: #b45309;
+}
+
+.status-chip.status-consegna-pianificata {
+  border-color: #ea580c;
+  color: #ea580c;
 }
 
 .status-chip.status-conclusi {
@@ -68,6 +80,8 @@
 }
 
 .kanban-column {
+  flex: 1 1 0;
+  min-width: 160px;
   background: var(--surface, #ffffff);
   border: 1px solid var(--kanban-color, var(--border, #c6d9d3));
   border-top: 4px solid var(--kanban-color, var(--border, #c6d9d3));
@@ -75,6 +89,7 @@
   padding: 10px;
   display: grid;
   gap: 10px;
+  box-sizing: border-box;
 }
 
 .kanban-column.status-in-corso {
@@ -85,8 +100,16 @@
   --kanban-color: #0f766e;
 }
 
+.kanban-column.status-disegno-gestione {
+  --kanban-color: #7c3aed;
+}
+
 .kanban-column.status-pronti-avvisati {
   --kanban-color: #b45309;
+}
+
+.kanban-column.status-consegna-pianificata {
+  --kanban-color: #ea580c;
 }
 
 .kanban-column.status-conclusi {
@@ -122,7 +145,13 @@
   overflow: auto;
 }
 
+.kanban-card-wrap {
+  width: 100%;
+}
+
 .kanban-card {
+  width: 100%;
+  box-sizing: border-box;
   text-align: left;
   border: 1px solid var(--border, #c6d9d3);
   background: #eef9f7;
@@ -142,9 +171,19 @@
   border-color: #67e8f9;
 }
 
+.kanban-column.status-disegno-gestione .kanban-card {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+}
+
 .kanban-column.status-pronti-avvisati .kanban-card {
   background: #fffbeb;
   border-color: #fcd34d;
+}
+
+.kanban-column.status-consegna-pianificata .kanban-card {
+  background: #fff7ed;
+  border-color: #fdba74;
 }
 
 .kanban-column.status-conclusi .kanban-card {

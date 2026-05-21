@@ -5,7 +5,7 @@ import { Router } from 'express'
 import { and, asc, count, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
 import multer from 'multer'
 import { z } from 'zod'
-import { orderAttachments, ordini } from '../../db/schema'
+import { commerciali, orderAttachments, ordini, responsabiliInterni } from '../../db/schema'
 import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
@@ -15,13 +15,15 @@ const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/
 const dateOrDateTimeRegex = /^\d{4}-\d{2}-\d{2}(?:T.*)?$/
-const allowedStatuses = ['IN CORSO', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONCLUSI', 'SOSPESO'] as const
+const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONCLUSI', 'SOSPESO'] as const
 const transitionMap: Record<(typeof allowedStatuses)[number], (typeof allowedStatuses)[number][]> = {
-  'IN CORSO': ['IN LAVORAZIONE', 'SOSPESO'],
+  'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
+  'DISEGNO IN GESTIONE': ['IN LAVORAZIONE', 'SOSPESO'],
   'IN LAVORAZIONE': ['PRONTI & AVVISATI', 'SOSPESO'],
-  'PRONTI & AVVISATI': ['CONCLUSI', 'SOSPESO'],
+  'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
+  'CONSEGNA PIANIFICATA': ['CONCLUSI', 'SOSPESO'],
   CONCLUSI: [],
-  SOSPESO: ['IN CORSO', 'IN LAVORAZIONE'],
+  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
 }
 const attachmentsRoot = path.resolve(process.env.ATTACHMENTS_DIR ?? './data/uploads')
 const allowedAttachmentExtensions = (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS ?? 'pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx')
@@ -84,6 +86,11 @@ const consegnaInputSchema = z.object({
   operai: z.string().optional().nullable(),
   stato: z.enum(allowedStatuses).or(z.string().min(1)).default('IN CORSO'),
   note: z.string().optional().nullable(),
+  trasporto: z.boolean().optional().default(false),
+  scaricoCarico: z.boolean().optional().default(false),
+  accontoPagato: z.boolean().optional().default(false),
+  commercialeId: z.number().int().positive().optional().nullable(),
+  responsabileInternoId: z.number().int().positive().optional().nullable(),
 })
 
 const transitionSchema = z.object({
@@ -99,6 +106,7 @@ type OrderEvent = {
   toStatus: string | null
   note: string | null
   actor: string | null
+  details: Record<string, unknown> | null
   createdAt: string
 }
 
@@ -132,6 +140,11 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     operai: row.operai,
     stato: row.stato ?? 'IN CORSO',
     note: row.note,
+    trasporto: row.trasporto ?? false,
+    scaricoCarico: row.scaricoCarico ?? false,
+    accontoPagato: row.accontoPagato ?? false,
+    commercialeId: row.commercialeId ?? null,
+    responsabileInternoId: row.responsabileInternoId ?? null,
     createdAt: row.createdAt,
   }
 }
@@ -185,16 +198,18 @@ async function addOrderEvent(payload: {
   toStatus?: string | null
   note?: string | null
   actor?: string | null
+  details?: Record<string, unknown> | null
 }) {
   await db.execute(sql`
-    insert into order_events (order_id, event_type, from_status, to_status, note, actor)
+    insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
     values (
       ${payload.orderId},
       ${payload.eventType},
       ${payload.fromStatus ?? null},
       ${payload.toStatus ?? null},
       ${payload.note ?? null},
-      ${payload.actor ?? null}
+      ${payload.actor ?? null},
+      ${payload.details ? JSON.stringify(payload.details) : null}
     )
   `)
 }
@@ -475,6 +490,7 @@ router.get('/:id/history', async (req, res, next) => {
         to_status as "toStatus",
         note,
         actor,
+        details,
         to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt"
       from order_events
       where order_id = ${id}
@@ -682,6 +698,12 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       return res.status(400).json({ message: 'Sospensione richiede un motivo' })
     }
 
+    if (payload.toStatus === 'PRONTI & AVVISATI' && !row.accontoPagato) {
+      return res.status(400).json({
+        message: "Impossibile avanzare a 'PRONTI & AVVISATI': acconto non ancora registrato come pagato.",
+      })
+    }
+
     const [updated] = await db
       .update(ordini)
       .set({
@@ -744,6 +766,11 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
         operai: payload.operai ?? null,
         stato: payload.stato,
         note: payload.note ?? null,
+        trasporto: payload.trasporto ?? false,
+        scaricoCarico: payload.scaricoCarico ?? false,
+        accontoPagato: payload.accontoPagato ?? false,
+        commercialeId: payload.commercialeId ?? null,
+        responsabileInternoId: payload.responsabileInternoId ?? null,
       })
       .returning()
 
@@ -790,18 +817,64 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('operai' in payload) updateData.operai = payload.operai ?? null
     if ('stato' in payload) updateData.stato = payload.stato
     if ('note' in payload) updateData.note = payload.note ?? null
+    if ('trasporto' in payload) updateData.trasporto = payload.trasporto ?? false
+    if ('scaricoCarico' in payload) updateData.scaricoCarico = payload.scaricoCarico ?? false
+    if ('accontoPagato' in payload) updateData.accontoPagato = payload.accontoPagato ?? false
+    if ('commercialeId' in payload) updateData.commercialeId = payload.commercialeId ?? null
+    if ('responsabileInternoId' in payload) updateData.responsabileInternoId = payload.responsabileInternoId ?? null
+
+    // Calculate field-level diff (old vs new)
+    const diff: Record<string, { from: unknown; to: unknown }> = {}
+    const normDate = (d: Date | null | undefined): string | null =>
+      d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : null
+    const diffStr = (field: string, o: string | null | undefined, n: string | null | undefined): void => {
+      if ((o ?? '') !== (n ?? '')) diff[field] = { from: o ?? null, to: n ?? null }
+    }
+    const diffBool = (field: string, o: boolean | null | undefined, n: boolean | null | undefined): void => {
+      if ((o ?? false) !== (n ?? false)) diff[field] = { from: o ?? false, to: n ?? false }
+    }
+    const diffNum = (field: string, o: number | null | undefined, n: number | null | undefined): void => {
+      if ((o ?? null) !== (n ?? null)) diff[field] = { from: o ?? null, to: n ?? null }
+    }
+
+    if ('rif' in payload) diffStr('rif', existing.rifto, payload.rif)
+    if ('cliente' in payload) diffStr('cliente', existing.cliente, payload.cliente)
+    if ('tipoImpianto' in payload) diffStr('tipoImpianto', existing.tipoImpianto, payload.tipoImpianto)
+    if ('dataConsegna' in payload) diffStr('dataConsegna', normDate(existing.dataConsegna), payload.dataConsegna)
+    if ('cantiere' in payload) diffStr('cantiere', existing.cantiere, payload.cantiere)
+    if ('dataOrdine' in payload) diffStr('dataOrdine', normDate(existing.dataOrdine), payload.dataOrdine)
+    if ('vettore' in payload) diffStr('vettore', existing.traspor, payload.vettore)
+    if ('scarico' in payload) diffStr('scarico', existing.scarico, payload.scarico)
+    if ('vascheCav' in payload) diffStr('vascheCav', existing.vascheCav, payload.vascheCav)
+    if ('accessori' in payload) diffStr('accessori', existing.accessori, payload.accessori)
+    if ('operai' in payload) diffStr('operai', existing.operai, payload.operai)
+    if ('stato' in payload) diffStr('stato', existing.stato, payload.stato)
+    if ('note' in payload) diffStr('note', existing.note, payload.note)
+    if ('trasporto' in payload) diffBool('trasporto', existing.trasporto, payload.trasporto)
+    if ('scaricoCarico' in payload) diffBool('scaricoCarico', existing.scaricoCarico, payload.scaricoCarico)
+    if ('accontoPagato' in payload) diffBool('accontoPagato', existing.accontoPagato, payload.accontoPagato)
+    if ('commercialeId' in payload) diffNum('commercialeId', existing.commercialeId, payload.commercialeId)
+    if ('responsabileInternoId' in payload) diffNum('responsabileInternoId', existing.responsabileInternoId, payload.responsabileInternoId)
 
     const [updated] = await db.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
 
-    if ((payload.stato && payload.stato !== (existing.stato ?? 'IN CORSO')) || payload.note) {
+    if (Object.keys(diff).length > 0) {
       await addOrderEvent({
         orderId: id,
-        eventType: payload.stato ? 'STATUS_CHANGED' : 'ORDER_UPDATED',
-        fromStatus: payload.stato ? existing.stato ?? 'IN CORSO' : null,
-        toStatus: payload.stato ?? null,
-        note: payload.note ?? null,
+        eventType: diff.stato ? 'STATUS_CHANGED' : 'ORDER_UPDATED',
+        fromStatus: diff.stato ? String(diff.stato.from ?? '') || null : null,
+        toStatus: diff.stato ? String(diff.stato.to ?? '') || null : null,
+        note: null,
         actor: req.user?.username ?? null,
+        details: { diff },
       })
+    }
+
+    req.auditMeta = {
+      action: diff.stato ? 'STATUS_CHANGED' : 'ORDER_UPDATED',
+      entity: 'consegna',
+      entityId: id,
+      details: Object.keys(diff).length > 0 ? { diff } : undefined,
     }
 
     res.json(normalizeRow(updated))

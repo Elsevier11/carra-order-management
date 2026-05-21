@@ -1,4 +1,16 @@
-import { bigint, boolean, decimal, integer, jsonb, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
+import { bigint, boolean, integer, jsonb, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
+
+export const commerciali = pgTable('commerciali', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const responsabiliInterni = pgTable('responsabili_interni', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
 
 export const ordini = pgTable('ordini', {
   id: serial('id').primaryKey(),
@@ -15,6 +27,11 @@ export const ordini = pgTable('ordini', {
   operai: text('operai'),
   stato: text('stato').default('IN CORSO'),
   note: text('note'),
+  trasporto: boolean('trasporto').notNull().default(false),
+  scaricoCarico: boolean('scarico_carico').notNull().default(false),
+  accontoPagato: boolean('acconto_pagato').notNull().default(false),
+  commercialeId: integer('commerciale_id').references(() => commerciali.id, { onDelete: 'set null' }),
+  responsabileInternoId: integer('responsabile_interno_id').references(() => responsabiliInterni.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
 })
 

@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Component, OnInit, Type, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, Type, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { AuthService } from './auth.service';
 import { ConsegneService } from './consegne.service';
@@ -11,11 +13,13 @@ import {
   AuditLogRecord,
   AuthUser,
   BoardColumn,
+  CommercialeRecord,
   ConsegnaFilters,
   ConsegnaRecord,
   ConsegnaStats,
   ConsegnaStatus,
   OrderEvent,
+  ResponsabileRecord,
 } from './consegne.types';
 
 type EditableConsegna = {
@@ -32,9 +36,14 @@ type EditableConsegna = {
   operai: string;
   stato: string;
   note: string;
+  trasporto: boolean;
+  scaricoCarico: boolean;
+  accontoPagato: boolean;
+  commercialeId: number | null;
+  responsabileInternoId: number | null;
 };
 
-type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'users';
+type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'users' | 'commerciali' | 'responsabili';
 
 @Component({
   selector: 'app-root',
@@ -42,7 +51,7 @@ type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'users';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   private readonly consegneService = inject(ConsegneService);
   private readonly authService = inject(AuthService);
 
@@ -60,6 +69,10 @@ export class AppComponent implements OnInit {
   operationError = '';
   operationSuccess = '';
   activeView: ViewMode = 'dashboard';
+  showFiltersPanel = false;
+
+  private readonly searchSubject = new Subject<void>();
+  private readonly destroy$ = new Subject<void>();
 
   loginState = {
     username: '',
@@ -70,13 +83,15 @@ export class AppComponent implements OnInit {
   user: AuthUser | null = null;
   canWrite = false;
 
-  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONCLUSI', 'SOSPESO'];
+  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONCLUSI', 'SOSPESO'];
   readonly transitionRules: Record<ConsegnaStatus, ConsegnaStatus[]> = {
-    'IN CORSO': ['IN LAVORAZIONE', 'SOSPESO'],
+    'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
+    'DISEGNO IN GESTIONE': ['IN LAVORAZIONE', 'SOSPESO'],
     'IN LAVORAZIONE': ['PRONTI & AVVISATI', 'SOSPESO'],
-    'PRONTI & AVVISATI': ['CONCLUSI', 'SOSPESO'],
+    'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
+    'CONSEGNA PIANIFICATA': ['CONCLUSI', 'SOSPESO'],
     CONCLUSI: [],
-    SOSPESO: ['IN CORSO', 'IN LAVORAZIONE'],
+    SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
   };
 
   boardColumns: BoardColumn[] = [];
@@ -84,6 +99,10 @@ export class AppComponent implements OnInit {
   showOnlyLateInKanban = false;
   history: OrderEvent[] = [];
   loadingHistory = false;
+
+  historyModalTitle = '';
+  historyModalEvents: OrderEvent[] = [];
+  loadingHistoryModal = false;
 
   transitionModel = {
     toStatus: '' as ConsegnaStatus | '',
@@ -150,6 +169,16 @@ export class AppComponent implements OnInit {
     fromDate: '',
     toDate: '',
   };
+  detailModalOpen = false;
+
+  commercialiRows: CommercialeRecord[] = [];
+  commercialiLoading = false;
+  newComercialeModel = { nome: '' };
+
+  responsabiliRows: ResponsabileRecord[] = [];
+  responsabiliLoading = false;
+  newResponsabileModel = { nome: '' };
+
   usersRows: AppUserRecord[] = [];
   usersLoading = false;
   newUserModel: { username: string; role: 'admin' | 'operativo' | 'lettura'; password: string; isActive: boolean } = {
@@ -176,7 +205,16 @@ export class AppComponent implements OnInit {
     return this.user?.role === 'admin';
   }
 
+  get activeFiltersCount(): number {
+    return [this.filters.q, this.filters.cliente, this.filters.vettore, this.filters.stato, this.filters.fromDate, this.filters.toDate]
+      .filter((v) => !!v).length;
+  }
+
   ngOnInit(): void {
+    this.searchSubject.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => {
+      this.applyFilters();
+    });
+
     this.user = this.authService.user;
     this.canWrite = this.user?.role === 'admin' || this.user?.role === 'operativo';
 
@@ -190,6 +228,8 @@ export class AppComponent implements OnInit {
         this.loadFilters();
         this.refreshData();
         this.ensureDashboardChartsLoaded();
+        this.loadCommerciali();
+        this.loadResponsabili();
       }
     });
 
@@ -199,7 +239,26 @@ export class AppComponent implements OnInit {
       this.loadFilters();
       this.refreshData();
       this.ensureDashboardChartsLoaded();
+      this.loadCommerciali();
+      this.loadResponsabili();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  toggleFiltersPanel(): void {
+    this.showFiltersPanel = !this.showFiltersPanel;
+  }
+
+  onFilterTextChange(): void {
+    this.searchSubject.next();
+  }
+
+  onFilterSelectChange(): void {
+    this.applyFilters();
   }
 
   login(): void {
@@ -219,6 +278,7 @@ export class AppComponent implements OnInit {
     this.rows = [];
     this.selectedRow = null;
     this.selectedDetail = null;
+    this.detailModalOpen = false;
     this.attachments = [];
     this.formVisible = false;
     this.selectedAuditRow = null;
@@ -283,6 +343,7 @@ export class AppComponent implements OnInit {
         this.transitionModel.toStatus = '';
         this.transitionModel.note = '';
         this.loadingDetails = false;
+        this.detailModalOpen = true;
         this.loadHistory(id);
         this.loadAttachments(id);
       },
@@ -292,8 +353,15 @@ export class AppComponent implements OnInit {
     });
   }
 
+  closeDetailModal(): void {
+    this.detailModalOpen = false;
+    this.selectedDetail = null;
+    this.history = [];
+    this.attachments = [];
+  }
+
   changeView(view: ViewMode): void {
-    if ((view === 'audit' || view === 'users') && !this.isAdmin) return;
+    if ((view === 'audit' || view === 'users' || view === 'commerciali' || view === 'responsabili') && !this.isAdmin) return;
     this.activeView = view;
     if (view === 'dashboard') {
       this.ensureDashboardChartsLoaded();
@@ -301,8 +369,12 @@ export class AppComponent implements OnInit {
       this.loadBoard();
     } else if (view === 'audit') {
       this.loadAudit(1);
-    } else {
+    } else if (view === 'users') {
       this.loadUsers();
+    } else if (view === 'commerciali') {
+      this.loadCommerciali();
+    } else if (view === 'responsabili') {
+      this.loadResponsabili();
     }
   }
 
@@ -322,8 +394,10 @@ export class AppComponent implements OnInit {
   columnClass(status: string): string {
     const map: Record<string, string> = {
       'IN CORSO': 'status-in-corso',
+      'DISEGNO IN GESTIONE': 'status-disegno-gestione',
       'IN LAVORAZIONE': 'status-in-lavorazione',
       'PRONTI & AVVISATI': 'status-pronti-avvisati',
+      'CONSEGNA PIANIFICATA': 'status-consegna-pianificata',
       CONCLUSI: 'status-conclusi',
       SOSPESO: 'status-sospeso',
     };
@@ -508,6 +582,11 @@ export class AppComponent implements OnInit {
       operai: this.selectedDetail.operai ?? '',
       stato: this.selectedDetail.stato ?? '',
       note: this.selectedDetail.note ?? '',
+      trasporto: this.selectedDetail.trasporto ?? false,
+      scaricoCarico: this.selectedDetail.scaricoCarico ?? false,
+      accontoPagato: this.selectedDetail.accontoPagato ?? false,
+      commercialeId: this.selectedDetail.commercialeId ?? null,
+      responsabileInternoId: this.selectedDetail.responsabileInternoId ?? null,
     };
     this.formVisible = true;
   }
@@ -531,6 +610,11 @@ export class AppComponent implements OnInit {
       operai: this.formModel.operai || null,
       stato: this.formModel.stato || 'IN CORSO',
       note: this.formModel.note || null,
+      trasporto: this.formModel.trasporto,
+      scaricoCarico: this.formModel.scaricoCarico,
+      accontoPagato: this.formModel.accontoPagato,
+      commercialeId: this.formModel.commercialeId,
+      responsabileInternoId: this.formModel.responsabileInternoId,
     };
 
     const req = this.editingId ? this.consegneService.update(this.editingId, payload) : this.consegneService.create(payload);
@@ -559,6 +643,7 @@ export class AppComponent implements OnInit {
         this.operationSuccess = 'Consegna eliminata';
         this.selectedRow = null;
         this.selectedDetail = null;
+        this.detailModalOpen = false;
         this.history = [];
         this.attachments = [];
         this.refreshData(1);
@@ -786,6 +871,141 @@ export class AppComponent implements OnInit {
     this.selectedAuditRow = null;
   }
 
+  openHistoryModal(order: ConsegnaRecord): void {
+    this.historyModalTitle = `${order.rif} — ${order.cliente}`;
+    this.historyModalEvents = [];
+    this.loadingHistoryModal = true;
+    this.consegneService.history(order.id).subscribe({
+      next: (response) => {
+        this.historyModalEvents = response.data;
+        this.loadingHistoryModal = false;
+      },
+      error: () => {
+        this.historyModalEvents = [];
+        this.loadingHistoryModal = false;
+      },
+    });
+  }
+
+  closeHistoryModal(): void {
+    this.historyModalTitle = '';
+    this.historyModalEvents = [];
+  }
+
+  openOrderFromAudit(entityId: number): void {
+    const found = this.rows.find((r) => r.id === entityId);
+    this.historyModalTitle = found ? `${found.rif} — ${found.cliente}` : `Ordine #${entityId}`;
+    this.historyModalEvents = [];
+    this.loadingHistoryModal = true;
+    this.consegneService.history(entityId).subscribe({
+      next: (response) => {
+        this.historyModalEvents = response.data;
+        this.loadingHistoryModal = false;
+      },
+      error: () => {
+        this.historyModalEvents = [];
+        this.loadingHistoryModal = false;
+      },
+    });
+  }
+
+  eventTypeLabel(type: string): string {
+    const map: Record<string, string> = {
+      ORDER_CREATED: 'Creato',
+      ORDER_UPDATED: 'Modificato',
+      STATUS_CHANGED: 'Cambio stato',
+      STATUS_SUSPENDED: 'Sospeso',
+      ATTACHMENT_ADDED: 'Allegato aggiunto',
+      ATTACHMENT_REMOVED: 'Allegato rimosso',
+    };
+    return map[type] ?? type;
+  }
+
+  eventTypeClass(type: string): string {
+    const map: Record<string, string> = {
+      ORDER_CREATED: 'event--created',
+      ORDER_UPDATED: 'event--updated',
+      STATUS_CHANGED: 'event--status',
+      STATUS_SUSPENDED: 'event--suspended',
+      ATTACHMENT_ADDED: 'event--attachment',
+      ATTACHMENT_REMOVED: 'event--attachment',
+    };
+    return map[type] ?? 'event--default';
+  }
+
+  auditActionLabel(action: string): string {
+    const map: Record<string, string> = {
+      ORDER_CREATED: 'Ordine creato',
+      ORDER_UPDATED: 'Ordine modificato',
+      STATUS_CHANGED: 'Cambio stato',
+      STATUS_SUSPENDED: 'Sospensione',
+      ATTACHMENT_ADDED: 'Allegato aggiunto',
+      ATTACHMENT_REMOVED: 'Allegato rimosso',
+      CONSEGNE_LIST: 'Lista consegne',
+      CONSEGNE_EXPORT: 'Export consegne',
+      USER_CREATED: 'Utente creato',
+      USER_UPDATED: 'Utente modificato',
+      USER_PASSWORD_RESET: 'Reset password',
+      AUTH_LOGIN_SUCCESS: 'Login',
+      AUTH_LOGIN_FAILED: 'Login fallito',
+    };
+    return map[action] ?? action;
+  }
+
+  auditActionClass(action: string): string {
+    if (action.includes('FAIL') || action.includes('ERROR')) return 'audit-badge--error';
+    if (action === 'ORDER_CREATED' || action === 'USER_CREATED') return 'audit-badge--created';
+    if (action === 'STATUS_CHANGED' || action === 'STATUS_SUSPENDED') return 'audit-badge--status';
+    if (action.includes('LOGIN')) return 'audit-badge--auth';
+    if (action.includes('ATTACHMENT')) return 'audit-badge--attachment';
+    if (action === 'ORDER_UPDATED' || action === 'USER_UPDATED' || action === 'USER_PASSWORD_RESET') return 'audit-badge--updated';
+    return 'audit-badge--default';
+  }
+
+  getDiffEntries(event: OrderEvent): Array<{ field: string; from: string; to: string }> {
+    let raw: unknown = event.details;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch { return []; }
+    }
+    const details = raw as { diff?: Record<string, { from: unknown; to: unknown }> } | null;
+    if (!details?.diff) return [];
+    return Object.entries(details.diff).map(([field, val]) => ({
+      field: this.fieldLabel(field),
+      from: val.from == null ? '—' : String(val.from),
+      to: val.to == null ? '—' : String(val.to),
+    }));
+  }
+
+  diffSummary(event: OrderEvent): string {
+    const entries = this.getDiffEntries(event);
+    if (!entries.length) return '';
+    return entries.map((e) => e.field).join(', ');
+  }
+
+  private fieldLabel(field: string): string {
+    const map: Record<string, string> = {
+      rif: 'Riferimento',
+      cliente: 'Cliente',
+      tipoImpianto: 'Tipo impianto',
+      dataConsegna: 'Data consegna',
+      cantiere: 'Cantiere',
+      dataOrdine: 'Data ordine',
+      vettore: 'Vettore',
+      scarico: 'Scarico',
+      vascheCav: 'Vasche/Cav.',
+      accessori: 'Accessori',
+      operai: 'Operai',
+      stato: 'Stato',
+      note: 'Note',
+      trasporto: 'Trasporto ns. carico',
+      scaricoCarico: 'Scarico ns. carico',
+      accontoPagato: 'Acconto pagato',
+      commercialeId: 'Commerciale',
+      responsabileInternoId: 'Responsabile',
+    };
+    return map[field] ?? field;
+  }
+
   exportAuditCsv(): void {
     if (!this.isAdmin) return;
     this.consegneService
@@ -811,6 +1031,104 @@ export class AppComponent implements OnInit {
           this.operationError = error?.error?.message ?? 'Errore export audit CSV';
         },
       });
+  }
+
+  loadCommerciali(): void {
+    this.commercialiLoading = true;
+    this.consegneService.listCommerciali().subscribe({
+      next: (response) => {
+        this.commercialiRows = response.data;
+        this.commercialiLoading = false;
+      },
+      error: (error) => {
+        this.commercialiLoading = false;
+        this.operationError = error?.error?.message ?? 'Errore caricamento commerciali';
+      },
+    });
+  }
+
+  createCommerciale(): void {
+    if (!this.isAdmin || !this.newComercialeModel.nome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createCommerciale({ nome: this.newComercialeModel.nome.trim() }).subscribe({
+      next: () => {
+        this.operationSuccess = `Commerciale "${this.newComercialeModel.nome}" creato`;
+        this.newComercialeModel = { nome: '' };
+        this.loadCommerciali();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore creazione commerciale';
+      },
+    });
+  }
+
+  deleteCommerciale(id: number): void {
+    if (!this.isAdmin) return;
+    const item = this.commercialiRows.find((c) => c.id === id);
+    if (!confirm(`Eliminare il commerciale "${item?.nome}"?`)) return;
+    this.consegneService.deleteCommerciale(id).subscribe({
+      next: () => {
+        this.operationSuccess = 'Commerciale eliminato';
+        this.loadCommerciali();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore eliminazione commerciale';
+      },
+    });
+  }
+
+  loadResponsabili(): void {
+    this.responsabiliLoading = true;
+    this.consegneService.listResponsabili().subscribe({
+      next: (response) => {
+        this.responsabiliRows = response.data;
+        this.responsabiliLoading = false;
+      },
+      error: (error) => {
+        this.responsabiliLoading = false;
+        this.operationError = error?.error?.message ?? 'Errore caricamento responsabili';
+      },
+    });
+  }
+
+  createResponsabile(): void {
+    if (!this.isAdmin || !this.newResponsabileModel.nome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createResponsabile({ nome: this.newResponsabileModel.nome.trim() }).subscribe({
+      next: () => {
+        this.operationSuccess = `Responsabile "${this.newResponsabileModel.nome}" creato`;
+        this.newResponsabileModel = { nome: '' };
+        this.loadResponsabili();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore creazione responsabile';
+      },
+    });
+  }
+
+  deleteResponsabile(id: number): void {
+    if (!this.isAdmin) return;
+    const item = this.responsabiliRows.find((r) => r.id === id);
+    if (!confirm(`Eliminare il responsabile "${item?.nome}"?`)) return;
+    this.consegneService.deleteResponsabile(id).subscribe({
+      next: () => {
+        this.operationSuccess = 'Responsabile eliminato';
+        this.loadResponsabili();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore eliminazione responsabile';
+      },
+    });
+  }
+
+  nomeCommerciale(id: number | null): string {
+    return this.commercialiRows.find((c) => c.id === id)?.nome ?? '-';
+  }
+
+  nomeResponsabile(id: number | null): string {
+    return this.responsabiliRows.find((r) => r.id === id)?.nome ?? '-';
   }
 
   auditDetailsAsJson(item: AuditLogRecord | null): string {
@@ -896,6 +1214,11 @@ export class AppComponent implements OnInit {
       operai: '',
       stato: 'IN CORSO',
       note: '',
+      trasporto: false,
+      scaricoCarico: false,
+      accontoPagato: false,
+      commercialeId: null,
+      responsabileInternoId: null,
     };
   }
 

@@ -100,6 +100,29 @@ export async function ensureDatabaseObjects() {
     on app_users(username);
   `)
 
+  await pgClient.unsafe(`
+    create table if not exists commerciali (
+      id serial primary key,
+      nome text not null,
+      created_at timestamp not null default now()
+    );
+  `)
+
+  await pgClient.unsafe(`
+    create table if not exists responsabili_interni (
+      id serial primary key,
+      nome text not null,
+      created_at timestamp not null default now()
+    );
+  `)
+
+  await pgClient.unsafe(`alter table ordini add column if not exists trasporto boolean not null default false;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists scarico_carico boolean not null default false;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists acconto_pagato boolean not null default false;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists commerciale_id integer references commerciali(id) on delete set null;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists responsabile_interno_id integer references responsabili_interni(id) on delete set null;`)
+  await pgClient.unsafe(`alter table order_events add column if not exists details jsonb;`)
+
   const seedUsers = parseSeedUsersFromEnv()
   for (const user of seedUsers) {
     await db.execute(sql`

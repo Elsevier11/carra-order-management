@@ -13,9 +13,26 @@ export interface ConsegnaRecord {
   operai: string | null;
   stato: string;
   note: string | null;
+  trasporto: boolean;
+  scaricoCarico: boolean;
+  accontoPagato: boolean;
+  commercialeId: number | null;
+  responsabileInternoId: number | null;
 }
 
-export type ConsegnaStatus = 'IN CORSO' | 'IN LAVORAZIONE' | 'PRONTI & AVVISATI' | 'CONCLUSI' | 'SOSPESO';
+export interface CommercialeRecord {
+  id: number;
+  nome: string;
+  createdAt: string | null;
+}
+
+export interface ResponsabileRecord {
+  id: number;
+  nome: string;
+  createdAt: string | null;
+}
+
+export type ConsegnaStatus = 'IN CORSO' | 'DISEGNO IN GESTIONE' | 'IN LAVORAZIONE' | 'PRONTI & AVVISATI' | 'CONSEGNA PIANIFICATA' | 'CONCLUSI' | 'SOSPESO';
 
 export interface ConsegnaFilters {
   q?: string;
@@ -65,6 +82,7 @@ export interface OrderEvent {
   toStatus: string | null;
   note: string | null;
   actor: string | null;
+  details: Record<string, unknown> | null;
   createdAt: string;
 }
 
