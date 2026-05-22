@@ -141,3 +141,33 @@ export interface AppUserRecord {
   createdAt: string | null;
   updatedAt: string | null;
 }
+
+// ── ERP SQL Server import ────────────────────────────────────────────────────
+
+export interface ErpOrderPreviewItem {
+  externalRef: string;
+  rifto: string;
+  cliente: string;
+  dataOrdine: string | null;
+  dataConsegna: string | null;
+  cantiere: string | null;
+  agenteNome: string | null;
+  agenteCodice: string | null;
+}
+
+export interface SqlServerPreviewResponse {
+  orders: ErpOrderPreviewItem[];
+  lastImportDate: string;
+  alreadyImportedCount: number;
+  isTruncated: boolean;
+}
+
+export interface SqlServerImportResult {
+  imported: number;
+  skippedDuplicates: number;
+  newLastImportDate: string;
+}
+
+export interface ImportConfig {
+  lastImportDate: string;
+}

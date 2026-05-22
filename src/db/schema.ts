@@ -33,6 +33,13 @@ export const ordini = pgTable('ordini', {
   commercialeId: integer('commerciale_id').references(() => commerciali.id, { onDelete: 'set null' }),
   responsabileInternoId: integer('responsabile_interno_id').references(() => responsabiliInterni.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
+  externalRef: text('external_ref'),
+})
+
+export const importConfig = pgTable('import_config', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 })
 
 export const orderAttachments = pgTable('order_attachments', {

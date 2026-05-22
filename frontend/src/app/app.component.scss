@@ -122,7 +122,7 @@
 }
 
 .sidebar-footer {
-  margin: auto 18px 0;
+  margin: 12px 6px 0;
   padding: 18px 0 0;
   border-top: 1px solid rgba(148, 163, 184, 0.18);
   display: grid;
@@ -194,7 +194,7 @@
   margin-bottom: 18px;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(260px, 1.3fr) repeat(3, minmax(180px, 1fr)) repeat(4, minmax(150px, 0.9fr));
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(150px, 1fr)) repeat(2, minmax(130px, 0.8fr)) auto auto auto;
   padding: 12px;
 }
 
@@ -250,33 +250,163 @@
   margin-top: 16px;
 }
 
-.detail-grid {
-  display: grid;
-  gap: 10px 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+// ── Detail modal header ───────────────────────────────────────
+.detail-header {
+  margin-bottom: 2px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
-.full-row {
-  grid-column: 1 / -1;
+.detail-stato-badge {
+  margin-bottom: 8px;
 }
 
-.transition-box,
-.history-box {
-  margin-top: 18px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
+.detail-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0 0 4px;
+  line-height: 1.2;
 }
 
-.transition-box h3,
-.history-box h3 {
-  margin: 0 0 10px;
+.detail-subtitle {
   font-size: 0.95rem;
+  color: var(--muted);
+  margin: 0;
 }
 
+// ── Detail sections ───────────────────────────────────────────
+.detail-section {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.detail-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+// ── Key-value grid ────────────────────────────────────────────
+.detail-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 24px;
+}
+
+.detail-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &.full-row {
+    grid-column: 1 / -1;
+  }
+}
+
+.kv-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.kv-value {
+  font-size: 0.95rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+// ── Pills row (logistica & pagamento) ─────────────────────────
+.detail-pills-row {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.detail-pill-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+// ── badge-neutral (NO su campi non critici) ───────────────────
+.badge-neutral {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+// ── Note box ──────────────────────────────────────────────────
+.detail-note-box {
+  margin: 0;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border-left: 3px solid #d97706;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.9rem;
+  color: #78350f;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.detail-text-value {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.detail-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+// ── Allegati + Cambio stato affiancati ───────────────────────
+.detail-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 40px;
+  border-bottom: 1px solid var(--border);
+
+  > .detail-section {
+    border-bottom: none;
+    padding-right: 0;
+    padding-left: 0;
+
+    &:first-child {
+      border-right: 1px solid var(--border);
+      padding-right: 24px;
+    }
+
+    &:last-child {
+      padding-left: 24px;
+    }
+  }
+}
+
+// ── Transition grid (cambio stato) ────────────────────────────
 .transition-grid {
   display: grid;
-  grid-template-columns: 220px 1fr 180px;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
+
+  button {
+    grid-column: 1 / -1;
+  }
 }
 
 .error,
@@ -333,10 +463,11 @@
 }
 
 .modal--detail {
-  max-width: 860px;
-  width: min(92vw, 860px);
+  max-width: 1100px;
+  width: min(96vw, 1100px);
   max-height: 92vh;
   overflow-y: auto;
+  position: relative;
 }
 
 .badge-ok,
@@ -551,6 +682,40 @@
   color: var(--primary-dark);
 }
 
+.generated-password-banner {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 14px;
+}
+
+.generated-password-info {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.generated-password-label {
+  font-size: 0.88rem;
+  color: #78350f;
+}
+
+.generated-password-value {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #1c1917;
+  word-break: break-all;
+  user-select: all;
+}
+
 @media (max-width: 1240px) {
   .filters-panel {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -579,4 +744,202 @@
   .transition-grid {
     grid-template-columns: 1fr;
   }
+}
+
+
+// ── ERP SQL Server import modal ───────────────────────────────────────────────
+.modal--import {
+  width: min(900px, 96vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.import-config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface-2, #f6f8fc);
+  border-radius: 8px;
+
+  label { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+  input[type='date'] { max-width: 160px; }
+  small { color: var(--muted); font-size: 0.8rem; }
+}
+
+.import-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.import-table-wrap {
+  overflow-y: auto;
+  max-height: 380px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+
+  table { margin: 0; }
+}
+
+.import-loading,
+.import-info {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 4px 0;
+}
+
+.import-warning {
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.success-box {
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 8px;
+  padding: 14px 18px;
+  line-height: 1.7;
+  font-size: 0.9rem;
+}
+
+tr.selected-row {
+  background: rgba(59, 130, 246, 0.07);
+  cursor: pointer;
+}
+
+tr.selected-row:hover {
+  background: rgba(59, 130, 246, 0.13);
+}
+
+// ── Import confirm overlay (dentro il modale principale) ──────────────────────
+.import-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  z-index: 10;
+}
+
+.import-confirm-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 32px 36px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+
+  h3 {
+    margin: 10px 0 14px;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
+  p {
+    color: var(--muted, #64748b);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0 0 10px;
+  }
+
+  strong { color: var(--ink, #0f172a); }
+}
+
+.import-confirm-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.import-confirm-note {
+  font-size: 0.82rem !important;
+  color: #94a3b8 !important;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  margin-top: 4px !important;
+}
+
+.import-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+// Posizionamento relativo per il modale padre (per l'overlay assoluto)
+.modal--import {
+  position: relative;
+}
+
+// ── Detail modal responsive ───────────────────────────────────
+@media (max-width: 640px) {
+  .detail-kv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-pills-row {
+    gap: 16px;
+  }
+
+  .transition-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ── Date filter label ─────────────────────────────────────────────────────────
+.date-filter-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  span {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding-left: 2px;
+  }
+
+  input[type='date'] {
+    margin: 0;
+  }
+}
+
+// ── Sidebar logo ──────────────────────────────────────────────────────────────
+.sidebar-brand {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+  padding-bottom: 12px;
+}
+
+.sidebar-logo {
+  width: 100%;
+  max-width: 172px;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.sidebar-tagline {
+  display: block;
+  font-size: 1.05rem;
+  color: var(--muted, #94a3b8);
+  padding-left: 2px;
 }

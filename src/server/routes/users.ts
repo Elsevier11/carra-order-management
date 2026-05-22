@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { randomBytes } from 'crypto'
 import { and, count, eq, ne, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { appUsers } from '../../db/schema'
@@ -10,10 +11,15 @@ import { requireAuth, requireRole, type AuthenticatedRequest } from '../middlewa
 const router = Router()
 const roleSchema = z.enum(['admin', 'operativo', 'lettura'])
 
+const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*'
+function generatePassword(length = 14): string {
+  const bytes = randomBytes(length)
+  return Array.from(bytes).map((b) => CHARSET[b % CHARSET.length]).join('')
+}
+
 const createUserSchema = z.object({
   username: z.string().min(3).max(60).regex(/^[A-Za-z0-9._-]+$/, 'Username non valido'),
   role: roleSchema,
-  password: z.string().min(8).max(128),
   isActive: z.boolean().optional().default(true),
 })
 
@@ -83,7 +89,8 @@ router.post('/', requireAuth, requireRole(['admin']), async (req: AuthenticatedR
       throw new BadRequestError('Username gia esistente')
     }
 
-    const passwordHash = await hashPassword(payload.password)
+    const generatedPassword = generatePassword()
+    const passwordHash = await hashPassword(generatedPassword)
 
     const [created] = await db
       .insert(appUsers)
@@ -113,6 +120,7 @@ router.post('/', requireAuth, requireRole(['admin']), async (req: AuthenticatedR
       ...created,
       createdAt: created.createdAt?.toISOString?.() ?? null,
       updatedAt: created.updatedAt?.toISOString?.() ?? null,
+      generatedPassword,
     })
   } catch (error) {
     return next(error)

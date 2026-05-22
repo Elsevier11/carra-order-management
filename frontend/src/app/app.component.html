@@ -15,26 +15,23 @@
   <div class="page app-shell">
     <nav class="sidebar">
       <div class="sidebar-brand">
-        <span class="sidebar-brand-mark">C</span>
-        <div class="sidebar-brand-copy">
-          <strong>Carra Consegne</strong>
-          <small>Gestione ordini e logistica</small>
-        </div>
+        <img src="logo-carra.png" alt="Carra Depurazioni" class="sidebar-logo" />
+        <small class="sidebar-tagline">Gestione ordini e logistica</small>
       </div>
       <div class="sidebar-nav">
-        <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
         <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Kanban</button>
+        <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
         @if (isAdmin) {
           <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Audit</button>
           <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
         }
-      </div>
-      <div class="sidebar-footer">
-        <div class="sidebar-user-card">
-          <span class="sidebar-user-role">{{ user.role }}</span>
-          <span class="sidebar-user">{{ user.username }}</span>
+        <div class="sidebar-footer">
+          <div class="sidebar-user-card">
+            <span class="sidebar-user-role">{{ user.role }}</span>
+            <span class="sidebar-user">{{ user.username }}</span>
+          </div>
+          <button type="button" (click)="logout()">Logout</button>
         </div>
-        <button type="button" (click)="logout()">Logout</button>
       </div>
     </nav>
 
@@ -75,13 +72,27 @@
             <option [value]="stato">{{ stato }}</option>
           }
         </select>
-        <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
-        <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
-        @if (showKanbanCreateAction) {
-          <button type="button" class="filters-panel__action" (click)="openCreate()">Nuovo ordine</button>
+        <label class="date-filter-label">
+          <span>Consegna dal</span>
+          <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
+        </label>
+        <label class="date-filter-label">
+          <span>Consegna al</span>
+          <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
+        </label>
+        @if (activeView === 'kanban') {
+          <label class="kanban-toggle">
+            <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
+            <span>Solo ritardi</span>
+          </label>
         }
         <button type="button" class="ghost" (click)="resetFilters()">Reset filtri</button>
-        <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
+        @if (canWrite) {
+          <button type="button" class="ghost" (click)="openSqlImportModal()">Importa da ERP</button>
+        }
+        @if (showKanbanCreateAction) {
+          <button type="button" (click)="openCreate()">Nuovo ordine</button>
+        }
       </section>
     }
 
@@ -189,19 +200,28 @@
         <section class="detail-card">
           <h2>Gestione utenti</h2>
           <div class="modal-grid">
-            <input type="text" [(ngModel)]="newUserModel.username" placeholder="Username" />
+            <input type="text" [(ngModel)]="newUserModel.username" placeholder="Username (min 3 caratteri)" />
             <select [(ngModel)]="newUserModel.role">
               <option value="admin">admin</option>
               <option value="operativo">operativo</option>
               <option value="lettura">lettura</option>
             </select>
-            <input type="password" [(ngModel)]="newUserModel.password" placeholder="Password iniziale" />
             <label class="kanban-toggle">
               <input type="checkbox" [(ngModel)]="newUserModel.isActive" />
               <span>Attivo</span>
             </label>
-            <button type="button" [disabled]="!newUserModel.username.trim() || !newUserModel.password" (click)="createUser()">Crea utente</button>
+            <button type="button" [disabled]="newUserModel.username.trim().length < 3" (click)="createUser()">Crea utente</button>
           </div>
+          @if (generatedPassword) {
+            <div class="generated-password-banner">
+              <div class="generated-password-info">
+                <span class="generated-password-label">Password generata per <strong>{{ generatedPasswordForUser }}</strong> — comunicala all'utente, non verrà più mostrata.</span>
+                <span class="generated-password-value">{{ generatedPassword }}</span>
+              </div>
+              <button type="button" class="ghost" (click)="copyGeneratedPassword()">Copia</button>
+              <button type="button" class="ghost" (click)="generatedPassword = null">✕</button>
+            </div>
+          }
         </section>
 
         <section class="table-card">
@@ -333,10 +353,6 @@
         }
       } @else {
         <section class="kanban-toolbar">
-          <label class="kanban-toggle">
-            <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
-            <span>Solo ritardi</span>
-          </label>
           <div class="kanban-kpi">
             <span class="sla-badge late">Totale ritardi: {{ totalLateCount }}</span>
             @for (status of statusFlow; track status) {
@@ -391,13 +407,6 @@
         </section>
       }
 
-      <section class="actions">
-        @if (canWrite) {
-          <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openEdit()">Modifica selezionata</button>
-          <button type="button" class="danger" [disabled]="!selectedDetail" (click)="deleteSelected()">Elimina selezionata</button>
-        }
-        <button type="button" class="ghost" [disabled]="!selectedDetail" (click)="openHistoryModal(selectedDetail!)">Percorso ordine</button>
-      </section>
 
     }
     </div>
@@ -406,123 +415,146 @@
   @if (detailModalOpen && selectedDetail) {
     <div class="modal-backdrop" (click)="closeDetailModal()">
       <div class="modal modal--detail" (click)="$event.stopPropagation()">
-        <h2>Dettaglio — {{ selectedDetail.rif }}</h2>
+
         @if (loadingDetails) {
           <p>Caricamento...</p>
         } @else {
-          <div class="detail-grid">
-            <div><strong>Rif:</strong> {{ selectedDetail.rif }}</div>
-            <div><strong>Cliente:</strong> {{ selectedDetail.cliente }}</div>
-            <div><strong>Stato:</strong> {{ selectedDetail.stato }}</div>
-            <div><strong>Data consegna:</strong> {{ selectedDetail.dataConsegna || '-' }}</div>
-            <div><strong>Vettore:</strong> {{ selectedDetail.vettore || '-' }}</div>
-            <div><strong>Cantiere:</strong> {{ selectedDetail.cantiere || '-' }}</div>
-            <div><strong>Trasporto ns. carico:</strong> {{ selectedDetail.trasporto ? 'SI' : 'NO' }}</div>
-            <div><strong>Scarico ns. carico:</strong> {{ selectedDetail.scaricoCarico ? 'SI' : 'NO' }}</div>
-            <div>
-              <strong>Acconto pagato:</strong>
-              @if (selectedDetail.accontoPagato) {
-                <span class="badge-ok">SI</span>
-              } @else {
-                <span class="badge-warn">NO</span>
-              }
-            </div>
-            <div><strong>Commerciale:</strong> {{ nomeCommerciale(selectedDetail.commercialeId) }}</div>
-            <div><strong>Responsabile:</strong> {{ nomeResponsabile(selectedDetail.responsabileInternoId) }}</div>
-            <div class="full-row"><strong>Tipo impianto:</strong> {{ selectedDetail.tipoImpianto || '-' }}</div>
-            <div class="full-row"><strong>Note:</strong> {{ selectedDetail.note || '-' }}</div>
+
+          <!-- ── Hero header ─────────────────────────────────────── -->
+          <div class="detail-header">
+            <span class="status-chip detail-stato-badge" [ngClass]="columnClass(selectedDetail.stato)">
+              {{ selectedDetail.stato }}
+            </span>
+            <h2 class="detail-title">{{ selectedDetail.rif }}</h2>
+            <p class="detail-subtitle">{{ selectedDetail.cliente || '—' }}</p>
           </div>
 
-          <div class="history-box">
-            <h3>Allegati</h3>
-            @if (loadingAttachments) {
-              <p>Caricamento allegati...</p>
-            } @else {
-              @if (canWrite) {
-                <div class="attachment-upload">
-                  <input type="file" (change)="onAttachmentSelected($event)" />
-                  <button type="button" [disabled]="!selectedUploadFile" (click)="uploadAttachment()">Upload</button>
-                </div>
-              }
-              @if (!attachments.length) {
-                <p>Nessun allegato.</p>
-              } @else {
-                <ul class="history-list">
-                  @for (attachment of attachments; track attachment.id) {
-                    <li>
-                      <strong>{{ attachment.fileName }}</strong>
-                      <small>{{ attachment.mimeType }} - {{ attachment.sizeBytes }} bytes - {{ attachment.uploadedBy || 'sistema' }}</small>
-                      <div class="attachment-actions">
-                        <button type="button" class="ghost" (click)="downloadAttachment(attachment)">Download</button>
-                        @if (canWrite) {
-                          <button type="button" class="danger" (click)="deleteAttachment(attachment)">Elimina</button>
-                        }
-                      </div>
-                    </li>
-                  }
-                </ul>
-              }
-            }
-          </div>
-
-          @if (canWrite) {
-            <div class="transition-box">
-              <h3>Cambio stato rapido</h3>
-              @if (operationError) { <div class="error">{{ operationError }}</div> }
-              <div class="transition-grid">
-                <select [(ngModel)]="transitionModel.toStatus">
-                  <option value="">Seleziona stato</option>
-                  @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
-                    <option [value]="status">{{ status }}</option>
-                  }
-                </select>
-                <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
-                <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
+          <!-- ── Dati ordine + Assegnazioni ────────────────────── -->
+          <div class="detail-section">
+            <div class="detail-kv-grid">
+              <div class="detail-kv">
+                <span class="kv-label">Riferimento</span>
+                <span class="kv-value">{{ selectedDetail.rif }}</span>
               </div>
+              <div class="detail-kv">
+                <span class="kv-label">Data consegna</span>
+                <span class="kv-value">{{ selectedDetail.dataConsegna || '—' }}</span>
+              </div>
+              <div class="detail-kv">
+                <span class="kv-label">Vettore</span>
+                <span class="kv-value">{{ selectedDetail.vettore || '—' }}</span>
+              </div>
+              <div class="detail-kv">
+                <span class="kv-label">Commerciale</span>
+                <span class="kv-value">{{ nomeCommerciale(selectedDetail.commercialeId) }}</span>
+              </div>
+              <div class="detail-kv">
+                <span class="kv-label">Responsabile</span>
+                <span class="kv-value">{{ nomeResponsabile(selectedDetail.responsabileInternoId) }}</span>
+              </div>
+              <div class="detail-kv">
+                <span class="kv-label">Cantiere</span>
+                <span class="kv-value">{{ selectedDetail.cantiere || '—' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Logistica & Pagamento ──────────────────────────── -->
+          <div class="detail-section">
+            <div class="detail-section-title">Logistica & Pagamento</div>
+            <div class="detail-pills-row">
+              <div class="detail-pill-item">
+                <span class="kv-label">Trasporto ns. carico</span>
+                <span [class]="selectedDetail.trasporto ? 'badge-ok' : 'badge-neutral'">
+                  {{ selectedDetail.trasporto ? 'SI' : 'NO' }}
+                </span>
+              </div>
+              <div class="detail-pill-item">
+                <span class="kv-label">Scarico ns. carico</span>
+                <span [class]="selectedDetail.scaricoCarico ? 'badge-ok' : 'badge-neutral'">
+                  {{ selectedDetail.scaricoCarico ? 'SI' : 'NO' }}
+                </span>
+              </div>
+              <div class="detail-pill-item">
+                <span class="kv-label">Acconto pagato</span>
+                <span [class]="selectedDetail.accontoPagato ? 'badge-ok' : 'badge-warn'">
+                  {{ selectedDetail.accontoPagato ? 'SI' : 'NO' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Impianto (se valorizzato) ──────────────────────── -->
+          @if (selectedDetail.tipoImpianto) {
+            <div class="detail-section">
+              <div class="detail-section-title">Impianto</div>
+              <p class="detail-text-value">{{ selectedDetail.tipoImpianto }}</p>
             </div>
           }
 
-          <div class="history-box">
-            <h3>Storico modifiche</h3>
-            @if (loadingHistory) {
-              <p>Caricamento storico...</p>
-            } @else if (!history.length) {
-              <p>Nessun evento registrato.</p>
-            } @else {
-              <ul class="timeline">
-                @for (event of history; track event.id) {
-                  <li class="timeline-item">
-                    <div class="timeline-dot" [ngClass]="eventTypeClass(event.eventType)"></div>
-                    <div class="timeline-content">
-                      <div class="timeline-header">
-                        <span class="event-badge" [ngClass]="eventTypeClass(event.eventType)">{{ eventTypeLabel(event.eventType) }}</span>
-                        <span class="timeline-meta">{{ event.createdAt | date:'dd/MM/yyyy HH:mm':'UTC' }} — {{ event.actor || 'sistema' }}</span>
-                      </div>
-                      @if (diffSummary(event)) {
-                        <div class="timeline-diff-summary">{{ diffSummary(event) }}</div>
-                      }
-                      @if (event.fromStatus || event.toStatus) {
-                        <div class="timeline-transition">{{ event.fromStatus || '—' }} <span class="arrow">→</span> {{ event.toStatus || '—' }}</div>
-                      }
-                      @if (event.note) {
-                        <div class="timeline-note">{{ event.note }}</div>
-                      }
-                      @if (getDiffEntries(event).length > 0) {
-                        <table class="diff-table">
-                          <thead><tr><th>Campo</th><th>Prima</th><th>Dopo</th></tr></thead>
-                          <tbody>
-                            @for (entry of getDiffEntries(event); track entry.field) {
-                              <tr><td>{{ entry.field }}</td><td class="diff-old">{{ entry.from }}</td><td class="diff-new">{{ entry.to }}</td></tr>
-                            }
-                          </tbody>
-                        </table>
-                      }
-                    </div>
-                  </li>
+          <!-- ── Note (se valorizzate) ──────────────────────────── -->
+          @if (selectedDetail.note) {
+            <div class="detail-section">
+              <div class="detail-section-title">Note</div>
+              <p class="detail-note-box">{{ selectedDetail.note }}</p>
+            </div>
+          }
+
+          <!-- ── Allegati + Cambio stato affiancati ────────────── -->
+          <div class="detail-bottom-grid">
+
+            <div class="detail-section">
+              <div class="detail-section-title">Allegati</div>
+              @if (loadingAttachments) {
+                <p>Caricamento allegati...</p>
+              } @else {
+                @if (canWrite) {
+                  <div class="attachment-upload">
+                    <input type="file" (change)="onAttachmentSelected($event)" />
+                    <button type="button" [disabled]="!selectedUploadFile" (click)="uploadAttachment()">Upload</button>
+                  </div>
                 }
-              </ul>
+                @if (!attachments.length) {
+                  <p class="detail-empty">Nessun allegato.</p>
+                } @else {
+                  <ul class="history-list">
+                    @for (attachment of attachments; track attachment.id) {
+                      <li>
+                        <strong>{{ attachment.fileName }}</strong>
+                        <small>{{ attachment.mimeType }} - {{ attachment.sizeBytes }} bytes - {{ attachment.uploadedBy || 'sistema' }}</small>
+                        <div class="attachment-actions">
+                          <button type="button" class="ghost" (click)="downloadAttachment(attachment)">Download</button>
+                          @if (canWrite) {
+                            <button type="button" class="danger" (click)="deleteAttachment(attachment)">Elimina</button>
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </div>
+
+            @if (canWrite) {
+              <div class="detail-section">
+                <div class="detail-section-title">Cambio stato rapido</div>
+                @if (operationError) { <div class="error">{{ operationError }}</div> }
+                <div class="transition-grid">
+                  <select [(ngModel)]="transitionModel.toStatus">
+                    <option value="">Seleziona stato</option>
+                    @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
+                      <option [value]="status">{{ status }}</option>
+                    }
+                  </select>
+                  <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
+                  <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
+                </div>
+              </div>
             }
+
           </div>
+
+
         }
 
         <div class="modal-actions">
@@ -533,6 +565,21 @@
           <button type="button" class="ghost" (click)="openHistoryModal(selectedDetail!)">Percorso completo</button>
           <button type="button" class="ghost" (click)="closeDetailModal()">Chiudi</button>
         </div>
+
+        @if (deleteConfirmOpen) {
+          <div class="import-confirm-overlay" (click)="deleteConfirmOpen = false">
+            <div class="import-confirm-card" (click)="$event.stopPropagation()">
+              <div class="import-confirm-icon">🗑️</div>
+              <h3>Elimina ordine</h3>
+              <p>Stai per eliminare l'ordine <strong>{{ selectedDetail!.rif }}</strong>.<br>L'operazione è irreversibile.</p>
+              <div class="import-confirm-actions">
+                <button type="button" class="danger" (click)="confirmDelete()">Elimina definitivamente</button>
+                <button type="button" class="ghost" (click)="deleteConfirmOpen = false">Annulla</button>
+              </div>
+            </div>
+          </div>
+        }
+
       </div>
     </div>
   }
@@ -659,6 +706,137 @@
           <button type="button" [disabled]="pendingTransitionId === dropTransitionModal.order.id" (click)="confirmDropTransition()">Conferma</button>
           <button type="button" class="ghost" [disabled]="pendingTransitionId === dropTransitionModal.order.id" (click)="closeDropTransitionModal()">Annulla</button>
         </div>
+      </div>
+    </div>
+  }
+
+  @if (sqlImportModalOpen) {
+    <div class="modal-backdrop" (click)="closeSqlImportModal()">
+      <div class="modal modal--import" (click)="$event.stopPropagation()">
+        <h2>Importa ordini da ERP SQL Server</h2>
+
+        <div class="import-config-row">
+          <label>Importa ordini con data creazione dal:</label>
+          <input type="date" [(ngModel)]="sqlImportDateEdit" />
+          <button type="button" class="ghost" (click)="saveSqlImportDate()" [disabled]="sqlImportLoading">
+            Aggiorna e ricarica
+          </button>
+          @if (sqlImportLastDate) {
+            <small>Data memorizzata: {{ sqlImportLastDate }}</small>
+          }
+        </div>
+
+        @if (sqlImportError) {
+          <div class="error">{{ sqlImportError }}</div>
+          <div class="modal-actions">
+            <button type="button" class="ghost" (click)="runSqlPreview()">Riprova</button>
+            <button type="button" class="ghost" (click)="closeSqlImportModal()">Chiudi</button>
+          </div>
+        }
+
+        @if (!sqlImportError && sqlImportResult) {
+          <div class="success-box">
+            <strong>Importazione completata!</strong><br />
+            Importati: <strong>{{ sqlImportResult.imported }}</strong> ordini
+            @if (sqlImportResult.skippedDuplicates > 0) {
+              — Duplicati saltati: {{ sqlImportResult.skippedDuplicates }}
+            }
+            <br />
+            Nuova data di riferimento: {{ sqlImportResult.newLastImportDate }}
+          </div>
+          @if (sqlImportResult.imported > 0) {
+            <p class="import-info">
+              I nuovi ordini sono stati creati in stato <strong>IN CORSO</strong>.
+              Chiudi per trovarli nel Kanban o nella lista.
+            </p>
+          }
+          <div class="modal-actions">
+            <button type="button" (click)="closeSqlImportModal()">Chiudi e vai agli ordini</button>
+          </div>
+        } @else if (!sqlImportError && sqlImportLoading) {
+          <p class="import-loading">Connessione al server ERP in corso...</p>
+        } @else if (!sqlImportError) {
+          @if (sqlImportAlreadyImportedCount > 0) {
+            <p class="import-info">
+              {{ sqlImportAlreadyImportedCount }} ordini già importati in precedenza esclusi dalla lista.
+            </p>
+          }
+          @if (sqlImportTruncated) {
+            <p class="import-warning">
+              ⚠ Risultato limitato a 1000 ordini. Restringere il periodo di ricerca per vedere tutti gli ordini.
+            </p>
+          }
+          @if (!sqlImportPreview.length) {
+            <p class="import-info">Nessun nuovo ordine disponibile dalla data selezionata.</p>
+          } @else {
+            <div class="import-select-actions">
+              <button type="button" class="ghost" (click)="selectAllSqlImport()">Seleziona tutti</button>
+              <button type="button" class="ghost" (click)="deselectAllSqlImport()">Deseleziona tutti</button>
+              <span>{{ sqlImportSelectedCount }} / {{ sqlImportPreview.length }} selezionati</span>
+            </div>
+            <div class="import-table-wrap">
+              <table class="audit-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>N° Doc</th>
+                    <th>Cliente</th>
+                    <th>Data Ordine</th>
+                    <th>Data Consegna</th>
+                    <th>Sottocommessa</th>
+                    <th>Agente</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (order of sqlImportPreview; track order.externalRef) {
+                    <tr [class.selected-row]="sqlImportSelected.has(order.externalRef)">
+                      <td><input type="checkbox" [checked]="sqlImportSelected.has(order.externalRef)" (click)="toggleSqlImportSelection(order.externalRef)" /></td>
+                      <td>{{ order.rifto }}</td>
+                      <td>{{ order.cliente || '—' }}</td>
+                      <td>{{ order.dataOrdine || '—' }}</td>
+                      <td>{{ order.dataConsegna || '—' }}</td>
+                      <td>{{ order.cantiere || '—' }}</td>
+                      <td>{{ order.agenteNome || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+          <div class="modal-actions">
+            <button
+              type="button"
+              [disabled]="sqlImportExecuting || sqlImportSelectedCount === 0"
+              (click)="executeSqlImport()"
+            >
+              {{ sqlImportExecuting ? 'Importazione in corso...' : 'Importa selezionati (' + sqlImportSelectedCount + ')' }}
+            </button>
+            <button type="button" class="ghost" (click)="closeSqlImportModal()">Annulla</button>
+          </div>
+        }
+
+        @if (sqlImportConfirmOpen) {
+          <div class="import-confirm-overlay" (click)="cancelSqlImportConfirm()">
+            <div class="import-confirm-card" (click)="$event.stopPropagation()">
+              <div class="import-confirm-icon">📥</div>
+              <h3>Conferma importazione</h3>
+              <p>
+                Stai per importare <strong>{{ sqlImportSelectedCount }}</strong>
+                {{ sqlImportSelectedCount === 1 ? 'ordine' : 'ordini' }} dall'ERP.<br />
+                Verranno creati come nuovi ordini in stato <strong>IN CORSO</strong>.
+              </p>
+              <p class="import-confirm-note">
+                L'operazione è reversibile: potrai modificare o eliminare ogni ordine dopo l'import.
+              </p>
+              <div class="import-confirm-actions">
+                <button type="button" (click)="confirmSqlImport()">
+                  Conferma importazione
+                </button>
+                <button type="button" class="ghost" (click)="cancelSqlImportConfirm()">Annulla</button>
+              </div>
+            </div>
+          </div>
+        }
       </div>
     </div>
   }

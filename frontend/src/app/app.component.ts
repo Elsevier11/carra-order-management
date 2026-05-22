@@ -18,8 +18,10 @@ import {
   ConsegnaRecord,
   ConsegnaStats,
   ConsegnaStatus,
+  ErpOrderPreviewItem,
   OrderEvent,
   ResponsabileRecord,
+  SqlServerImportResult,
 } from './consegne.types';
 
 type EditableConsegna = {
@@ -172,6 +174,7 @@ export class AppComponent implements OnInit, OnDestroy {
     toDate: '',
   };
   detailModalOpen = false;
+  deleteConfirmOpen = false;
 
   commercialiRows: CommercialeRecord[] = [];
   commercialiLoading = false;
@@ -183,16 +186,35 @@ export class AppComponent implements OnInit, OnDestroy {
 
   usersRows: AppUserRecord[] = [];
   usersLoading = false;
-  newUserModel: { username: string; role: 'admin' | 'operativo' | 'lettura'; password: string; isActive: boolean } = {
+  newUserModel: { username: string; role: 'admin' | 'operativo' | 'lettura'; isActive: boolean } = {
     username: '',
     role: 'operativo',
-    password: '',
     isActive: true,
   };
+  generatedPassword: string | null = null;
+  generatedPasswordForUser: string | null = null;
   passwordResetModel: { userId: number | null; password: string } = {
     userId: null,
     password: '',
   };
+
+  // ── ERP SQL Server import ──────────────────────────────────────────────────
+  sqlImportModalOpen = false;
+  sqlImportLoading = false;
+  sqlImportExecuting = false;
+  sqlImportError = '';
+  sqlImportPreview: ErpOrderPreviewItem[] = [];
+  sqlImportSelected = new Set<string>();
+  sqlImportLastDate = '';
+  sqlImportDateEdit = '';
+  sqlImportResult: SqlServerImportResult | null = null;
+  sqlImportAlreadyImportedCount = 0;
+  sqlImportTruncated = false;
+  sqlImportConfirmOpen = false;
+
+  get sqlImportSelectedCount(): number {
+    return this.sqlImportSelected.size;
+  }
 
   readonly columns = [
     { name: 'Rif', prop: 'rif' },
@@ -368,6 +390,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
   changeView(view: ViewMode): void {
     if ((view === 'audit' || view === 'anagrafiche') && !this.isAdmin) return;
+    this.operationError = '';
+    this.operationSuccess = '';
     this.activeView = view;
     if (view === 'dashboard') {
       this.ensureDashboardChartsLoaded();
@@ -382,6 +406,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   setRegistryTab(tab: RegistryTab): void {
     if (!this.isAdmin) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.generatedPassword = null;
+    this.generatedPasswordForUser = null;
     this.activeRegistryTab = tab;
     this.loadActiveRegistryTab();
   }
@@ -644,8 +672,12 @@ export class AppComponent implements OnInit, OnDestroy {
 
   deleteSelected(): void {
     if (!this.selectedDetail) return;
-    const ok = confirm(`Confermi eliminazione consegna ${this.selectedDetail.rif}?`);
-    if (!ok) return;
+    this.deleteConfirmOpen = true;
+  }
+
+  confirmDelete(): void {
+    if (!this.selectedDetail) return;
+    this.deleteConfirmOpen = false;
     this.consegneService.delete(this.selectedDetail.id).subscribe({
       next: () => {
         this.operationSuccess = 'Consegna eliminata';
@@ -811,23 +843,29 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!this.isAdmin) return;
     this.operationError = '';
     this.operationSuccess = '';
+    this.generatedPassword = null;
     this.consegneService.createUser({
-      ...this.newUserModel,
       username: this.newUserModel.username.trim(),
+      role: this.newUserModel.role,
+      isActive: this.newUserModel.isActive,
     }).subscribe({
-      next: () => {
-        this.operationSuccess = `Utente ${this.newUserModel.username} creato`;
-        this.newUserModel = {
-          username: '',
-          role: 'operativo',
-          password: '',
-          isActive: true,
-        };
+      next: (result) => {
+        this.generatedPassword = result.generatedPassword;
+        this.generatedPasswordForUser = result.username;
+        this.newUserModel = { username: '', role: 'operativo', isActive: true };
         this.loadUsers();
       },
       error: (error) => {
         this.operationError = error?.error?.message ?? 'Errore creazione utente';
       },
+    });
+  }
+
+  copyGeneratedPassword(): void {
+    if (!this.generatedPassword) return;
+    navigator.clipboard.writeText(this.generatedPassword).then(() => {
+      this.operationSuccess = 'Password copiata negli appunti';
+      setTimeout(() => { this.operationSuccess = ''; }, 2500);
     });
   }
 
@@ -982,9 +1020,16 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!details?.diff) return [];
     return Object.entries(details.diff).map(([field, val]) => ({
       field: this.fieldLabel(field),
-      from: val.from == null ? '—' : String(val.from),
-      to: val.to == null ? '—' : String(val.to),
+      from: this.resolveDiffValue(field, val.from),
+      to: this.resolveDiffValue(field, val.to),
     }));
+  }
+
+  private resolveDiffValue(field: string, value: unknown): string {
+    if (value == null) return '—';
+    if (field === 'commercialeId') return this.nomeCommerciale(Number(value));
+    if (field === 'responsabileInternoId') return this.nomeResponsabile(Number(value));
+    return String(value);
   }
 
   diffSummary(event: OrderEvent): string {
@@ -1208,6 +1253,128 @@ export class AppComponent implements OnInit, OnDestroy {
       this.availableFilters = filters;
       this.normalizeFiltersAgainstAvailableOptions();
     });
+  }
+
+  // ── ERP SQL Server import — metodi ─────────────────────────────────────────
+
+  openSqlImportModal(): void {
+    if (!this.canWrite) return;
+    this.sqlImportModalOpen = true;
+    this.sqlImportError = '';
+    this.sqlImportResult = null;
+    this.sqlImportPreview = [];
+    this.sqlImportSelected = new Set();
+    this.sqlImportLoading = true;
+
+    this.consegneService.getImportConfig().subscribe({
+      next: (config) => {
+        this.sqlImportLastDate = config.lastImportDate;
+        this.sqlImportDateEdit = config.lastImportDate;
+        this.runSqlPreview();
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.sqlImportLoading = false;
+        this.sqlImportError = err?.error?.message ?? 'Errore caricamento configurazione';
+      },
+    });
+  }
+
+  runSqlPreview(): void {
+    this.sqlImportLoading = true;
+    this.sqlImportError = '';
+    this.consegneService.previewErpImport().subscribe({
+      next: (result) => {
+        this.sqlImportPreview = result.orders;
+        this.sqlImportLastDate = result.lastImportDate;
+        this.sqlImportAlreadyImportedCount = result.alreadyImportedCount;
+        this.sqlImportTruncated = result.isTruncated;
+        this.sqlImportSelected = new Set(result.orders.map((o) => o.externalRef));
+        this.sqlImportLoading = false;
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.sqlImportLoading = false;
+        this.sqlImportError = err?.error?.message ?? 'Errore connessione ERP SQL Server';
+      },
+    });
+  }
+
+  saveSqlImportDate(): void {
+    if (!this.sqlImportDateEdit) return;
+    this.consegneService.updateImportConfig(this.sqlImportDateEdit).subscribe({
+      next: () => {
+        this.sqlImportLastDate = this.sqlImportDateEdit;
+        this.runSqlPreview();
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.sqlImportError = err?.error?.message ?? 'Errore aggiornamento data';
+      },
+    });
+  }
+
+  toggleSqlImportSelection(externalRef: string): void {
+    if (this.sqlImportSelected.has(externalRef)) {
+      this.sqlImportSelected.delete(externalRef);
+    } else {
+      this.sqlImportSelected.add(externalRef);
+    }
+    // Forza change detection su Set (Angular non traccia Set natively)
+    this.sqlImportSelected = new Set(this.sqlImportSelected);
+  }
+
+  selectAllSqlImport(): void {
+    this.sqlImportSelected = new Set(this.sqlImportPreview.map((o) => o.externalRef));
+  }
+
+  deselectAllSqlImport(): void {
+    this.sqlImportSelected = new Set();
+  }
+
+  executeSqlImport(): void {
+    if (!this.sqlImportSelectedCount) return;
+    this.sqlImportConfirmOpen = true;
+  }
+
+  confirmSqlImport(): void {
+    this.sqlImportConfirmOpen = false;
+    const selectedOrders = this.sqlImportPreview.filter((o) =>
+      this.sqlImportSelected.has(o.externalRef),
+    );
+    if (!selectedOrders.length) return;
+
+    this.sqlImportExecuting = true;
+    this.sqlImportError = '';
+
+    this.consegneService.executeErpImport(selectedOrders).subscribe({
+      next: (result) => {
+        this.sqlImportResult = result;
+        this.sqlImportExecuting = false;
+        // Ricarica sempre entrambe le viste, indipendentemente da quella attiva
+        this.refreshData(1);
+        this.loadBoard();
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.sqlImportExecuting = false;
+        this.sqlImportError = err?.error?.message ?? 'Errore durante importazione';
+      },
+    });
+  }
+
+  cancelSqlImportConfirm(): void {
+    this.sqlImportConfirmOpen = false;
+  }
+
+  closeSqlImportModal(): void {
+    // Se c'è stato un import con successo, ricarica dati alla chiusura
+    if (this.sqlImportResult && this.sqlImportResult.imported > 0) {
+      this.refreshData(1);
+      this.loadBoard();
+    }
+    this.sqlImportModalOpen = false;
+    this.sqlImportPreview = [];
+    this.sqlImportSelected = new Set();
+    this.sqlImportResult = null;
+    this.sqlImportError = '';
+    this.sqlImportConfirmOpen = false;
   }
 
   private emptyForm(): EditableConsegna {

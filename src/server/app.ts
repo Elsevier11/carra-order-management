@@ -55,6 +55,7 @@ export function createApp() {
     }
 
     if (err instanceof Error) {
+      console.error('[500]', err.message)
       return res.status(500).json({ message: 'Internal server error' })
     }
 

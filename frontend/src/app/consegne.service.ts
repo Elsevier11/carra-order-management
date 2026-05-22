@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, FilterOptions, OrderEvent, ResponsabileRecord } from './consegne.types';
+import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, ErpOrderPreviewItem, FilterOptions, ImportConfig, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
@@ -12,6 +12,7 @@ export class ConsegneService {
   private readonly usersUrl = `${environment.apiUrl}/users`;
   private readonly commercialiUrl = `${environment.apiUrl}/commerciali`;
   private readonly responsabiliUrl = `${environment.apiUrl}/responsabili`;
+  private readonly importErpUrl = `${environment.apiUrl}/import/sqlserver`;
 
   list(query: ConsegnaFilters & { page: number; pageSize: number; sortBy: string; sortDir: string }): Observable<ConsegneResponse> {
     let params = new HttpParams();
@@ -109,8 +110,8 @@ export class ConsegneService {
     return this.http.get<{ data: AppUserRecord[] }>(this.usersUrl);
   }
 
-  createUser(payload: { username: string; role: 'admin' | 'operativo' | 'lettura'; password: string; isActive: boolean }): Observable<AppUserRecord> {
-    return this.http.post<AppUserRecord>(this.usersUrl, payload);
+  createUser(payload: { username: string; role: 'admin' | 'operativo' | 'lettura'; isActive: boolean }): Observable<AppUserRecord & { generatedPassword: string }> {
+    return this.http.post<AppUserRecord & { generatedPassword: string }>(this.usersUrl, payload);
   }
 
   updateUser(id: number, payload: { role?: 'admin' | 'operativo' | 'lettura'; isActive?: boolean }): Observable<AppUserRecord> {
@@ -167,5 +168,23 @@ export class ConsegneService {
 
   deleteResponsabile(id: number): Observable<void> {
     return this.http.delete<void>(`${this.responsabiliUrl}/${id}`);
+  }
+
+  // ── ERP SQL Server import ──────────────────────────────────────────────────
+
+  getImportConfig(): Observable<ImportConfig> {
+    return this.http.get<ImportConfig>(`${this.importErpUrl}/config`);
+  }
+
+  updateImportConfig(lastImportDate: string): Observable<ImportConfig> {
+    return this.http.put<ImportConfig>(`${this.importErpUrl}/config`, { lastImportDate });
+  }
+
+  previewErpImport(): Observable<SqlServerPreviewResponse> {
+    return this.http.post<SqlServerPreviewResponse>(`${this.importErpUrl}/preview`, {});
+  }
+
+  executeErpImport(orders: ErpOrderPreviewItem[]): Observable<SqlServerImportResult> {
+    return this.http.post<SqlServerImportResult>(`${this.importErpUrl}/execute`, { orders });
   }
 }

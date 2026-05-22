@@ -123,6 +123,26 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists responsabile_interno_id integer references responsabili_interni(id) on delete set null;`)
   await pgClient.unsafe(`alter table order_events add column if not exists details jsonb;`)
 
+  // ERP SQL Server import support
+  await pgClient.unsafe(`alter table ordini add column if not exists external_ref text;`)
+  await pgClient.unsafe(`
+    create unique index if not exists idx_ordini_external_ref
+    on ordini(external_ref)
+    where external_ref is not null;
+  `)
+  await pgClient.unsafe(`
+    create table if not exists import_config (
+      key        text primary key,
+      value      text not null,
+      updated_at timestamp not null default now()
+    );
+  `)
+  await pgClient.unsafe(`
+    insert into import_config (key, value)
+    values ('sqlserver_last_import_date', '1970-01-01')
+    on conflict (key) do nothing;
+  `)
+
   const seedUsers = parseSeedUsersFromEnv()
   for (const user of seedUsers) {
     await db.execute(sql`
