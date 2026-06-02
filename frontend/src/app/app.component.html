@@ -454,10 +454,12 @@
           <!-- ── Dati ordine + Assegnazioni + Impianto ──────────────────── -->
           <div class="detail-section">
             <div class="detail-kv-grid">
-              <div class="detail-kv">
-                <span class="kv-label">Riferimento</span>
-                <span class="kv-value">{{ selectedDetail.rif }}</span>
-              </div>
+              @if (selectedDetail.tipoImpianto) {
+                <div class="detail-kv detail-kv--full">
+                  <span class="kv-label">Impianto</span>
+                  <span class="kv-value kv-value--prominent">{{ selectedDetail.tipoImpianto }}</span>
+                </div>
+              }
               <div class="detail-kv">
                 <span class="kv-label">Data consegna</span>
                 <span class="kv-value">{{ selectedDetail.dataConsegna ? (selectedDetail.dataConsegna | date:'dd/MM/yyyy') : '—' }}</span>
@@ -467,6 +469,10 @@
                 <span class="kv-value">{{ selectedDetail.vettore || '—' }}</span>
               </div>
               <div class="detail-kv">
+                <span class="kv-label">Cantiere</span>
+                <span class="kv-value">{{ selectedDetail.cantiere || '—' }}</span>
+              </div>
+              <div class="detail-kv">
                 <span class="kv-label">Commerciale</span>
                 <span class="kv-value">{{ nomeCommerciale(selectedDetail.commercialeId) }}</span>
               </div>
@@ -474,16 +480,6 @@
                 <span class="kv-label">Responsabile</span>
                 <span class="kv-value">{{ nomeResponsabile(selectedDetail.responsabileInternoId) }}</span>
               </div>
-              <div class="detail-kv">
-                <span class="kv-label">Cantiere</span>
-                <span class="kv-value">{{ selectedDetail.cantiere || '—' }}</span>
-              </div>
-              @if (selectedDetail.tipoImpianto) {
-                <div class="detail-kv detail-kv--full">
-                  <span class="kv-label">Impianto</span>
-                  <span class="kv-value">{{ selectedDetail.tipoImpianto }}</span>
-                </div>
-              }
             </div>
           </div>
 
