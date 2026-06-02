@@ -367,60 +367,62 @@
           </div>
         </section>
 
-        <section class="kanban-grid" [class.kanban-grid--compact]="kanbanCompactMode">
-          @if (loadingBoard) {
-            <article class="chart-card full"><p>Caricamento board...</p></article>
-          } @else {
-            @for (column of boardColumns; track column.status) {
-              <article class="kanban-column" [ngClass]="columnClass(column.status)">
-                <header>
-                  <h2>{{ column.status }}</h2>
-                  <div class="kanban-header-meta">
-                    <span>{{ visibleKanbanCount(column.items) }}</span>
-                    @if (lateCount(column.items) > 0) {
-                      <span class="sla-badge late">{{ lateCount(column.items) }} ritardi</span>
+        <div class="kanban-scroll-wrap">
+          <section class="kanban-grid" [class.kanban-grid--compact]="kanbanCompactMode">
+            @if (loadingBoard) {
+              <article class="chart-card full"><p>Caricamento board...</p></article>
+            } @else {
+              @for (column of boardColumns; track column.status) {
+                <article class="kanban-column" [ngClass]="columnClass(column.status)">
+                  <header>
+                    <h2>{{ column.status }}</h2>
+                    <div class="kanban-header-meta">
+                      <span>{{ visibleKanbanCount(column.items) }}</span>
+                      @if (lateCount(column.items) > 0) {
+                        <span class="sla-badge late">{{ lateCount(column.items) }} ritardi</span>
+                      }
+                    </div>
+                  </header>
+                  <div
+                    class="kanban-items"
+                    cdkDropList
+                    [id]="dropListId(column.status)"
+                    [cdkDropListData]="column.items"
+                    [cdkDropListConnectedTo]="boardDropListIds"
+                    [cdkDropListDisabled]="showOnlyLateInKanban"
+                    (cdkDropListDropped)="onKanbanDrop($event, column.status)"
+                  >
+                    @for (item of filteredKanbanItems(column.items); track item.id) {
+                      <div class="kanban-card-wrap">
+                        <button
+                          type="button"
+                          class="kanban-card"
+                          [class.kanban-card--compact]="kanbanCompactMode"
+                          cdkDrag
+                          [disabled]="!canWrite || showOnlyLateInKanban"
+                          (click)="selectFromBoard(item)"
+                        >
+                          <strong>{{ item.rif }}</strong>
+                          @if (!kanbanCompactMode) {
+                            <span>{{ item.cliente }}</span>
+                          }
+                          <small class="kanban-card-meta">
+                            <span class="kanban-card-meta__vettore">{{ item.vettore || 'N/D' }}</span>
+                            <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
+                          </small>
+                          @if (isLate(item)) {
+                            <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
+                          }
+                        </button>
+                        <button type="button" class="kanban-history-btn" title="Percorso ordine" (click)="openHistoryModal(item)">&#9203;</button>
+                      </div>
                     }
                   </div>
-                </header>
-                <div
-                  class="kanban-items"
-                  cdkDropList
-                  [id]="dropListId(column.status)"
-                  [cdkDropListData]="column.items"
-                  [cdkDropListConnectedTo]="boardDropListIds"
-                  [cdkDropListDisabled]="showOnlyLateInKanban"
-                  (cdkDropListDropped)="onKanbanDrop($event, column.status)"
-                >
-                  @for (item of filteredKanbanItems(column.items); track item.id) {
-                    <div class="kanban-card-wrap">
-                      <button
-                        type="button"
-                        class="kanban-card"
-                        [class.kanban-card--compact]="kanbanCompactMode"
-                        cdkDrag
-                        [disabled]="!canWrite || showOnlyLateInKanban"
-                        (click)="selectFromBoard(item)"
-                      >
-                        <strong>{{ item.rif }}</strong>
-                        @if (!kanbanCompactMode) {
-                          <span>{{ item.cliente }}</span>
-                        }
-                        <small class="kanban-card-meta">
-                          <span class="kanban-card-meta__vettore">{{ item.vettore || 'N/D' }}</span>
-                          <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
-                        </small>
-                        @if (isLate(item)) {
-                          <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
-                        }
-                      </button>
-                      <button type="button" class="kanban-history-btn" title="Percorso ordine" (click)="openHistoryModal(item)">&#9203;</button>
-                    </div>
-                  }
-                </div>
-              </article>
+                </article>
+              }
             }
-          }
-        </section>
+          </section>
+        </div>
       }
 
 

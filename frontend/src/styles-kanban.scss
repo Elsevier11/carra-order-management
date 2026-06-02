@@ -103,7 +103,42 @@
   gap: 16px;
   align-items: stretch;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  scroll-snap-type: x proximity;
+}
+
+.kanban-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.kanban-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kanban-grid::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.kanban-grid::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.kanban-scroll-wrap {
+  position: relative;
+}
+
+.kanban-scroll-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: calc(100% - 12px);
+  background: linear-gradient(to right, transparent, #eef3f9 85%);
+  pointer-events: none;
 }
 
 .kanban-column {
