@@ -581,8 +581,8 @@
 
         <div class="modal-actions">
           @if (canWrite) {
-            <button type="button" class="ghost" (click)="openEdit()">Modifica</button>
-            <button type="button" class="danger" (click)="deleteSelected()">Elimina</button>
+            <button type="button" (click)="openEdit()">Modifica</button>
+            <button type="button" class="ghost-danger" (click)="deleteSelected()">Elimina</button>
           }
           <button type="button" class="ghost" (click)="openHistoryModal(selectedDetail!)">Percorso completo</button>
           <button type="button" class="ghost" (click)="closeDetailModal()">Chiudi</button>
