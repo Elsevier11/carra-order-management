@@ -405,7 +405,10 @@
                         @if (!kanbanCompactMode) {
                           <span>{{ item.cliente }}</span>
                         }
-                        <small>{{ item.vettore || 'N/D' }} - {{ item.dataConsegna || '-' }}</small>
+                        <small class="kanban-card-meta">
+                          <span class="kanban-card-meta__vettore">{{ item.vettore || 'N/D' }}</span>
+                          <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
+                        </small>
                         @if (isLate(item)) {
                           <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
                         }
