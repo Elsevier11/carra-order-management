@@ -85,6 +85,10 @@
             <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
             <span>Solo ritardi</span>
           </label>
+          <label class="kanban-toggle">
+            <input type="checkbox" [(ngModel)]="kanbanCompactMode" />
+            <span>Vista compatta</span>
+          </label>
         }
         <button type="button" class="ghost" (click)="resetFilters()">Reset filtri</button>
         @if (canWrite) {
@@ -250,7 +254,7 @@
                       </select>
                     </td>
                     <td>{{ userRow.isActive ? 'Attivo' : 'Disattivo' }}</td>
-                    <td>{{ userRow.updatedAt || '-' }}</td>
+                    <td>{{ userRow.updatedAt ? (userRow.updatedAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
                     <td>
                       <div class="attachment-actions">
                         <button type="button" class="ghost" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
@@ -363,7 +367,7 @@
           </div>
         </section>
 
-        <section class="kanban-grid">
+        <section class="kanban-grid" [class.kanban-grid--compact]="kanbanCompactMode">
           @if (loadingBoard) {
             <article class="chart-card full"><p>Caricamento board...</p></article>
           } @else {
@@ -389,9 +393,18 @@
                 >
                   @for (item of filteredKanbanItems(column.items); track item.id) {
                     <div class="kanban-card-wrap">
-                      <button type="button" class="kanban-card" cdkDrag [disabled]="!canWrite || showOnlyLateInKanban" (click)="selectFromBoard(item)">
+                      <button
+                        type="button"
+                        class="kanban-card"
+                        [class.kanban-card--compact]="kanbanCompactMode"
+                        cdkDrag
+                        [disabled]="!canWrite || showOnlyLateInKanban"
+                        (click)="selectFromBoard(item)"
+                      >
                         <strong>{{ item.rif }}</strong>
-                        <span>{{ item.cliente }}</span>
+                        @if (!kanbanCompactMode) {
+                          <span>{{ item.cliente }}</span>
+                        }
                         <small>{{ item.vettore || 'N/D' }} - {{ item.dataConsegna || '-' }}</small>
                         @if (isLate(item)) {
                           <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
