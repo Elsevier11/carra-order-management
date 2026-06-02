@@ -362,7 +362,7 @@
       } @else {
         <section class="kanban-toolbar">
           <div class="kanban-kpi">
-            <span class="sla-badge late">Totale ritardi: {{ totalLateCount }}</span>
+            <span class="sla-badge late sla-badge--total">Totale ritardi: {{ totalLateCount }}</span>
             @for (status of statusFlow; track status) {
               @if (lateCountByStatus(status) > 0) {
                 <span class="status-chip" [ngClass]="columnClass(status)">{{ status }}: {{ lateCountByStatus(status) }}</span>

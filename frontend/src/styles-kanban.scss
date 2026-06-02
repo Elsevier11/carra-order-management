@@ -61,6 +61,13 @@
   transform: translateY(-1px);
 }
 
+.sla-badge--total {
+  font-size: 0.82rem;
+  padding: 0 14px;
+  min-height: 34px;
+  box-shadow: 0 1px 4px rgba(185, 28, 28, 0.15);
+}
+
 .status-chip.status-in-corso {
   border-color: rgba(22, 101, 52, 0.24);
   color: #166534;
