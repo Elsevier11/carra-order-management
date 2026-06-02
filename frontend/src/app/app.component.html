@@ -543,7 +543,7 @@
                     @for (attachment of attachments; track attachment.id) {
                       <li>
                         <strong>{{ attachment.fileName }}</strong>
-                        <small>{{ attachment.mimeType }} - {{ attachment.sizeBytes }} bytes - {{ attachment.uploadedBy || 'sistema' }}</small>
+                        <small>{{ attachment.mimeType }} · {{ formatFileSize(attachment.sizeBytes) }} · {{ attachment.uploadedBy || 'sistema' }}</small>
                         <div class="attachment-actions">
                           <button type="button" class="ghost" (click)="downloadAttachment(attachment)">Download</button>
                           @if (canWrite) {

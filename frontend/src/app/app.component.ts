@@ -1193,6 +1193,12 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.responsabiliRows.find((r) => r.id === id)?.nome ?? '-';
   }
 
+  formatFileSize(bytes: number): string {
+    if (!bytes || bytes < 1024) return `${bytes ?? 0} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
   auditDetailsAsJson(item: AuditLogRecord | null): string {
     if (!item?.details) return '-';
     try {
