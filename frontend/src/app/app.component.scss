@@ -330,6 +330,10 @@
   }
 }
 
+.detail-kv--full {
+  grid-column: 1 / -1;
+}
+
 .kv-label {
   font-size: 0.75rem;
   color: var(--muted);

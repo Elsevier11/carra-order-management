@@ -451,7 +451,7 @@
             <p class="detail-subtitle">{{ selectedDetail.cliente || '—' }}</p>
           </div>
 
-          <!-- ── Dati ordine + Assegnazioni ────────────────────── -->
+          <!-- ── Dati ordine + Assegnazioni + Impianto ──────────────────── -->
           <div class="detail-section">
             <div class="detail-kv-grid">
               <div class="detail-kv">
@@ -478,52 +478,41 @@
                 <span class="kv-label">Cantiere</span>
                 <span class="kv-value">{{ selectedDetail.cantiere || '—' }}</span>
               </div>
+              @if (selectedDetail.tipoImpianto) {
+                <div class="detail-kv detail-kv--full">
+                  <span class="kv-label">Impianto</span>
+                  <span class="kv-value">{{ selectedDetail.tipoImpianto }}</span>
+                </div>
+              }
             </div>
           </div>
 
-          <!-- ── Logistica & Pagamento ──────────────────────────── -->
-          <div class="detail-section">
-            <div class="detail-section-title">Logistica & Pagamento</div>
-            <div class="detail-pills-row">
-              <div class="detail-pill-item">
-                <span class="kv-label">Trasporto ns. carico</span>
-                <span [class]="selectedDetail.trasporto ? 'badge-ok' : 'badge-neutral'">
-                  {{ selectedDetail.trasporto ? 'SI' : 'NO' }}
-                </span>
-              </div>
-              <div class="detail-pill-item">
-                <span class="kv-label">Scarico ns. carico</span>
-                <span [class]="selectedDetail.scaricoCarico ? 'badge-ok' : 'badge-neutral'">
-                  {{ selectedDetail.scaricoCarico ? 'SI' : 'NO' }}
-                </span>
-              </div>
-              <div class="detail-pill-item">
-                <span class="kv-label">Acconto pagato</span>
-                <span [class]="selectedDetail.accontoPagato ? 'badge-ok' : 'badge-neutral'">
-                  {{ selectedDetail.accontoPagato ? 'SI' : 'NO' }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- ── Impianto (se valorizzato) ──────────────────────── -->
-          @if (selectedDetail.tipoImpianto) {
-            <div class="detail-section">
-              <div class="detail-section-title">Impianto</div>
-              <p class="detail-text-value">{{ selectedDetail.tipoImpianto }}</p>
-            </div>
-          }
-
-          <!-- ── Note (se valorizzate) ──────────────────────────── -->
-          @if (selectedDetail.note) {
-            <div class="detail-section">
-              <div class="detail-section-title">Note</div>
-              <p class="detail-note-box">{{ selectedDetail.note }}</p>
-            </div>
-          }
-
-          <!-- ── Allegati + Cambio stato affiancati ────────────── -->
+          <!-- ── Logistica & Pagamento | Allegati affiancati ──────────── -->
           <div class="detail-bottom-grid">
+
+            <div class="detail-section">
+              <div class="detail-section-title">Logistica & Pagamento</div>
+              <div class="detail-pills-row">
+                <div class="detail-pill-item">
+                  <span class="kv-label">Trasporto ns. carico</span>
+                  <span [class]="selectedDetail.trasporto ? 'badge-ok' : 'badge-neutral'">
+                    {{ selectedDetail.trasporto ? 'SI' : 'NO' }}
+                  </span>
+                </div>
+                <div class="detail-pill-item">
+                  <span class="kv-label">Scarico ns. carico</span>
+                  <span [class]="selectedDetail.scaricoCarico ? 'badge-ok' : 'badge-neutral'">
+                    {{ selectedDetail.scaricoCarico ? 'SI' : 'NO' }}
+                  </span>
+                </div>
+                <div class="detail-pill-item">
+                  <span class="kv-label">Acconto pagato</span>
+                  <span [class]="selectedDetail.accontoPagato ? 'badge-ok' : 'badge-neutral'">
+                    {{ selectedDetail.accontoPagato ? 'SI' : 'NO' }}
+                  </span>
+                </div>
+              </div>
+            </div>
 
             <div class="detail-section">
               <div class="detail-section-title">Allegati</div>
@@ -557,24 +546,33 @@
               }
             </div>
 
-            @if (canWrite) {
-              <div class="detail-section">
-                <div class="detail-section-title">Cambio stato rapido</div>
-                @if (operationError) { <div class="error">{{ operationError }}</div> }
-                <div class="transition-grid">
-                  <select [(ngModel)]="transitionModel.toStatus">
-                    <option value="">Seleziona stato</option>
-                    @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
-                      <option [value]="status">{{ status }}</option>
-                    }
-                  </select>
-                  <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
-                  <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
-                </div>
-              </div>
-            }
-
           </div>
+
+          <!-- ── Note (se valorizzate) ──────────────────────────── -->
+          @if (selectedDetail.note) {
+            <div class="detail-section">
+              <div class="detail-section-title">Note</div>
+              <p class="detail-note-box">{{ selectedDetail.note }}</p>
+            </div>
+          }
+
+          <!-- ── Cambio stato rapido ────────────────────────────── -->
+          @if (canWrite) {
+            <div class="detail-section">
+              <div class="detail-section-title">Cambio stato rapido</div>
+              @if (operationError) { <div class="error">{{ operationError }}</div> }
+              <div class="transition-grid">
+                <select [(ngModel)]="transitionModel.toStatus">
+                  <option value="">Seleziona stato</option>
+                  @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
+                    <option [value]="status">{{ status }}</option>
+                  }
+                </select>
+                <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
+                <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
+              </div>
+            </div>
+          }
 
 
         }
