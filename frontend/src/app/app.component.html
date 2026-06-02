@@ -45,7 +45,7 @@
           </h1>
           <div class="content-header-right">
             @if (activeView === 'dashboard' && stats.kpi.ritardi > 0) {
-              <span class="sla-badge late">{{ stats.kpi.ritardi }} ritardi</span>
+              <button type="button" class="sla-badge late sla-badge--clickable" (click)="goToKanbanLate()" title="Vedi ordini in ritardo nel Kanban">{{ stats.kpi.ritardi }} ritardi</button>
             }
           </div>
         </div>

@@ -101,6 +101,7 @@ export class AppComponent implements OnInit, OnDestroy {
   boardColumns: BoardColumn[] = [];
   loadingBoard = false;
   showOnlyLateInKanban = false;
+  kanbanCompactMode = false;
   history: OrderEvent[] = [];
   loadingHistory = false;
 
@@ -310,6 +311,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.attachments = [];
     this.formVisible = false;
     this.selectedAuditRow = null;
+  }
+
+  goToKanbanLate(): void {
+    this.showOnlyLateInKanban = true;
+    this.changeView('kanban');
   }
 
   refreshData(page = this.page, allowAutoRecover = true): void {

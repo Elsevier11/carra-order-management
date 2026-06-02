@@ -51,6 +51,16 @@
   color: #b91c1c;
 }
 
+.sla-badge--clickable {
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.sla-badge--clickable:hover {
+  background: #fecaca;
+  transform: translateY(-1px);
+}
+
 .status-chip.status-in-corso {
   border-color: rgba(22, 101, 52, 0.24);
   color: #166534;
@@ -231,6 +241,25 @@
   font-size: 0.84rem;
   line-height: 1.4;
   color: var(--muted);
+}
+
+.kanban-grid--compact .kanban-items {
+  gap: 8px;
+}
+
+.kanban-card--compact {
+  min-height: 84px;
+  padding: 10px 40px 10px 12px;
+  gap: 6px;
+}
+
+.kanban-card--compact strong {
+  font-size: 0.84rem;
+}
+
+.kanban-card--compact small {
+  font-size: 0.8rem;
+  line-height: 1.25;
 }
 
 .cdk-drag-preview {
