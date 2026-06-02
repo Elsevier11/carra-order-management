@@ -611,43 +611,73 @@
       <div class="modal">
         <h2>{{ editingId ? 'Modifica ordine' : 'Nuovo ordine' }}</h2>
         <div class="modal-grid">
-          <input type="text" [(ngModel)]="formModel.rif" placeholder="Rif" />
-          <input type="text" [(ngModel)]="formModel.cliente" placeholder="Cliente" />
-          <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="Tipo impianto" />
+        <div class="form-field">
+          <label class="form-field__label form-field__label--required">Riferimento</label>
+          <input type="text" [(ngModel)]="formModel.rif" placeholder="es. 409/23_BIS" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label form-field__label--required">Cliente</label>
+          <input type="text" [(ngModel)]="formModel.cliente" placeholder="Ragione sociale" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Tipo impianto</label>
+          <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="es. N°1 METEOTANK MP/SD 1200" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Data consegna</label>
           <input type="date" [(ngModel)]="formModel.dataConsegna" />
-          <input type="text" [(ngModel)]="formModel.cantiere" placeholder="Cantiere" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Cantiere</label>
+          <input type="text" [(ngModel)]="formModel.cantiere" placeholder="Indirizzo cantiere" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Data ordine</label>
           <input type="date" [(ngModel)]="formModel.dataOrdine" />
-          <input type="text" [(ngModel)]="formModel.vettore" placeholder="Vettore" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Vettore</label>
+          <input type="text" [(ngModel)]="formModel.vettore" placeholder="Nome vettore" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Stato</label>
           <select [(ngModel)]="formModel.stato">
             @for (status of statusFlow; track status) {
               <option [value]="status">{{ status }}</option>
             }
           </select>
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Commerciale</label>
           <select [(ngModel)]="formModel.commercialeId">
             <option [ngValue]="null">Nessun commerciale</option>
             @for (c of commercialiRows; track c.id) {
               <option [ngValue]="c.id">{{ c.nome }}</option>
             }
           </select>
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Responsabile</label>
           <select [(ngModel)]="formModel.responsabileInternoId">
             <option [ngValue]="null">Nessun responsabile</option>
             @for (r of responsabiliRows; track r.id) {
               <option [ngValue]="r.id">{{ r.nome }}</option>
             }
           </select>
-          <label class="kanban-toggle">
-            <input type="checkbox" [(ngModel)]="formModel.trasporto" />
-            <span>Trasporto a nostro carico</span>
-          </label>
-          <label class="kanban-toggle">
-            <input type="checkbox" [(ngModel)]="formModel.scaricoCarico" />
-            <span>Scarico a nostro carico</span>
-          </label>
-          <label class="kanban-toggle">
-            <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
-            <span>Acconto pagato</span>
-          </label>
-          <textarea [(ngModel)]="formModel.note" placeholder="Note"></textarea>
+        </div>
+        <label class="kanban-toggle">
+          <input type="checkbox" [(ngModel)]="formModel.trasporto" />
+          <span>Trasporto a nostro carico</span>
+        </label>
+        <label class="kanban-toggle">
+          <input type="checkbox" [(ngModel)]="formModel.scaricoCarico" />
+          <span>Scarico a nostro carico</span>
+        </label>
+        <label class="kanban-toggle">
+          <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
+          <span>Acconto pagato</span>
+        </label>
+        <textarea [(ngModel)]="formModel.note" placeholder="Note operative..."></textarea>
         </div>
         <div class="modal-actions">
           <button type="button" (click)="saveForm()">Salva</button>

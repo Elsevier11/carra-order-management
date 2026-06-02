@@ -473,6 +473,25 @@
   resize: vertical;
 }
 
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-field__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.form-field__label--required::after {
+  content: ' *';
+  color: #dc2626;
+}
+
 .modal-actions {
   margin-top: 14px;
   display: flex;
