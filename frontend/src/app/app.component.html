@@ -27,7 +27,11 @@
         }
         <div class="sidebar-footer">
           <div class="sidebar-user-card">
-            <span class="sidebar-user-role">{{ user.role }}</span>
+            <span
+              class="sidebar-user-role"
+              [class.sidebar-user-role--operativo]="user.role === 'operativo'"
+              [class.sidebar-user-role--lettura]="user.role === 'lettura'"
+            >{{ user.role }}</span>
             <span class="sidebar-user">{{ user.username }}</span>
           </div>
           <button type="button" (click)="logout()">Logout</button>
