@@ -257,7 +257,7 @@
                     <td>{{ userRow.updatedAt ? (userRow.updatedAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
                     <td>
                       <div class="attachment-actions">
-                        <button type="button" class="ghost" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
+                        <button type="button" [class]="userRow.isActive ? 'ghost-danger' : 'ghost'" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
                         <button type="button" class="ghost" (click)="openPasswordReset(userRow.id)">Reset password</button>
                       </div>
                     </td>

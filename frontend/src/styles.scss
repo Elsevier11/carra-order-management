@@ -82,6 +82,17 @@ button.ghost {
   color: var(--ink);
 }
 
+button.ghost-danger {
+  border-color: #fca5a5;
+  background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 100%);
+  color: #dc2626;
+}
+
+button.ghost-danger:hover {
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #f87171;
+}
+
 button.danger {
   border-color: #ef4444;
   background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
