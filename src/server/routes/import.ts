@@ -6,7 +6,7 @@ import { db, pgClient } from '../db'
 import { ordini } from '../../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import type { AuthenticatedRequest } from '../middleware/auth'
-import { fetchErpOrders, type ErpOrder } from '../sqlserver'
+import { fetchErpOrders, resolveErpConfig, type ErpOrder } from '../sqlserver'
 
 const router = Router()
 
@@ -98,7 +98,8 @@ router.post(
       // 3. Interroga SQL Server con timeout
       let erpOrders: ErpOrder[]
       try {
-        erpOrders = await fetchErpOrders(sinceDate)
+        const erpConfig = await resolveErpConfig(pgClient)
+        erpOrders = await fetchErpOrders(erpConfig, sinceDate)
       } catch (erpErr: unknown) {
         const message =
           erpErr instanceof Error ? erpErr.message : 'Errore connessione ERP SQL Server'
