@@ -19,11 +19,12 @@
         <small class="sidebar-tagline">Gestione ordini e logistica</small>
       </div>
       <div class="sidebar-nav">
-        <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Kanban</button>
         <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
+        <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Kanban</button>
         @if (isAdmin) {
           <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Audit</button>
           <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
+          <button type="button" [class.active]="activeView === 'settings'" (click)="changeView('settings')">Impostazioni</button>
         }
         <div class="sidebar-footer">
           <div class="sidebar-user-card">
@@ -40,51 +41,54 @@
     </nav>
 
     <div class="content">
-      @if (activeView !== 'kanban') {
+      @if (activeView === 'audit' || activeView === 'anagrafiche') {
         <div class="content-header">
           <h1 class="content-title">
-            @if (activeView === 'dashboard') { Dashboard }
-            @else if (activeView === 'audit') { Audit Log }
+            @if (activeView === 'audit') { Audit Log }
             @else if (activeView === 'anagrafiche') { Anagrafiche }
           </h1>
-          <div class="content-header-right">
-            @if (activeView === 'dashboard' && stats.kpi.ritardi > 0) {
-              <button type="button" class="sla-badge late sla-badge--clickable" (click)="goToKanbanLate()" title="Vedi ordini in ritardo nel Kanban">{{ stats.kpi.ritardi }} ritardi</button>
-            }
-          </div>
         </div>
       }
 
-    @if (activeView === 'dashboard' || activeView === 'kanban') {
-      <section class="filters-panel">
-        <input type="text" [(ngModel)]="filters.q" (ngModelChange)="onFilterTextChange()" placeholder="Ricerca (rif, cliente, impianto...)" />
-        <select [(ngModel)]="filters.cliente" (ngModelChange)="onFilterSelectChange()">
-          <option value="">Tutti i clienti</option>
-          @for (cliente of availableFilters.clienti; track cliente) {
-            <option [value]="cliente">{{ cliente }}</option>
+    @if (activeView === 'kanban') {
+      <div class="content-header">
+        <div class="kanban-page-header-left">
+          <h1 class="content-title">Kanban ordini</h1>
+          @if (activeFiltersCount > 0) {
+            <span class="kanban-active-filters-badge">{{ activeFiltersCount }} filtri attivi</span>
           }
-        </select>
-        <select [(ngModel)]="filters.vettore" (ngModelChange)="onFilterSelectChange()">
-          <option value="">Tutti i vettori</option>
-          @for (vettore of availableFilters.vettori; track vettore) {
-            <option [value]="vettore">{{ vettore }}</option>
+        </div>
+        <div class="content-header-right">
+          @if (canWrite) {
+            <button type="button" class="ghost" (click)="openSqlImportModal()">Importa da ERP</button>
           }
-        </select>
-        <select [(ngModel)]="filters.stato" (ngModelChange)="onFilterSelectChange()">
-          <option value="">Tutti gli stati</option>
-          @for (stato of availableFilters.stati; track stato) {
-            <option [value]="stato">{{ stato }}</option>
+          @if (canWrite) {
+            <button type="button" (click)="openCreate()">Nuovo ordine</button>
           }
-        </select>
-        <label class="date-filter-label">
-          <span>Consegna dal</span>
-          <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
-        </label>
-        <label class="date-filter-label">
-          <span>Consegna al</span>
-          <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
-        </label>
-        @if (activeView === 'kanban') {
+        </div>
+      </div>
+      <div class="kanban-controls">
+        <div class="kanban-filters">
+          <input type="text" [(ngModel)]="filters.q" (ngModelChange)="onFilterTextChange()" placeholder="Cerca per rif, cliente, impianto..." />
+          <select [(ngModel)]="filters.cliente" (ngModelChange)="onFilterSelectChange()">
+            <option value="">Tutti i clienti</option>
+            @for (cliente of availableFilters.clienti; track cliente) {
+              <option [value]="cliente">{{ cliente }}</option>
+            }
+          </select>
+          <label class="date-filter-label">
+            <span>Dal</span>
+            <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
+          </label>
+          <label class="date-filter-label">
+            <span>Al</span>
+            <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
+          </label>
+          @if (activeFiltersCount > 0) {
+            <button type="button" class="ghost kanban-reset-btn" (click)="resetFilters()">Reimposta</button>
+          }
+        </div>
+        <div class="kanban-view-toggles">
           <label class="kanban-toggle">
             <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
             <span>Solo ritardi</span>
@@ -93,15 +97,8 @@
             <input type="checkbox" [(ngModel)]="kanbanCompactMode" />
             <span>Vista compatta</span>
           </label>
-        }
-        <button type="button" class="ghost" (click)="resetFilters()">Reset filtri</button>
-        @if (canWrite) {
-          <button type="button" class="ghost" (click)="openSqlImportModal()">Importa da ERP</button>
-        }
-        @if (showKanbanCreateAction) {
-          <button type="button" (click)="openCreate()">Nuovo ordine</button>
-        }
-      </section>
+        </div>
+      </div>
     }
 
     @if (activeView === 'audit') {
@@ -167,26 +164,69 @@
       <section class="detail-card">
         <h2>Dettaglio audit</h2>
         @if (!selectedAuditRow) {
-          <p>Seleziona una riga audit per vedere dettaglio completo.</p>
+          <p>Seleziona una riga audit per vedere il dettaglio completo.</p>
         } @else {
-          <div class="detail-grid">
-            <div><strong>ID:</strong> {{ selectedAuditRow.id }}</div>
-            <div><strong>Data:</strong> {{ selectedAuditRow.createdAt }}</div>
-            <div><strong>Utente:</strong> {{ selectedAuditRow.username || '-' }}</div>
-            <div><strong>Ruolo:</strong> {{ selectedAuditRow.role || '-' }}</div>
-            <div><strong>Azione:</strong> {{ selectedAuditRow.action }}</div>
-            <div><strong>Esito:</strong> {{ selectedAuditRow.success ? 'OK' : 'KO' }} ({{ selectedAuditRow.statusCode }})</div>
-            <div><strong>Metodo:</strong> {{ selectedAuditRow.method }}</div>
-            <div><strong>Path:</strong> {{ selectedAuditRow.path }}</div>
-            <div><strong>Entity:</strong> {{ selectedAuditRow.entity || '-' }}</div>
-            <div><strong>Entity ID:</strong> {{ selectedAuditRow.entityId ?? '-' }}</div>
-            <div><strong>IP:</strong> {{ selectedAuditRow.ipAddress || '-' }}</div>
-            <div class="full-row"><strong>User-Agent:</strong> {{ selectedAuditRow.userAgent || '-' }}</div>
-            <div class="full-row">
-              <strong>Details:</strong>
-              <pre>{{ auditDetailsAsJson(selectedAuditRow) }}</pre>
+          <div class="audit-detail-header">
+            <span class="audit-action-badge" [ngClass]="auditActionClass(selectedAuditRow.action)">
+              {{ auditActionLabel(selectedAuditRow.action) }}
+            </span>
+            <span [class.cell-ok]="selectedAuditRow.success" [class.cell-ko]="!selectedAuditRow.success">
+              {{ selectedAuditRow.success ? '✓ Riuscita' : '✗ Errore' }} ({{ selectedAuditRow.statusCode }})
+            </span>
+            <span class="audit-detail-ts">{{ selectedAuditRow.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+          </div>
+
+          @if (auditReadableSummary(selectedAuditRow)) {
+            <p class="audit-detail-summary">{{ auditReadableSummary(selectedAuditRow) }}</p>
+          }
+
+          <div class="audit-detail-grid">
+            <div class="audit-detail-field">
+              <span class="audit-field-label">Utente</span>
+              <span class="audit-field-value">
+                {{ selectedAuditRow.username || 'Sistema (automatico)' }}
+                @if (selectedAuditRow.role) {
+                  <span class="audit-role-chip">{{ selectedAuditRow.role }}</span>
+                }
+              </span>
+            </div>
+            @if (selectedAuditRow.entity) {
+              <div class="audit-detail-field">
+                <span class="audit-field-label">Oggetto</span>
+                <span class="audit-field-value">
+                  @if (selectedAuditRow.entityId && selectedAuditRow.entity === 'consegna') {
+                    <button type="button" class="link-btn" (click)="openOrderFromAudit(selectedAuditRow.entityId!)">
+                      {{ selectedAuditRow.entity }} #{{ selectedAuditRow.entityId }}
+                    </button>
+                  } @else {
+                    {{ selectedAuditRow.entity }}{{ selectedAuditRow.entityId ? ' #' + selectedAuditRow.entityId : '' }}
+                  }
+                </span>
+              </div>
+            }
+            <div class="audit-detail-field">
+              <span class="audit-field-label">IP</span>
+              <span class="audit-field-value">{{ selectedAuditRow.ipAddress || '-' }}</span>
             </div>
           </div>
+
+          @if (selectedAuditRow.details) {
+            <div class="audit-detail-json">
+              <span class="audit-field-label">Dati aggiuntivi</span>
+              <pre>{{ auditDetailsAsJson(selectedAuditRow) }}</pre>
+            </div>
+          }
+
+          <details class="audit-technical">
+            <summary>Informazioni tecniche</summary>
+            <div class="audit-technical-grid">
+              <span class="audit-field-label">ID</span><span>{{ selectedAuditRow.id }}</span>
+              <span class="audit-field-label">Metodo</span><span>{{ selectedAuditRow.method }}</span>
+              <span class="audit-field-label">Path</span><span class="audit-technical-path">{{ selectedAuditRow.path }}</span>
+              <span class="audit-field-label">Browser</span><span class="audit-technical-ua">{{ selectedAuditRow.userAgent || '-' }}</span>
+            </div>
+          </details>
+
           <div class="modal-actions">
             <button type="button" class="ghost" (click)="closeAuditDetail()">Chiudi dettaglio</button>
           </div>
@@ -349,6 +389,105 @@
         <div class="success">{{ operationSuccess }}</div>
       }
 
+      @if (activeView === 'settings' && isAdmin) {
+        <div class="content-header">
+          <h1 class="content-title">Impostazioni</h1>
+        </div>
+        <div class="settings-page">
+          <div class="settings-card">
+            <h2 class="settings-card-title">Connessione ERP SQL Server</h2>
+
+            @if (settingsLoading) {
+              <p class="settings-loading">Caricamento configurazione...</p>
+            } @else {
+              <div class="settings-form">
+                <div class="settings-row settings-row--two">
+                  <label class="settings-field">
+                    <span>Server (host)</span>
+                    <input type="text" [(ngModel)]="settingsForm.host" placeholder="es. srvsql" />
+                    @if (settingsConfig) {
+                      <small class="settings-source">{{ settingsConfig.host.source === 'db' ? 'Da database' : 'Da .env' }}</small>
+                    }
+                  </label>
+                  <label class="settings-field">
+                    <span>Porta</span>
+                    <input type="text" [(ngModel)]="settingsForm.port" placeholder="1433" />
+                  </label>
+                </div>
+                <label class="settings-field">
+                  <span>Database</span>
+                  <input type="text" [(ngModel)]="settingsForm.database" placeholder="es. ADB_GESTIONALE" />
+                  @if (settingsConfig) {
+                    <small class="settings-source">{{ settingsConfig.database.source === 'db' ? 'Da database' : 'Da .env' }}</small>
+                  }
+                </label>
+                <label class="settings-field">
+                  <span>Utente</span>
+                  <input type="text" [(ngModel)]="settingsForm.user" placeholder="es. sa" autocomplete="off" />
+                </label>
+                <label class="settings-field">
+                  <span>Password</span>
+                  <div class="settings-password-wrap">
+                    <input
+                      [type]="settingsShowPassword ? 'text' : 'password'"
+                      [(ngModel)]="settingsForm.password"
+                      autocomplete="new-password"
+                    />
+                    <button type="button" class="ghost settings-eye" (click)="settingsShowPassword = !settingsShowPassword">
+                      {{ settingsShowPassword ? 'Nascondi' : 'Mostra' }}
+                    </button>
+                  </div>
+                  @if (settingsConfig) {
+                    <small class="settings-source">{{ settingsConfig.password.source === 'db' ? 'Da database' : 'Da .env' }}</small>
+                  }
+                </label>
+                <label class="settings-field settings-field--narrow">
+                  <span>Timeout (ms)</span>
+                  <input type="text" [(ngModel)]="settingsForm.timeoutMs" placeholder="15000" />
+                </label>
+
+                @if (settingsConfig) {
+                  <p class="settings-origin">
+                    Origine configurazione: <strong>{{ settingsOriginLabel }}</strong>
+                  </p>
+                }
+
+                @if (settingsError) {
+                  <div class="error">{{ settingsError }}</div>
+                }
+                @if (settingsSuccess) {
+                  <div class="success-box">{{ settingsSuccess }}</div>
+                }
+                @if (settingsTestResult) {
+                  <div [class]="settingsTestResult.ok ? 'success-box' : 'error'">
+                    @if (settingsTestResult.ok) { Connessione riuscita. }
+                    @else { Connessione fallita: {{ settingsTestResult.message }} }
+                  </div>
+                }
+              </div>
+
+              <div class="settings-actions">
+                <button
+                  type="button"
+                  class="ghost"
+                  [disabled]="settingsTesting || settingsSaving"
+                  (click)="testSettings()"
+                >
+                  {{ settingsTesting ? 'Test in corso...' : 'Test connessione' }}
+                </button>
+                <button
+                  type="button"
+                  [disabled]="settingsSaving || settingsTesting"
+                  (click)="saveSettings()"
+                >
+                  {{ settingsSaving ? 'Salvataggio...' : 'Salva' }}
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
       @if (activeView === 'dashboard') {
         @if (dashboardChartsComponent) {
           <ng-container *ngComponentOutlet="dashboardChartsComponent; inputs: { stats: stats }"></ng-container>
@@ -374,7 +513,13 @@
         <div class="kanban-scroll-wrap">
           <section class="kanban-grid" [class.kanban-grid--compact]="kanbanCompactMode">
             @if (loadingBoard) {
-              <article class="chart-card full"><p>Caricamento board...</p></article>
+              @for (s of statusFlow; track s) {
+                <div class="kanban-skeleton-col">
+                  <div class="kanban-skeleton-header"></div>
+                  <div class="kanban-skeleton-card"></div>
+                  <div class="kanban-skeleton-card kanban-skeleton-card--short"></div>
+                </div>
+              }
             } @else {
               @for (column of boardColumns; track column.status) {
                 <article class="kanban-column" [ngClass]="columnClass(column.status)">
@@ -396,6 +541,11 @@
                     [cdkDropListDisabled]="showOnlyLateInKanban"
                     (cdkDropListDropped)="onKanbanDrop($event, column.status)"
                   >
+                    @if (filteredKanbanItems(column.items).length === 0) {
+                      <div class="kanban-empty">
+                        @if (showOnlyLateInKanban) { Nessun ritardo } @else { Nessun ordine }
+                      </div>
+                    }
                     @for (item of filteredKanbanItems(column.items); track item.id) {
                       <div class="kanban-card-wrap">
                         <button
@@ -407,18 +557,21 @@
                           (click)="selectFromBoard(item)"
                         >
                           <strong>{{ item.rif }}</strong>
-                          @if (!kanbanCompactMode) {
-                            <span>{{ item.cliente }}</span>
+                          <span class="kanban-card-cliente">{{ item.cliente }}</span>
+                          @if (item.tipoImpianto) {
+                            <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
                           }
-                          <small class="kanban-card-meta">
-                            <span class="kanban-card-meta__vettore">{{ item.vettore || 'N/D' }}</span>
+                          <div class="kanban-card-meta">
+                            <span class="kanban-card-meta__vettore">{{ item.vettore || '—' }}</span>
                             <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
-                          </small>
+                          </div>
                           @if (isLate(item)) {
                             <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
                           }
                         </button>
-                        <button type="button" class="kanban-history-btn" title="Percorso ordine" (click)="openHistoryModal(item)">&#9203;</button>
+                        <button type="button" class="kanban-history-btn" aria-label="Percorso ordine" title="Percorso ordine" (click)="openHistoryModal(item)">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </button>
                       </div>
                     }
                   </div>
