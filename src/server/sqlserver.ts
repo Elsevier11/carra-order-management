@@ -1,4 +1,5 @@
 import sql from 'mssql'
+import type postgres from 'postgres'
 
 export interface ErpOrder {
   externalRef: string
@@ -11,26 +12,66 @@ export interface ErpOrder {
   agenteCodice: string | null
 }
 
-function getConfig(): sql.config {
-  const host = process.env.SQLSERVER_HOST
+export interface ErpConfig {
+  server: string
+  port: number
+  database: string
+  user: string
+  password: string
+  timeoutMs: number
+}
+
+export async function resolveErpConfig(pgClient: postgres.Sql): Promise<ErpConfig> {
+  const rows = await pgClient<{ key: string; value: string }[]>`
+    select key, value from import_config
+    where key in (
+      'sqlserver_host', 'sqlserver_port', 'sqlserver_database',
+      'sqlserver_user', 'sqlserver_password', 'sqlserver_timeout_ms'
+    )
+  `
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+
+  const host = map['sqlserver_host'] ?? process.env.SQLSERVER_HOST
   if (!host) {
     throw new Error(
-      'Variabile SQLSERVER_HOST non configurata. Impostare le variabili SQLSERVER_* nel file .env',
+      'Parametri ERP non configurati. Configurare la connessione nella pagina Impostazioni.',
     )
   }
+
   return {
     server: host,
-    port: process.env.SQLSERVER_PORT ? parseInt(process.env.SQLSERVER_PORT, 10) : 1433,
-    database: process.env.SQLSERVER_DATABASE ?? '',
-    user: process.env.SQLSERVER_USER ?? '',
-    password: process.env.SQLSERVER_PASSWORD ?? '',
+    port: parseInt(map['sqlserver_port'] ?? process.env.SQLSERVER_PORT ?? '1433', 10),
+    database: map['sqlserver_database'] ?? process.env.SQLSERVER_DATABASE ?? '',
+    user: map['sqlserver_user'] ?? process.env.SQLSERVER_USER ?? '',
+    password: map['sqlserver_password'] ?? process.env.SQLSERVER_PASSWORD ?? '',
+    timeoutMs: parseInt(
+      map['sqlserver_timeout_ms'] ?? process.env.SQLSERVER_QUERY_TIMEOUT_MS ?? '15000',
+      10,
+    ),
+  }
+}
+
+function buildSqlConfig(config: ErpConfig, timeoutOverride?: number): sql.config {
+  const timeout = timeoutOverride ?? config.timeoutMs
+  return {
+    server: config.server,
+    port: config.port,
+    database: config.database,
+    user: config.user,
+    password: config.password,
     options: {
       encrypt: false,
       trustServerCertificate: true,
     },
-    connectionTimeout: parseInt(process.env.SQLSERVER_QUERY_TIMEOUT_MS ?? '15000', 10),
-    requestTimeout: parseInt(process.env.SQLSERVER_QUERY_TIMEOUT_MS ?? '15000', 10),
+    connectionTimeout: timeout,
+    requestTimeout: timeout,
   }
+}
+
+export async function testErpConnection(config: ErpConfig): Promise<void> {
+  const pool = new sql.ConnectionPool(buildSqlConfig(config, 5000))
+  await pool.connect()
+  await pool.close()
 }
 
 function toIsoDate(value: unknown): string | null {
@@ -41,8 +82,8 @@ function toIsoDate(value: unknown): string | null {
   return String(value)
 }
 
-export async function fetchErpOrders(sinceDate: Date): Promise<ErpOrder[]> {
-  const pool = new sql.ConnectionPool(getConfig())
+export async function fetchErpOrders(config: ErpConfig, sinceDate: Date): Promise<ErpOrder[]> {
+  const pool = new sql.ConnectionPool(buildSqlConfig(config))
   await pool.connect()
   try {
     const request = pool.request()
