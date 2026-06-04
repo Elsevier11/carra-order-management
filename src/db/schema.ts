@@ -34,6 +34,7 @@ export const ordini = pgTable('ordini', {
   responsabileInternoId: integer('responsabile_interno_id').references(() => responsabiliInterni.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
   externalRef: text('external_ref'),
+  folderLink: text('folder_link'),
 })
 
 export const importConfig = pgTable('import_config', {

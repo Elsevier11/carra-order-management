@@ -123,6 +123,9 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists responsabile_interno_id integer references responsabili_interni(id) on delete set null;`)
   await pgClient.unsafe(`alter table order_events add column if not exists details jsonb;`)
 
+  // Cartella di rete per ordine
+  await pgClient.unsafe(`alter table ordini add column if not exists folder_link text;`)
+
   // ERP SQL Server import support
   await pgClient.unsafe(`alter table ordini add column if not exists external_ref text;`)
   await pgClient.unsafe(`

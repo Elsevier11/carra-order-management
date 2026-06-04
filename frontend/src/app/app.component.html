@@ -636,6 +636,19 @@
             </div>
           </div>
 
+          <!-- ── Cartella di rete ──────────────────────────────────────── -->
+          @if (selectedDetail.folderLink) {
+            <div class="detail-section">
+              <div class="detail-section-title">Cartella documenti</div>
+              <div class="folder-link-row">
+                <code class="folder-link-path">{{ selectedDetail.folderLink }}</code>
+                <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLink!)">
+                  Copia percorso
+                </button>
+              </div>
+            </div>
+          }
+
           <!-- ── Logistica & Pagamento | Allegati affiancati ──────────── -->
           <div class="detail-bottom-grid">
 
@@ -825,6 +838,10 @@
           <span>Acconto pagato</span>
         </label>
         <textarea [(ngModel)]="formModel.note" placeholder="Note operative..."></textarea>
+        <div class="form-field">
+          <label class="form-field__label">Cartella di rete</label>
+          <input type="text" [(ngModel)]="formModel.folderLink" placeholder="\\server\cartella" />
+        </div>
         </div>
         <div class="modal-actions">
           <button type="button" (click)="saveForm()">Salva</button>

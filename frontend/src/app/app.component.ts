@@ -47,6 +47,7 @@ type EditableConsegna = {
   accontoPagato: boolean;
   commercialeId: number | null;
   responsabileInternoId: number | null;
+  folderLink: string;
 };
 
 type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche' | 'settings';
@@ -657,6 +658,7 @@ export class AppComponent implements OnInit, OnDestroy {
       accontoPagato: this.selectedDetail.accontoPagato ?? false,
       commercialeId: this.selectedDetail.commercialeId ?? null,
       responsabileInternoId: this.selectedDetail.responsabileInternoId ?? null,
+      folderLink: this.selectedDetail.folderLink ?? '',
     };
     this.formVisible = true;
   }
@@ -685,6 +687,7 @@ export class AppComponent implements OnInit, OnDestroy {
       accontoPagato: this.formModel.accontoPagato,
       commercialeId: this.formModel.commercialeId,
       responsabileInternoId: this.formModel.responsabileInternoId,
+      folderLink: this.formModel.folderLink || null,
     };
 
     const req = this.editingId ? this.consegneService.update(this.editingId, payload) : this.consegneService.create(payload);
@@ -1457,7 +1460,12 @@ export class AppComponent implements OnInit, OnDestroy {
       accontoPagato: false,
       commercialeId: null,
       responsabileInternoId: null,
+      folderLink: '',
     };
+  }
+
+  copyFolderLink(path: string): void {
+    navigator.clipboard.writeText(path);
   }
 
   private savePreset(): void {

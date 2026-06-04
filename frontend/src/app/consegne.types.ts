@@ -18,6 +18,7 @@ export interface ConsegnaRecord {
   accontoPagato: boolean;
   commercialeId: number | null;
   responsabileInternoId: number | null;
+  folderLink: string | null;
 }
 
 export interface CommercialeRecord {

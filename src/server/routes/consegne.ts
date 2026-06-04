@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Router } from 'express'
-import { and, asc, count, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, ilike, lt, lte, or, sql } from 'drizzle-orm'
 import multer from 'multer'
 import { z } from 'zod'
 import { commerciali, orderAttachments, ordini, responsabiliInterni } from '../../db/schema'
@@ -133,6 +133,7 @@ const consegnaInputSchema = z.object({
   accontoPagato: z.boolean().optional().default(false),
   commercialeId: z.number().int().positive().optional().nullable(),
   responsabileInternoId: z.number().int().positive().optional().nullable(),
+  folderLink: z.string().optional().nullable(),
 })
 
 const transitionSchema = z.object({
@@ -187,6 +188,7 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     accontoPagato: row.accontoPagato ?? false,
     commercialeId: row.commercialeId ?? null,
     responsabileInternoId: row.responsabileInternoId ?? null,
+    folderLink: row.folderLink ?? null,
     createdAt: row.createdAt,
   }
 }
@@ -375,16 +377,41 @@ router.get('/board', async (req, res, next) => {
 router.get('/stats', async (_req, res, next) => {
   try {
     const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
     const day = now.getDay() || 7
     const startOfWeek = new Date(now)
     startOfWeek.setDate(now.getDate() - day + 1)
     startOfWeek.setHours(0, 0, 0, 0)
-
     const endOfWeek = new Date(startOfWeek)
     endOfWeek.setDate(startOfWeek.getDate() + 6)
     endOfWeek.setHours(23, 59, 59, 999)
 
-    const [weekRows, lateRows, byCarrierRows, byStatusRows, weeklyTrendRows] = await Promise.all([
+    const nextMonday = new Date(startOfWeek)
+    nextMonday.setDate(startOfWeek.getDate() + 7)
+    const nextSunday = new Date(nextMonday)
+    nextSunday.setDate(nextMonday.getDate() + 6)
+    nextSunday.setHours(23, 59, 59, 999)
+
+    const eightWeeksOut = new Date(startOfToday.getTime() + 8 * 7 * 24 * 60 * 60 * 1000)
+
+    const activeFilter = sql`upper(coalesce(${ordini.stato}, 'IN CORSO')) not in ('CONCLUSI')`
+
+    const [
+      weekRows,
+      lateRows,
+      byCarrierRows,
+      byStatusRows,
+      weeklyTrendRows,
+      totalAttiviRows,
+      nextWeekRows,
+      accontiRows,
+      pipelineRows,
+      pipelineLateRows,
+      upcomingRows,
+      byClienteRows,
+      byCarrierLateRows,
+    ] = await Promise.all([
       db
         .select({ count: count() })
         .from(ordini)
@@ -424,16 +451,92 @@ router.get('/stats', async (_req, res, next) => {
         .groupBy(sql`date_trunc('week', ${ordini.dataConsegna})`)
         .orderBy(sql`date_trunc('week', ${ordini.dataConsegna}) desc`)
         .limit(8),
+      // totale ordini attivi (non CONCLUSI)
+      db.select({ count: count() }).from(ordini).where(activeFilter),
+      // consegne settimana prossima
+      db
+        .select({ count: count() })
+        .from(ordini)
+        .where(and(gte(ordini.dataConsegna, nextMonday), lte(ordini.dataConsegna, nextSunday), activeFilter)),
+      // acconti da incassare
+      db.select({ count: count() }).from(ordini).where(and(eq(ordini.accontoPagato, false), activeFilter)),
+      // pipeline: totale per stato
+      db
+        .select({ stato: sql<string>`coalesce(${ordini.stato}, 'IN CORSO')`, total: count() })
+        .from(ordini)
+        .groupBy(sql`coalesce(${ordini.stato}, 'IN CORSO')`),
+      // pipeline: ritardi per stato (data consegna passata, non conclusi)
+      db
+        .select({ stato: sql<string>`coalesce(${ordini.stato}, 'IN CORSO')`, late: count() })
+        .from(ordini)
+        .where(and(lt(ordini.dataConsegna, startOfToday), activeFilter))
+        .groupBy(sql`coalesce(${ordini.stato}, 'IN CORSO')`),
+      // carico prossime 8 settimane
+      db
+        .select({
+          week: sql<string>`to_char(date_trunc('week', ${ordini.dataConsegna}), 'IYYY-IW')`,
+          count: count(),
+        })
+        .from(ordini)
+        .where(
+          and(
+            sql`${ordini.dataConsegna} is not null`,
+            gte(ordini.dataConsegna, startOfToday),
+            lte(ordini.dataConsegna, eightWeeksOut),
+            activeFilter,
+          ),
+        )
+        .groupBy(sql`date_trunc('week', ${ordini.dataConsegna})`)
+        .orderBy(sql`date_trunc('week', ${ordini.dataConsegna}) asc`),
+      // top 10 clienti per ordini attivi
+      db
+        .select({ cliente: ordini.cliente, count: count() })
+        .from(ordini)
+        .where(and(sql`${ordini.cliente} is not null`, activeFilter))
+        .groupBy(ordini.cliente)
+        .orderBy(desc(count()))
+        .limit(10),
+      // vettori con ritardi
+      db
+        .select({
+          vettore: sql<string>`coalesce(${ordini.traspor}, 'N/D')`,
+          late: count(),
+        })
+        .from(ordini)
+        .where(and(lt(ordini.dataConsegna, startOfToday), activeFilter))
+        .groupBy(sql`coalesce(${ordini.traspor}, 'N/D')`)
+        .orderBy(desc(count())),
     ])
+
+    const pipelineLateMap = new Map(pipelineLateRows.map((r) => [r.stato, Number(r.late)]))
+    const pipelineConRitardi = pipelineRows.map((r) => ({
+      stato: r.stato,
+      total: Number(r.total),
+      late: pipelineLateMap.get(r.stato) ?? 0,
+    }))
+
+    const carrierLateMap = new Map(byCarrierLateRows.map((r) => [r.vettore, Number(r.late)]))
+    const byCarrierWithLate = byCarrierRows.map((r) => ({
+      vettore: r.vettore,
+      total: Number(r.count),
+      late: carrierLateMap.get(r.vettore) ?? 0,
+    }))
 
     res.json({
       kpi: {
-        consegneSettimanaCorrente: weekRows[0]?.count ?? 0,
-        ritardi: lateRows[0]?.count ?? 0,
+        consegneSettimanaCorrente: Number(weekRows[0]?.count ?? 0),
+        consegneProssimaSettimana: Number(nextWeekRows[0]?.count ?? 0),
+        ritardi: Number(lateRows[0]?.count ?? 0),
+        totaleAttivi: Number(totalAttiviRows[0]?.count ?? 0),
+        accontiDaIncassare: Number(accontiRows[0]?.count ?? 0),
       },
       byCarrier: byCarrierRows,
+      byCarrierWithLate,
       byStatus: byStatusRows,
+      pipelineConRitardi,
       weeklyTrend: weeklyTrendRows.reverse(),
+      upcomingByWeek: upcomingRows,
+      byClienteAttivi: byClienteRows.map((r) => ({ cliente: r.cliente ?? '—', count: Number(r.count) })),
     })
   } catch (error) {
     next(error)
@@ -806,6 +909,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('accontoPagato' in payload) updateData.accontoPagato = payload.accontoPagato ?? false
     if ('commercialeId' in payload) updateData.commercialeId = payload.commercialeId ?? null
     if ('responsabileInternoId' in payload) updateData.responsabileInternoId = payload.responsabileInternoId ?? null
+    if ('folderLink' in payload) updateData.folderLink = payload.folderLink ?? null
 
     // Calculate field-level diff (old vs new)
     const diff: Record<string, { from: unknown; to: unknown }> = {}
@@ -839,6 +943,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('accontoPagato' in payload) diffBool('accontoPagato', existing.accontoPagato, payload.accontoPagato)
     if ('commercialeId' in payload) diffNum('commercialeId', existing.commercialeId, payload.commercialeId)
     if ('responsabileInternoId' in payload) diffNum('responsabileInternoId', existing.responsabileInternoId, payload.responsabileInternoId)
+    if ('folderLink' in payload) diffStr('folderLink', existing.folderLink, payload.folderLink)
 
     const [updated] = await db.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
 
