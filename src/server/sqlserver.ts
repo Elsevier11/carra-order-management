@@ -70,8 +70,11 @@ function buildSqlConfig(config: ErpConfig, timeoutOverride?: number): sql.config
 
 export async function testErpConnection(config: ErpConfig): Promise<void> {
   const pool = new sql.ConnectionPool(buildSqlConfig(config, 5000))
-  await pool.connect()
-  await pool.close()
+  try {
+    await pool.connect()
+  } finally {
+    await pool.close().catch(() => {})
+  }
 }
 
 function toIsoDate(value: unknown): string | null {
