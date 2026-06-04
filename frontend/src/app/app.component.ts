@@ -21,8 +21,12 @@ import {
   ErpOrderPreviewItem,
   OrderEvent,
   ResponsabileRecord,
+  SqlServerConfigResponse,
+  SqlServerConfigSavePayload,
   SqlServerImportResult,
+  SqlServerTestResult,
 } from './consegne.types';
+import { SettingsService } from './settings.service';
 
 type EditableConsegna = {
   rif: string;
@@ -45,7 +49,7 @@ type EditableConsegna = {
   responsabileInternoId: number | null;
 };
 
-type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche';
+type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche' | 'settings';
 type RegistryTab = 'users' | 'commerciali' | 'responsabili';
 
 @Component({
@@ -57,6 +61,7 @@ type RegistryTab = 'users' | 'commerciali' | 'responsabili';
 export class AppComponent implements OnInit, OnDestroy {
   private readonly consegneService = inject(ConsegneService);
   private readonly authService = inject(AuthService);
+  private readonly settingsService = inject(SettingsService);
 
   rows: ConsegnaRecord[] = [];
   total = 0;
@@ -154,10 +159,14 @@ export class AppComponent implements OnInit, OnDestroy {
   };
 
   stats: ConsegnaStats = {
-    kpi: { consegneSettimanaCorrente: 0, ritardi: 0 },
+    kpi: { consegneSettimanaCorrente: 0, consegneProssimaSettimana: 0, ritardi: 0, totaleAttivi: 0, accontiDaIncassare: 0 },
     byCarrier: [],
+    byCarrierWithLate: [],
     byStatus: [],
+    pipelineConRitardi: [],
     weeklyTrend: [],
+    upcomingByWeek: [],
+    byClienteAttivi: [],
   };
 
   auditRows: AuditLogRecord[] = [];
@@ -197,6 +206,24 @@ export class AppComponent implements OnInit, OnDestroy {
   passwordResetModel: { userId: number | null; password: string } = {
     userId: null,
     password: '',
+  };
+
+  // ── Settings ERP ─────────────────────────────────────────────────────────────
+  settingsConfig: SqlServerConfigResponse | null = null;
+  settingsLoading = false;
+  settingsSaving = false;
+  settingsTesting = false;
+  settingsError = '';
+  settingsSuccess = '';
+  settingsTestResult: SqlServerTestResult | null = null;
+  settingsShowPassword = false;
+  settingsForm = {
+    host: '',
+    port: '1433',
+    database: '',
+    user: '',
+    password: '',
+    timeoutMs: '15000',
   };
 
   // ── ERP SQL Server import ──────────────────────────────────────────────────
@@ -395,7 +422,8 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   changeView(view: ViewMode): void {
-    if ((view === 'audit' || view === 'anagrafiche') && !this.isAdmin) return;
+    if ((view === 'audit' || view === 'anagrafiche' || view === 'settings') && !this.isAdmin) return;
+    if (view === 'settings') this.loadSettings();
     this.operationError = '';
     this.operationSuccess = '';
     this.activeView = view;
@@ -1208,6 +1236,26 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  auditReadableSummary(item: AuditLogRecord): string {
+    const d = item.details as Record<string, unknown> | null;
+    switch (item.action) {
+      case 'CONSEGNE_LIST': return `Lista consegne: trovati ${d?.['total'] ?? '?'} risultati`;
+      case 'ORDER_CREATED': return 'Nuovo ordine inserito nel sistema';
+      case 'ORDER_UPDATED': return 'Dati ordine modificati';
+      case 'STATUS_CHANGED': return `Stato cambiato: ${d?.['from'] ?? '?'} → ${d?.['to'] ?? '?'}`;
+      case 'STATUS_SUSPENDED': return 'Ordine messo in sospensione';
+      case 'AUTH_LOGIN_SUCCESS': return 'Accesso effettuato con successo';
+      case 'AUTH_LOGIN_FAILED': return 'Tentativo di accesso con credenziali errate';
+      case 'ATTACHMENT_ADDED': return `Allegato aggiunto${d?.['fileName'] ? ': ' + d['fileName'] : ''}`;
+      case 'ATTACHMENT_REMOVED': return `Allegato rimosso${d?.['fileName'] ? ': ' + d['fileName'] : ''}`;
+      case 'USER_CREATED': return 'Nuovo utente creato';
+      case 'USER_UPDATED': return 'Dati utente modificati';
+      case 'USER_PASSWORD_RESET': return 'Password utente reimpostata';
+      case 'CONSEGNE_EXPORT': return 'Export CSV consegne eseguito';
+      default: return '';
+    }
+  }
+
   private syncBoardCounts(): void {
     this.boardColumns = this.boardColumns.map((column) => ({
       ...column,
@@ -1480,5 +1528,92 @@ export class AppComponent implements OnInit, OnDestroy {
     } else if (this.activeRegistryTab === 'responsabili') {
       this.loadResponsabili();
     }
+  }
+
+  // ── Settings ERP — metodi ────────────────────────────────────────────────────
+
+  loadSettings(): void {
+    if (!this.isAdmin) return;
+    this.settingsLoading = true;
+    this.settingsError = '';
+    this.settingsSuccess = '';
+    this.settingsTestResult = null;
+    this.settingsService.getSqlServerConfig().subscribe({
+      next: (config) => {
+        this.settingsConfig = config;
+        this.settingsForm = {
+          host: config.host.value,
+          port: config.port.value,
+          database: config.database.value,
+          user: config.user.value,
+          password: '***',
+          timeoutMs: config.timeoutMs.value,
+        };
+        this.settingsLoading = false;
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.settingsLoading = false;
+        this.settingsError = err?.error?.message ?? 'Errore caricamento configurazione';
+      },
+    });
+  }
+
+  saveSettings(): void {
+    if (!this.isAdmin) return;
+    this.settingsSaving = true;
+    this.settingsError = '';
+    this.settingsSuccess = '';
+    const payload: SqlServerConfigSavePayload = {
+      host: this.settingsForm.host,
+      port: this.settingsForm.port,
+      database: this.settingsForm.database,
+      user: this.settingsForm.user,
+      password: this.settingsForm.password === '***' ? '' : this.settingsForm.password,
+      timeoutMs: this.settingsForm.timeoutMs,
+    };
+    this.settingsService.saveSqlServerConfig(payload).subscribe({
+      next: () => {
+        this.settingsSaving = false;
+        this.settingsSuccess = 'Configurazione salvata.';
+        this.loadSettings();
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.settingsSaving = false;
+        this.settingsError = err?.error?.message ?? 'Errore salvataggio';
+      },
+    });
+  }
+
+  testSettings(): void {
+    if (!this.isAdmin) return;
+    this.settingsTesting = true;
+    this.settingsTestResult = null;
+    this.settingsError = '';
+    this.settingsService.testSqlServerConnection().subscribe({
+      next: (result) => {
+        this.settingsTesting = false;
+        this.settingsTestResult = result;
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.settingsTesting = false;
+        this.settingsTestResult = { ok: false, message: err?.error?.message ?? 'Errore test' };
+      },
+    });
+  }
+
+  get settingsOriginLabel(): string {
+    if (!this.settingsConfig) return '';
+    const sources = [
+      this.settingsConfig.host.source,
+      this.settingsConfig.port.source,
+      this.settingsConfig.database.source,
+      this.settingsConfig.user.source,
+      this.settingsConfig.password.source,
+    ];
+    const allDb = sources.every((s) => s === 'db');
+    const allEnv = sources.every((s) => s === 'env');
+    if (allDb) return 'Da database';
+    if (allEnv) return 'Da .env (default)';
+    return 'Mista (DB + .env)';
   }
 }
