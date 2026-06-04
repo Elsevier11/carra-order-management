@@ -60,11 +60,18 @@ export interface ConsegneResponse {
 export interface ConsegnaStats {
   kpi: {
     consegneSettimanaCorrente: number;
+    consegneProssimaSettimana: number;
     ritardi: number;
+    totaleAttivi: number;
+    accontiDaIncassare: number;
   };
   byCarrier: Array<{ vettore: string; count: number }>;
+  byCarrierWithLate: Array<{ vettore: string; total: number; late: number }>;
   byStatus: Array<{ stato: string; count: number }>;
+  pipelineConRitardi: Array<{ stato: string; total: number; late: number }>;
   weeklyTrend: Array<{ week: string; count: number }>;
+  upcomingByWeek: Array<{ week: string; count: number }>;
+  byClienteAttivi: Array<{ cliente: string; count: number }>;
 }
 
 export interface FilterOptions {
@@ -170,4 +177,34 @@ export interface SqlServerImportResult {
 
 export interface ImportConfig {
   lastImportDate: string;
+}
+
+// ── Settings: configurazione ERP SQL Server ──────────────────────────────────
+
+export interface SqlServerConfigParam {
+  value: string;
+  source: 'db' | 'env';
+}
+
+export interface SqlServerConfigResponse {
+  host: SqlServerConfigParam;
+  port: SqlServerConfigParam;
+  database: SqlServerConfigParam;
+  user: SqlServerConfigParam;
+  password: SqlServerConfigParam;
+  timeoutMs: SqlServerConfigParam;
+}
+
+export interface SqlServerConfigSavePayload {
+  host: string;
+  port: string;
+  database: string;
+  user: string;
+  password: string;
+  timeoutMs: string;
+}
+
+export interface SqlServerTestResult {
+  ok: boolean;
+  message?: string;
 }
