@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Component, OnDestroy, OnInit, Type, inject } from '@angular/core';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
@@ -63,6 +64,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly consegneService = inject(ConsegneService);
   private readonly authService = inject(AuthService);
   private readonly settingsService = inject(SettingsService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   rows: ConsegnaRecord[] = [];
   total = 0;
@@ -77,7 +79,7 @@ export class AppComponent implements OnInit, OnDestroy {
   selectedUploadFile: File | null = null;
   operationError = '';
   operationSuccess = '';
-  activeView: ViewMode = 'dashboard';
+  activeView: ViewMode = 'kanban';
   activeRegistryTab: RegistryTab = 'users';
   showFiltersPanel = false;
 
@@ -747,6 +749,7 @@ export class AppComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.operationSuccess = `Stato aggiornato a ${this.transitionModel.toStatus}`;
+          setTimeout(() => { this.operationSuccess = ''; }, 3000);
           this.transitionModel = { toStatus: '', note: '' };
           this.loadDetail(this.selectedDetail!.id);
           this.refreshData(this.page);
@@ -1466,6 +1469,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   copyFolderLink(path: string): void {
     navigator.clipboard.writeText(path);
+  }
+
+  folderProtocolUrl(path: string): SafeUrl {
+    return this.sanitizer.bypassSecurityTrustUrl('carra-folder:' + encodeURIComponent(path));
   }
 
   private savePreset(): void {

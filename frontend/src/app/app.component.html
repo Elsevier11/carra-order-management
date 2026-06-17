@@ -19,8 +19,8 @@
         <small class="sidebar-tagline">Gestione ordini e logistica</small>
       </div>
       <div class="sidebar-nav">
+        <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Ordini</button>
         <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
-        <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Kanban</button>
         @if (isAdmin) {
           <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Audit</button>
           <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
@@ -485,6 +485,29 @@
               </div>
             }
           </div>
+
+          <div class="settings-card">
+            <h2 class="settings-card-title">Apertura cartelle da browser</h2>
+            <p class="settings-desc">
+              Per aprire le cartelle degli ordini con un click, ogni PC deve installare il protocollo
+              <code>carra-folder://</code> una volta sola.
+            </p>
+            <ol class="settings-install-steps">
+              <li>Scarica lo script qui sotto</li>
+              <li>Clicca con il tasto destro sul file scaricato → <strong>Esegui con PowerShell</strong></li>
+              <li>Conferma la richiesta di amministratore</li>
+              <li>Al termine, il bottone "Apri cartella" funzionerà su questo PC</li>
+            </ol>
+            <div class="settings-actions">
+              <a class="btn" href="/installa-carra-folder.ps1" download="installa-carra-folder.ps1">
+                Scarica script installazione
+              </a>
+            </div>
+            <p class="settings-note">
+              Lo script crea <code>C:\carra-tools\carra-folder-open.ps1</code> e registra il protocollo
+              nel Registry di Windows. Nessuna modifica al sistema al di fuori di questo.
+            </p>
+          </div>
         </div>
       }
 
@@ -498,7 +521,7 @@
             </article>
           </section>
         }
-      } @else {
+      } @else if (activeView === 'kanban') {
         <section class="kanban-toolbar">
           <div class="kanban-kpi">
             <span class="sla-badge late sla-badge--total">Totale ritardi: {{ totalLateCount }}</span>
@@ -642,6 +665,9 @@
               <div class="detail-section-title">Cartella documenti</div>
               <div class="folder-link-row">
                 <code class="folder-link-path">{{ selectedDetail.folderLink }}</code>
+                <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLink!)" title="Apri in Esplora file">
+                  Apri cartella
+                </a>
                 <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLink!)">
                   Copia percorso
                 </button>
@@ -723,13 +749,17 @@
             <div class="detail-section">
               <div class="detail-section-title">Cambio stato rapido</div>
               @if (operationError) { <div class="error">{{ operationError }}</div> }
+              @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
               <div class="transition-grid">
-                <select [(ngModel)]="transitionModel.toStatus">
-                  <option value="">Seleziona stato</option>
-                  @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
-                    <option [value]="status">{{ status }}</option>
-                  }
-                </select>
+                <div class="transition-select-wrap">
+                  <select [(ngModel)]="transitionModel.toStatus">
+                    <option value="">Seleziona stato</option>
+                    @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
+                      <option [value]="status">{{ status }}</option>
+                    }
+                  </select>
+                  <small class="transition-hint">Gli stati disponibili dipendono dal flusso corrente dell'ordine.</small>
+                </div>
                 <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
                 <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
               </div>

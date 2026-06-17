@@ -15,10 +15,14 @@ describe('AppComponent', () => {
       }),
     stats: () =>
       of({
-        kpi: { consegneSettimanaCorrente: 0, ritardi: 0 },
+        kpi: { consegneSettimanaCorrente: 0, consegneProssimaSettimana: 0, ritardi: 0, totaleAttivi: 0, accontiDaIncassare: 0 },
         byCarrier: [],
+        byCarrierWithLate: [],
         byStatus: [],
+        pipelineConRitardi: [],
         weeklyTrend: [],
+        upcomingByWeek: [],
+        byClienteAttivi: [],
       }),
     filters: () => of({ clienti: [], vettori: [], stati: [] }),
     board: () => of({ columns: [] }),

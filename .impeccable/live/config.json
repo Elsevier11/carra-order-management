@@ -1,0 +1,12 @@
+{
+  "files": ["frontend/src/index.html"],
+  "insertBefore": "</head>",
+  "commentSyntax": "html",
+  "framework": "angular",
+  "devServer": {
+    "command": "npm run start",
+    "cwd": "frontend",
+    "port": 4200
+  },
+  "cspChecked": true
+}

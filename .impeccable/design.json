@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-04T00:00:00Z",
+  "title": "Design System: Carra Ordini",
+  "extensions": {
+    "colorMeta": {
+      "primary":            { "role": "primary",   "displayName": "Blu Operativo",      "canonical": "#2563eb", "tonalRamp": ["#0a1a5c","#0f2387","#1333b4","#1a48d4","#2563eb","#4c7ef5","#8fb0fb","#dbeafe"] },
+      "primary-dark":       { "role": "primary",   "displayName": "Blu Profondo",        "canonical": "#1d4ed8", "tonalRamp": ["#091540","#102070","#153499","#1943c3","#1d4ed8","#3a68e8","#8aaaf8","#dbeafe"] },
+      "bg":                 { "role": "neutral",   "displayName": "Sfondo Lavagna",      "canonical": "#eef3f9", "tonalRamp": ["#1a2232","#253347","#38506e","#5a7498","#8aa0bb","#b8cade","#d8e6f2","#eef3f9"] },
+      "surface":            { "role": "neutral",   "displayName": "Superficie",          "canonical": "#ffffff", "tonalRamp": ["#c8d4e0","#d4dfe9","#dce7f0","#e6eef5","#eff4f9","#f5f8fb","#fafcfe","#ffffff"] },
+      "surface-alt":        { "role": "neutral",   "displayName": "Superficie Alt",      "canonical": "#f8fbff", "tonalRamp": ["#c0d0e8","#cddaf0","#d8e5f5","#e3eef9","#eef4fb","#f4f8fd","#f8fbff","#ffffff"] },
+      "surface-muted":      { "role": "neutral",   "displayName": "Superficie Muted",    "canonical": "#f4f7fb", "tonalRamp": ["#c2cede","#cdd8e6","#d8e2ee","#e2ecf4","#edf3f8","#f1f5fa","#f4f7fb","#ffffff"] },
+      "ink":                { "role": "neutral",   "displayName": "Inchiostro",          "canonical": "#0f172a", "tonalRamp": ["#060a13","#0f172a","#1e2f52","#2d4676","#3f5f9f","#5a7dc0","#97b2da","#dce6f0"] },
+      "muted":              { "role": "neutral",   "displayName": "Silenzio",            "canonical": "#64748b", "tonalRamp": ["#1a202b","#283042","#3a4660","#4d5f7f","#64748b","#8a9ab0","#b8c4d4","#e2e8f0"] },
+      "alert":              { "role": "secondary", "displayName": "Rosso Urgenza",       "canonical": "#dc2626", "tonalRamp": ["#450a0a","#7f1d1d","#991b1b","#b91c1c","#dc2626","#ef4444","#fca5a5","#fee2e2"] },
+      "success":            { "role": "secondary", "displayName": "Verde Conferma",      "canonical": "#15803d", "tonalRamp": ["#052e16","#14532d","#166534","#15803d","#16a34a","#22c55e","#86efac","#dcfce7"] },
+      "border":             { "role": "neutral",   "displayName": "Bordo",               "canonical": "#dbe4f0", "tonalRamp": ["#a0b4cc","#b0c3d8","#c0d0e2","#ccd9ea","#d8e3ee","#dfe8f2","#e7eef5","#f5f8fb"] },
+      "border-strong":      { "role": "neutral",   "displayName": "Bordo Forte",         "canonical": "#c4d2e4", "tonalRamp": ["#8fa6c0","#9ab3cc","#a9c0d6","#b6cde0","#c4d2e4","#d2dcec","#e0e8f2","#f0f4f9"] },
+      "status-in-corso":    { "role": "tertiary",  "displayName": "Verde Operativo",     "canonical": "#166534", "tonalRamp": ["#052e16","#0a4022","#0f5630","#14703f","#166534","#22c55e","#86efac","#dcfce7"] },
+      "status-in-lavorazione": { "role": "tertiary","displayName": "Verde Teal",        "canonical": "#0f766e", "tonalRamp": ["#042f2e","#064e3b","#0a6b5c","#0e7d72","#0f766e","#14b8a6","#99f6e4","#ccfbf1"] },
+      "status-disegno":     { "role": "tertiary",  "displayName": "Viola",               "canonical": "#7c3aed", "tonalRamp": ["#2e1065","#4c1d95","#5b21b6","#6d28d9","#7c3aed","#a78bfa","#c4b5fd","#ede9fe"] },
+      "status-pronti":      { "role": "tertiary",  "displayName": "Ambra",               "canonical": "#b45309", "tonalRamp": ["#431407","#78350f","#92400e","#a16207","#b45309","#d97706","#fcd34d","#fef3c7"] },
+      "status-consegna":    { "role": "tertiary",  "displayName": "Arancio",             "canonical": "#ea580c", "tonalRamp": ["#431407","#7c2d12","#9a3412","#c2410c","#ea580c","#f97316","#fdba74","#ffedd5"] },
+      "status-conclusi":    { "role": "tertiary",  "displayName": "Indaco",              "canonical": "#1d4ed8", "tonalRamp": ["#1e1b4b","#1e3a8a","#1e40af","#1d4ed8","#2563eb","#60a5fa","#bfdbfe","#eff6ff"] },
+      "status-sospeso":     { "role": "tertiary",  "displayName": "Cremisi",             "canonical": "#9f1239", "tonalRamp": ["#4c0519","#800020","#9b0e35","#9f1239","#be123c","#fb7185","#fecdd3","#fff1f2"] },
+      "note-bg":            { "role": "neutral",   "displayName": "Sfondo Nota",         "canonical": "#fffbeb", "tonalRamp": ["#451a03","#78350f","#b45309","#d97706","#f59e0b","#fcd34d","#fef9c3","#fffbeb"] },
+      "note-accent":        { "role": "neutral",   "displayName": "Accento Nota",        "canonical": "#d97706", "tonalRamp": ["#451a03","#78350f","#92400e","#b45309","#d97706","#f59e0b","#fcd34d","#fef3c7"] }
+    },
+    "typographyMeta": {
+      "display":  { "displayName": "Display",  "purpose": "Titoli di pagine standalone (es. login). Rarissimo." },
+      "headline": { "displayName": "Headline", "purpose": "Titoli di modal e intestazioni di dettaglio ordine." },
+      "title":    { "displayName": "Title",    "purpose": "Intestazioni di sezione e header del contenuto principale." },
+      "body":     { "displayName": "Body",     "purpose": "Testo operativo, valori KV, contenuto di card e tabelle." },
+      "label":    { "displayName": "Label",    "purpose": "Etichette campo KV, intestazioni sezione modal, header colonne. Uppercase, max 4 parole." }
+    },
+    "shadows": [
+      { "name": "surface",  "value": "0 4px 12px rgba(15, 23, 42, 0.05)",  "purpose": "Card a riposo, kanban card, toggle. Livello base." },
+      { "name": "panel",    "value": "0 16px 32px rgba(15, 23, 42, 0.06)", "purpose": "Content-header, form panel. Livello intermedio." },
+      { "name": "modal",    "value": "0 18px 36px rgba(15, 23, 42, 0.08)", "purpose": "Modal e drawer. Livello più alto a riposo." },
+      { "name": "drag",     "value": "0 18px 36px rgba(15, 23, 42, 0.12)", "purpose": "Kanban card durante drag. Interazione attiva." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "160ms ease",                   "purpose": "State transitions: border-color, box-shadow, background-color, color." },
+      { "name": "ease-move",     "value": "180ms ease",                   "purpose": "Kanban card movement during drag." }
+    ],
+    "breakpoints": [
+      { "name": "kanban-compact", "value": "1600px", "purpose": "Riduce kanban column min-width da 240px a 220px." },
+      { "name": "mobile",         "value": "980px",  "purpose": "Rimuove min-height dalle kanban-items." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button Primary",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Azione primaria. Gradient blu, testo bianco, altezza 44px.",
+      "html": "<button class=\"ds-btn-primary\">Salva ordine</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #2563eb; background: linear-gradient(180deg, #2d6df6 0%, #1d4ed8 100%); color: #fff; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; box-shadow: inset 0 -1px 0 rgba(15,23,42,0.12); transition: filter 160ms ease; } .ds-btn-primary:hover:not(:disabled) { filter: brightness(1.02); } .ds-btn-primary:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }"
+    },
+    {
+      "name": "Button Ghost",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Azione secondaria. Gradient leggero, testo scuro, bordo grigio.",
+      "html": "<button class=\"ds-btn-ghost\">Annulla</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #dbe4f0; background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%); color: #0f172a; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: filter 160ms ease; } .ds-btn-ghost:hover:not(:disabled) { filter: brightness(0.97); } .ds-btn-ghost:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; } .ds-btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Button Ghost Danger",
+      "kind": "button",
+      "refersTo": "button-ghost-danger",
+      "description": "Azione distruttiva non confermata. Sfondo rosso chiaro, testo rosso.",
+      "html": "<button class=\"ds-btn-ghost-danger\">Elimina</button>",
+      "css": ".ds-btn-ghost-danger { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #fca5a5; background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 100%); color: #dc2626; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 160ms ease, border-color 160ms ease; } .ds-btn-ghost-danger:hover:not(:disabled) { background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%); border-color: #f87171; } .ds-btn-ghost-danger:focus-visible { outline: 2px solid #dc2626; outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Campo di testo standard. Bordo grigio, focus blu.",
+      "html": "<div class=\"ds-form-field\"><label class=\"ds-form-label\">Cliente</label><input class=\"ds-input\" type=\"text\" placeholder=\"Nome cliente\" /></div>",
+      "css": ".ds-form-field { display: flex; flex-direction: column; gap: 4px; } .ds-form-label { font-family: Manrope, 'Segoe UI', sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #64748b; } .ds-input { width: 100%; min-height: 46px; padding: 0 14px; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; color: #0f172a; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1rem; font-weight: 500; box-shadow: inset 0 1px 2px rgba(15,23,42,0.03); transition: border-color 160ms ease, box-shadow 160ms ease; } .ds-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "Badge di stato workflow. Testo e bordo colorati, sfondo quasi-bianco.",
+      "html": "<span class=\"ds-chip ds-chip--in-corso\">IN CORSO</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 0 10px; border-radius: 999px; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 0.76rem; font-weight: 700; border: 1px solid transparent; background: #f8fafc; } .ds-chip--in-corso { border-color: rgba(22,101,52,0.24); color: #166534; } .ds-chip--in-lavorazione { border-color: rgba(15,118,110,0.24); color: #0f766e; } .ds-chip--disegno { border-color: rgba(124,58,237,0.2); color: #7c3aed; } .ds-chip--pronti { border-color: rgba(180,83,9,0.24); color: #b45309; } .ds-chip--consegna { border-color: rgba(234,88,12,0.24); color: #ea580c; } .ds-chip--conclusi { border-color: rgba(29,78,216,0.2); color: #1d4ed8; } .ds-chip--sospeso { border-color: rgba(159,18,57,0.2); color: #9f1239; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Container standard per sezioni di contenuto. Bianco su sfondo lavagna.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Riepilogo</h2><p class=\"ds-card-body\">Contenuto della card.</p></div>",
+      "css": ".ds-card { background: #fff; border: 1px solid rgba(148,163,184,0.18); border-radius: 14px; padding: 18px; box-shadow: 0 4px 12px rgba(15,23,42,0.05); } .ds-card-title { margin: 0 0 14px; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1rem; font-weight: 700; color: #0f172a; } .ds-card-body { margin: 0; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1rem; font-weight: 500; color: #0f172a; line-height: 1.5; }"
+    },
+    {
+      "name": "Kanban Card",
+      "kind": "card",
+      "refersTo": "kanban-card",
+      "description": "Card del workflow kanban con accent bar semantica di stato a sinistra.",
+      "html": "<button class=\"ds-kanban-card ds-kanban-card--in-corso\"><strong>ORD-2024-001</strong><span>Comune di Treviso</span><div class=\"ds-kanban-meta\"><span class=\"ds-kanban-vettore\">Fercam</span><span class=\"ds-kanban-date\">15/06/2026</span></div></button>",
+      "css": ".ds-kanban-card { --kc: #166534; display: grid; align-content: start; gap: 8px; width: 100%; min-height: 132px; padding: 14px 42px 14px 14px; background: rgba(255,255,255,0.98); border: 1px solid rgba(148,163,184,0.22); border-radius: 14px; box-shadow: 0 4px 12px rgba(15,23,42,0.05); position: relative; overflow: hidden; text-align: left; cursor: pointer; font-family: Manrope, 'Segoe UI', sans-serif; transition: box-shadow 160ms ease; } .ds-kanban-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: linear-gradient(180deg, color-mix(in srgb, var(--kc) 72%, white 28%) 0%, var(--kc) 100%); } .ds-kanban-card:hover { box-shadow: 0 8px 20px rgba(15,23,42,0.09); } .ds-kanban-card--in-corso { --kc: #166534; } .ds-kanban-card--in-lavorazione { --kc: #0f766e; } .ds-kanban-card--disegno { --kc: #7c3aed; } .ds-kanban-card--pronti { --kc: #b45309; } .ds-kanban-card--consegna { --kc: #ea580c; } .ds-kanban-card--conclusi { --kc: #1d4ed8; } .ds-kanban-card--sospeso { --kc: #9f1239; } .ds-kanban-card strong { font-size: 0.88rem; font-weight: 700; color: var(--kc); } .ds-kanban-card span { font-size: 0.98rem; font-weight: 700; color: #0f172a; line-height: 1.35; } .ds-kanban-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: #64748b; font-size: 0.78rem; } .ds-kanban-vettore { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; } .ds-kanban-date { font-variant-numeric: tabular-nums; white-space: nowrap; color: #475569; font-weight: 600; }"
+    },
+    {
+      "name": "Sidebar Nav",
+      "kind": "nav",
+      "description": "Navigazione principale laterale con brand mark e indicatore di selezione.",
+      "html": "<nav class=\"ds-sidebar\"><div class=\"ds-sidebar-brand\"><div class=\"ds-brand-mark\">C</div><div><strong>Carra</strong><small>Gestione Ordini</small></div></div><button class=\"ds-nav-btn ds-nav-btn--active\">Dashboard</button><button class=\"ds-nav-btn\">Kanban</button></nav>",
+      "css": ".ds-sidebar { width: 300px; display: flex; flex-direction: column; padding: 18px 0; background: linear-gradient(180deg, #f7f9fd 0%, #f1f5fb 100%); border-right: 1px solid rgba(148,163,184,0.2); } .ds-sidebar-brand { display: flex; align-items: center; gap: 14px; margin: 0 18px 18px; padding: 12px 14px 18px; border-bottom: 1px solid rgba(148,163,184,0.18); } .ds-brand-mark { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%); color: #fff; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1.05rem; font-weight: 800; flex-shrink: 0; } .ds-nav-btn { display: flex; align-items: center; width: calc(100% - 12px); margin-left: 6px; min-height: 54px; padding: 0 20px 0 28px; border: none; border-radius: 0 14px 14px 0; background: transparent; color: #334155; font-family: Manrope, 'Segoe UI', sans-serif; font-size: 1rem; font-weight: 600; text-align: left; cursor: pointer; transition: background 160ms ease, color 160ms ease; } .ds-nav-btn:hover { background: rgba(37,99,235,0.08); color: #0f172a; } .ds-nav-btn--active { background: rgba(37,99,235,0.14); color: #0b5ed7; box-shadow: inset 4px 0 0 #0b5ed7; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Il Tavolo di Lavoro",
+    "overview": "Questo è il sistema visivo di un professionista che conosce il suo mestiere. Come un tavolo di lavoro ben organizzato — ogni cosa al proprio posto, niente di superfluo — l'interfaccia è il mezzo, non il fine. Chi apre questa app sa già cosa vuole fare; il design non deve stupire, deve togliersi di mezzo il prima possibile e lasciare i dati in primo piano.\n\nIl sistema eredita la familiarità dell'Excel che sostituisce ma la eleva: leggibilità migliore, gerarchia più chiara, stato degli ordini immediatamente visibile.\n\nCiò che questo sistema rifiuta esplicitamente: l'estetica ERP anni '90, la leggerezza B2C, il template SaaS generico.",
+    "keyCharacteristics": [
+      "Densità informativa alta, ma ordinata",
+      "Status come segnale primario: 7 stati codificati visivamente in modo coerente",
+      "Chrome che sparisce: sidebar, header, bordi — tutto serve, niente è decorativo",
+      "Urgenza guadagnata: solo ritardi e stati critici ottengono priorità visiva",
+      "Scala di grigi per lo sfondo, blu per l'azione, colori semantici per lo stato"
+    ],
+    "rules": [
+      { "name": "La Regola del Silenzio Cromatico",  "body": "L'accento blu (#2563eb) appare su ≤10% di qualsiasi schermata. I colori di stato non escono mai dal contesto del workflow.",                                       "section": "colors" },
+      { "name": "La Regola del Solo Testo",           "body": "I colori semantici di stato si usano solo come color e border-color su chip e accent bar, mai come background-color su superfici grandi.",                          "section": "colors" },
+      { "name": "La Regola del Peso, Non del Font",   "body": "Nessuna seconda famiglia tipografica. La gerarchia nasce da peso (500→700→800) e scala (0.75rem→1rem→1.2rem→1.5rem), non da pairing di font.",                   "section": "typography" },
+      { "name": "La Regola delle Label",              "body": "Le label uppercase esistono per segnalare metadato, non per decorare. Non si applicano a testo body. Massimo 4 parole in uppercase per elemento.",                   "section": "typography" },
+      { "name": "La Regola della Gerarchia Strutturale", "body": "Le ombre non decorano: identificano il livello. Una card non usa mai l'ombra del modal; un modal non usa mai l'ombra della card.",                             "section": "elevation" },
+      { "name": "La Regola del Piatto a Riposo",     "body": "I bordi separano elementi allo stesso livello. Le ombre separano livelli diversi. Non usare ombre dove bastano i bordi, e viceversa.",                              "section": "elevation" }
+    ],
+    "dos": [
+      "Usa il blu primario (#2563eb) solo per azioni attivabili.",
+      "Usa i colori di stato solo nel contesto del workflow — chip, accent bar kanban, header colonna.",
+      "Mantieni sfondo bianco sulle card su background #eef3f9.",
+      "Usa label uppercase solo per metadati brevi (≤4 parole).",
+      "Dai ombre strutturali coerenti con la gerarchia — shadow-sm per card, shadow-md per modal.",
+      "Comunica lo stato anche senza colore — testo del nome stato, forme, icone a supporto."
+    ],
+    "donts": [
+      "Non usare border-left colorato e spesso (>1px) come decorazione.",
+      "Non mettere testo in gradient (background-clip: text).",
+      "Non replicare estetica ERP legacy — nessuna tabella con header grigio-blu, nessun campo piatto su sfondo grigio.",
+      "Non usare pattern da app consumer o B2C — no pastelli, no illustrazioni, no mobile-first che sacrifica la densità desktop.",
+      "Non replicare template SaaS generici — nessun eyebrow uppercase su ogni sezione, nessuna card grid icona+titolo+testo ripetuta.",
+      "Non aggiungere una seconda famiglia tipografica.",
+      "Non usare ombre arbitrarie fuori dai quattro livelli documentati.",
+      "Non mettere colori di stato come sfondo di superfici grandi."
+    ]
+  }
+}

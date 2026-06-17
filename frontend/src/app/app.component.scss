@@ -438,6 +438,22 @@
   }
 }
 
+.transition-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  select {
+    width: 100%;
+  }
+}
+
+.transition-hint {
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .error,
 .success {
   margin-top: 12px;
@@ -1118,7 +1134,10 @@ tr.selected-row:hover {
 
 .settings-page {
   padding: 24px;
-  max-width: 640px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
 }
 
 .settings-card {
@@ -1220,4 +1239,35 @@ tr.selected-row:hover {
   border-radius: 6px;
   word-break: break-all;
   flex: 1;
+}
+
+.settings-desc {
+  margin: 0;
+  color: var(--ink-secondary, #64748b);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.settings-install-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 8px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.settings-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-secondary, #94a3b8);
+  line-height: 1.5;
+
+  code {
+    font-family: monospace;
+    background: var(--surface-alt, #f4f6f9);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
 }
