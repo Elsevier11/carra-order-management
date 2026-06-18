@@ -148,6 +148,14 @@ async function main() {
     `
   } else { console.log('order_accessori already exists') }
 
+  // 4. Drop orphaned legacy column
+  if (await columnExists('ordini', 'traspor')) {
+    console.log('Dropping orphaned ordini.traspor...')
+    await sql`ALTER TABLE ordini DROP COLUMN IF EXISTS traspor`
+  } else {
+    console.log('ordini.traspor already removed')
+  }
+
   console.log('\n=== Migration complete ===')
   await sql.end()
 }
