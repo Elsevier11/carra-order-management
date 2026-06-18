@@ -1,3 +1,51 @@
+export interface OrderCemento {
+  id: number;
+  tipoId: number;
+  tipo: string;
+  ordinata: boolean;
+  fatta: boolean;
+}
+
+export interface OrderAccessorio {
+  id: number;
+  tipoId: number;
+  tipo: string;
+  ordinata: boolean;
+  fatta: boolean;
+}
+
+export interface Operaio {
+  id: number;
+  nome: string;
+  createdAt: string | null;
+}
+
+export interface Vettore {
+  id: number;
+  nome: string;
+  createdAt: string | null;
+}
+
+export interface MittenteDisegno {
+  id: number;
+  nome: string;
+  createdAt: string | null;
+}
+
+export interface CementoTipo {
+  id: number;
+  nome: string;
+  ordine: number;
+  createdAt: string | null;
+}
+
+export interface AccessorioTipo {
+  id: number;
+  nome: string;
+  ordine: number;
+  createdAt: string | null;
+}
+
 export interface ConsegnaRecord {
   id: number;
   rif: string;
@@ -8,8 +56,6 @@ export interface ConsegnaRecord {
   dataOrdine: string | null;
   scarico: string | null;
   vascheCav: string | null;
-  accessori: string | null;
-  operai: string | null;
   stato: string;
   note: string | null;
   trasporto: boolean;
@@ -19,6 +65,26 @@ export interface ConsegnaRecord {
   responsabileInternoId: number | null;
   folderLinkDocumenti: string | null;
   folderLinkFoto: string | null;
+  // Disegno
+  disegnoSpeditoAt: string | null;
+  disegnoMittenteId: number | null;
+  disegnoNote: string | null;
+  // Massicciata / tipo carici
+  massicciataNota: string | null;
+  tipoCariciNota: string | null;
+  // Lavorazione
+  lavorazioneAssegnataAt: string | null;
+  // Consegna
+  consegnaDataEffettiva: string | null;
+  vettoreId: number | null;
+  ddtPronti: boolean;
+  bancale: boolean;
+  caricoVerificato: boolean;
+  camSiNo: boolean;
+  // Relazioni
+  operaiAssegnati: { id: number; nome: string }[];
+  cementi: OrderCemento[];
+  accessori: OrderAccessorio[];
 }
 
 export interface CommercialeRecord {
