@@ -4,7 +4,7 @@ import { Component, OnDestroy, OnInit, Type, inject } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
-import { debounceTime, takeUntil } from 'rxjs/operators';
+import { concatMap, debounceTime, takeUntil } from 'rxjs/operators';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { AuthService } from './auth.service';
 import { ConsegneService } from './consegne.service';
@@ -302,8 +302,8 @@ export class AppComponent implements OnInit, OnDestroy {
   accessoriTipiList: AccessorioTipo[] = [];
 
   // Working copies: array indexed by tipoId for the current order
-  cementiSelections: { tipoId: number; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
-  accessoriSelections: { tipoId: number; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
+  cementiSelections: { tipoId: number; nome: string; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
+  accessoriSelections: { tipoId: number; nome: string; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
 
   readonly columns = [
     { name: 'Rif', prop: 'rif' },
@@ -853,8 +853,17 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   openAttachment(attachment: AttachmentRecord): void {
-    const url = `/api/consegne/${this.selectedDetail!.id}/attachments/${attachment.id}`;
-    window.open(url, '_blank');
+    if (!this.selectedDetail) return;
+    this.consegneService.downloadAttachment(this.selectedDetail.id, attachment.id).subscribe({
+      next: (blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        window.open(objectUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+      },
+      error: () => {
+        this.operationError = 'Impossibile aprire l\'allegato.';
+      },
+    });
   }
 
   downloadAttachment(item: AttachmentRecord): void {
@@ -1313,7 +1322,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.operationError = '';
     this.operationSuccess = '';
     this.consegneService.createMittenteDisegno({ nome: this.newMittenteDisegnoNome.trim() }).subscribe({
-      next: () => { this.operationSuccess = `Mittente "${this.newMittenteDisegnoNome}" creato`; this.newMittenteDisegnoNome = ''; this.loadMittentiDisegnoAdmin(); },
+      next: () => {
+        this.operationSuccess = `Mittente "${this.newMittenteDisegnoNome}" creato`;
+        this.newMittenteDisegnoNome = '';
+        this.loadMittentiDisegnoAdmin();
+        this.mittentiDisegno = [];
+        this.consegneService.listMittentiDisegno().subscribe({ next: (r) => { this.mittentiDisegno = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione mittente disegno'; },
     });
   }
@@ -1328,7 +1343,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.operationError = '';
     this.operationSuccess = '';
     this.consegneService.updateMittenteDisegno(this.editingMittenteDisegno.id, { nome: this.editMittenteDisegnoNome.trim() }).subscribe({
-      next: () => { this.operationSuccess = 'Mittente aggiornato'; this.editingMittenteDisegno = null; this.editMittenteDisegnoNome = ''; this.loadMittentiDisegnoAdmin(); },
+      next: () => {
+        this.operationSuccess = 'Mittente aggiornato';
+        this.editingMittenteDisegno = null;
+        this.editMittenteDisegnoNome = '';
+        this.loadMittentiDisegnoAdmin();
+        this.mittentiDisegno = [];
+        this.consegneService.listMittentiDisegno().subscribe({ next: (r) => { this.mittentiDisegno = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento mittente disegno'; },
     });
   }
@@ -1341,7 +1363,12 @@ export class AppComponent implements OnInit, OnDestroy {
   deleteMittenteDisegno(item: MittenteDisegno): void {
     if (!this.isAdmin || !confirm(`Eliminare il mittente "${item.nome}"?`)) return;
     this.consegneService.deleteMittenteDisegno(item.id).subscribe({
-      next: () => { this.operationSuccess = 'Mittente eliminato'; this.loadMittentiDisegnoAdmin(); },
+      next: () => {
+        this.operationSuccess = 'Mittente eliminato';
+        this.loadMittentiDisegnoAdmin();
+        this.mittentiDisegno = [];
+        this.consegneService.listMittentiDisegno().subscribe({ next: (r) => { this.mittentiDisegno = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione mittente disegno'; },
     });
   }
@@ -1361,7 +1388,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.operationError = '';
     this.operationSuccess = '';
     this.consegneService.createOperaio({ nome: this.newOperaioNome.trim() }).subscribe({
-      next: () => { this.operationSuccess = `Operaio "${this.newOperaioNome}" creato`; this.newOperaioNome = ''; this.loadOperaiAdmin(); },
+      next: () => {
+        this.operationSuccess = `Operaio "${this.newOperaioNome}" creato`;
+        this.newOperaioNome = '';
+        this.loadOperaiAdmin();
+        this.operaiList = [];
+        this.consegneService.listOperai().subscribe({ next: (r) => { this.operaiList = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione operaio'; },
     });
   }
@@ -1376,7 +1409,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.operationError = '';
     this.operationSuccess = '';
     this.consegneService.updateOperaio(this.editingOperaio.id, { nome: this.editOperaioNome.trim() }).subscribe({
-      next: () => { this.operationSuccess = 'Operaio aggiornato'; this.editingOperaio = null; this.editOperaioNome = ''; this.loadOperaiAdmin(); },
+      next: () => {
+        this.operationSuccess = 'Operaio aggiornato';
+        this.editingOperaio = null;
+        this.editOperaioNome = '';
+        this.loadOperaiAdmin();
+        this.operaiList = [];
+        this.consegneService.listOperai().subscribe({ next: (r) => { this.operaiList = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento operaio'; },
     });
   }
@@ -1389,7 +1429,12 @@ export class AppComponent implements OnInit, OnDestroy {
   deleteOperaio(item: Operaio): void {
     if (!this.isAdmin || !confirm(`Eliminare l'operaio "${item.nome}"?`)) return;
     this.consegneService.deleteOperaio(item.id).subscribe({
-      next: () => { this.operationSuccess = 'Operaio eliminato'; this.loadOperaiAdmin(); },
+      next: () => {
+        this.operationSuccess = 'Operaio eliminato';
+        this.loadOperaiAdmin();
+        this.operaiList = [];
+        this.consegneService.listOperai().subscribe({ next: (r) => { this.operaiList = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione operaio'; },
     });
   }
@@ -1409,7 +1454,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.operationError = '';
     this.operationSuccess = '';
     this.consegneService.createVettore({ nome: this.newVettoreNome.trim() }).subscribe({
-      next: () => { this.operationSuccess = `Vettore "${this.newVettoreNome}" creato`; this.newVettoreNome = ''; this.loadVettoriAdmin(); },
+      next: () => {
+        this.operationSuccess = `Vettore "${this.newVettoreNome}" creato`;
+        this.newVettoreNome = '';
+        this.loadVettoriAdmin();
+        this.vettoriList = [];
+        this.consegneService.listVettori().subscribe({ next: (r) => { this.vettoriList = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione vettore'; },
     });
   }
@@ -1424,7 +1475,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.operationError = '';
     this.operationSuccess = '';
     this.consegneService.updateVettore(this.editingVettore.id, { nome: this.editVettoreNome.trim() }).subscribe({
-      next: () => { this.operationSuccess = 'Vettore aggiornato'; this.editingVettore = null; this.editVettoreNome = ''; this.loadVettoriAdmin(); },
+      next: () => {
+        this.operationSuccess = 'Vettore aggiornato';
+        this.editingVettore = null;
+        this.editVettoreNome = '';
+        this.loadVettoriAdmin();
+        this.vettoriList = [];
+        this.consegneService.listVettori().subscribe({ next: (r) => { this.vettoriList = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento vettore'; },
     });
   }
@@ -1437,7 +1495,12 @@ export class AppComponent implements OnInit, OnDestroy {
   deleteVettore(item: Vettore): void {
     if (!this.isAdmin || !confirm(`Eliminare il vettore "${item.nome}"?`)) return;
     this.consegneService.deleteVettore(item.id).subscribe({
-      next: () => { this.operationSuccess = 'Vettore eliminato'; this.loadVettoriAdmin(); },
+      next: () => {
+        this.operationSuccess = 'Vettore eliminato';
+        this.loadVettoriAdmin();
+        this.vettoriList = [];
+        this.consegneService.listVettori().subscribe({ next: (r) => { this.vettoriList = r.data; }, error: () => {} });
+      },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione vettore'; },
     });
   }
@@ -1447,7 +1510,7 @@ export class AppComponent implements OnInit, OnDestroy {
   loadCementiTipiAdmin(): void {
     this.cementiTipiLoading = true;
     this.consegneService.listCementiTipi().subscribe({
-      next: (rows) => { this.cementiTipiRows = rows; this.cementiTipiLoading = false; },
+      next: (response) => { this.cementiTipiRows = response.data; this.cementiTipiLoading = false; },
       error: (error) => { this.cementiTipiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento tipi cemento'; },
     });
   }
@@ -1497,7 +1560,7 @@ export class AppComponent implements OnInit, OnDestroy {
   loadAccessoriTipiAdmin(): void {
     this.accessoriTipiLoading = true;
     this.consegneService.listAccessoriTipi().subscribe({
-      next: (rows) => { this.accessoriTipiRows = rows; this.accessoriTipiLoading = false; },
+      next: (response) => { this.accessoriTipiRows = response.data; this.accessoriTipiLoading = false; },
       error: (error) => { this.accessoriTipiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento tipi accessorio'; },
     });
   }
@@ -1863,20 +1926,15 @@ export class AppComponent implements OnInit, OnDestroy {
     const operaiIds = this.selectedDetail.operaiAssegnati?.map((o) => o.id) ?? [];
     this.consegneService.update(id, {
       lavorazioneAssegnataAt: this.selectedDetail.lavorazioneAssegnataAt || null,
-    }).subscribe({
+    }).pipe(
+      concatMap(() => this.consegneService.updateOperai(id, operaiIds))
+    ).subscribe({
       next: () => {
-        this.consegneService.updateOperai(id, operaiIds).subscribe({
-          next: () => {
-            this.operationSuccess = 'Dati lavorazione salvati';
-            setTimeout(() => { this.operationSuccess = ''; }, 3000);
-          },
-          error: (err: { error?: { message?: string } }) => {
-            this.operationError = err?.error?.message ?? 'Errore salvataggio operai';
-          },
-        });
+        this.operationSuccess = 'Lavorazione salvata.';
+        this.loadDetail(id);
       },
-      error: (err: { error?: { message?: string } }) => {
-        this.operationError = err?.error?.message ?? 'Errore salvataggio';
+      error: () => {
+        this.operationError = 'Errore nel salvataggio della lavorazione.';
       },
     });
   }
@@ -1910,8 +1968,8 @@ export class AppComponent implements OnInit, OnDestroy {
     // Load tipi lists (cached after first load)
     if (!this.cementiTipiList.length) {
       this.consegneService.listCementiTipi().subscribe({
-        next: (tipi) => {
-          this.cementiTipiList = tipi;
+        next: (response) => {
+          this.cementiTipiList = response.data;
           this.loadOrderCementi(orderId);
         },
         error: () => {},
@@ -1922,8 +1980,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
     if (!this.accessoriTipiList.length) {
       this.consegneService.listAccessoriTipi().subscribe({
-        next: (tipi) => {
-          this.accessoriTipiList = tipi;
+        next: (response) => {
+          this.accessoriTipiList = response.data;
           this.loadOrderAccessori(orderId);
         },
         error: () => {},
@@ -1941,6 +1999,7 @@ export class AppComponent implements OnInit, OnDestroy {
           const found = existing.find((c: OrderCemento) => c.tipoId === tipo.id);
           return {
             tipoId: tipo.id,
+            nome: tipo.nome,
             selezionato: !!found,
             ordinata: found?.ordinata ?? false,
             fatta: found?.fatta ?? false,
@@ -1950,6 +2009,7 @@ export class AppComponent implements OnInit, OnDestroy {
       error: () => {
         this.cementiSelections = this.cementiTipiList.map((tipo) => ({
           tipoId: tipo.id,
+          nome: tipo.nome,
           selezionato: false,
           ordinata: false,
           fatta: false,
@@ -1966,6 +2026,7 @@ export class AppComponent implements OnInit, OnDestroy {
           const found = existing.find((a: OrderAccessorio) => a.tipoId === tipo.id);
           return {
             tipoId: tipo.id,
+            nome: tipo.nome,
             selezionato: !!found,
             ordinata: found?.ordinata ?? false,
             fatta: found?.fatta ?? false,
@@ -1975,6 +2036,7 @@ export class AppComponent implements OnInit, OnDestroy {
       error: () => {
         this.accessoriSelections = this.accessoriTipiList.map((tipo) => ({
           tipoId: tipo.id,
+          nome: tipo.nome,
           selezionato: false,
           ordinata: false,
           fatta: false,

@@ -244,8 +244,8 @@ export class ConsegneService {
 
   // ── Cementi / Accessori tipi e ordini ─────────────────────────────────────
 
-  listCementiTipi(): Observable<CementoTipo[]> {
-    return this.http.get<CementoTipo[]>(`${environment.apiUrl}/cementi-tipi`);
+  listCementiTipi(): Observable<{ data: CementoTipo[] }> {
+    return this.http.get<{ data: CementoTipo[] }>(`${environment.apiUrl}/cementi-tipi`);
   }
 
   createCementoTipo(payload: { nome: string; ordine: number }): Observable<CementoTipo> {
@@ -260,8 +260,8 @@ export class ConsegneService {
     return this.http.delete<void>(`${environment.apiUrl}/cementi-tipi/${id}`);
   }
 
-  listAccessoriTipi(): Observable<AccessorioTipo[]> {
-    return this.http.get<AccessorioTipo[]>(`${environment.apiUrl}/accessori-tipi`);
+  listAccessoriTipi(): Observable<{ data: AccessorioTipo[] }> {
+    return this.http.get<{ data: AccessorioTipo[] }>(`${environment.apiUrl}/accessori-tipi`);
   }
 
   createAccessorioTipo(payload: { nome: string; ordine: number }): Observable<AccessorioTipo> {

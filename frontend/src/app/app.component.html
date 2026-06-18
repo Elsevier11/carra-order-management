@@ -1108,7 +1108,7 @@
                     <div class="checklist-row" [class.checklist-row--selected]="sel.selezionato">
                       <label class="checklist-main">
                         <input type="checkbox" [(ngModel)]="sel.selezionato" />
-                        <span>{{ cementiTipiList[$index].nome }}</span>
+                        <span>{{ sel.nome }}</span>
                       </label>
                       @if (sel.selezionato) {
                         <label class="checklist-flag">
@@ -1145,7 +1145,7 @@
                     <div class="checklist-row" [class.checklist-row--selected]="sel.selezionato">
                       <label class="checklist-main">
                         <input type="checkbox" [(ngModel)]="sel.selezionato" />
-                        <span>{{ accessoriTipiList[$index].nome }}</span>
+                        <span>{{ sel.nome }}</span>
                       </label>
                       @if (sel.selezionato) {
                         <label class="checklist-flag">
