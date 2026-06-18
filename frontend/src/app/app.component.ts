@@ -3,7 +3,7 @@ import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk
 import { Component, OnDestroy, OnInit, Type, inject } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { forkJoin, Observable, Subject } from 'rxjs';
 import { concatMap, debounceTime, takeUntil } from 'rxjs/operators';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { AuthService } from './auth.service';
@@ -306,6 +306,16 @@ export class AppComponent implements OnInit, OnDestroy {
   cementiSelections: { tipoId: number; nome: string; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
   accessoriSelections: { tipoId: number; nome: string; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
 
+  // Snapshots for dirty-state detection (updated after load and after successful save)
+  private cementiSnapshot = '';
+  private accessoriSnapshot = '';
+  private camSnapshot: boolean | null = null;
+  closeConfirmOpen = false;
+
+  // Inline edit mode for the Dettagli tab
+  editMode = false;
+  private dettagliSnapshot = '';
+
   readonly columns = [
     { name: 'Rif', prop: 'rif' },
     { name: 'Cliente', prop: 'cliente' },
@@ -465,8 +475,10 @@ export class AppComponent implements OnInit, OnDestroy {
         this.transitionModel.toStatus = '';
         this.transitionModel.note = '';
         this.loadingDetails = false;
+        const wasAlreadyOpen = this.detailModalOpen;
         this.detailModalOpen = true;
-        this.activeDetailTab = 'dettagli';
+        if (!wasAlreadyOpen) this.activeDetailTab = 'dettagli';
+        this.camSnapshot = (detail as ConsegnaRecord).camSiNo ?? false;
         this.loadHistory(id);
         this.loadAttachments(id);
         this.loadLookupLists();
@@ -478,11 +490,61 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  private serializeDettagli(): string {
+    return JSON.stringify({
+      rif: this.formModel.rif,
+      cliente: this.formModel.cliente,
+      tipoImpianto: this.formModel.tipoImpianto,
+      dataConsegna: this.formModel.dataConsegna,
+      cantiere: this.formModel.cantiere,
+      dataOrdine: this.formModel.dataOrdine,
+      stato: this.formModel.stato,
+      note: this.formModel.note,
+      trasporto: this.formModel.trasporto,
+      scaricoCarico: this.formModel.scaricoCarico,
+      accontoPagato: this.formModel.accontoPagato,
+      commercialeId: this.formModel.commercialeId,
+      responsabileInternoId: this.formModel.responsabileInternoId,
+      folderLinkDocumenti: this.formModel.folderLinkDocumenti,
+      folderLinkFoto: this.formModel.folderLinkFoto,
+    });
+  }
+
+  private serializeCementi(): string {
+    return JSON.stringify(this.cementiSelections.map(s => ({ tipoId: s.tipoId, selezionato: s.selezionato, ordinata: s.ordinata, fatta: s.fatta })));
+  }
+
+  private serializeAccessori(): string {
+    return JSON.stringify(this.accessoriSelections.map(s => ({ tipoId: s.tipoId, selezionato: s.selezionato, ordinata: s.ordinata, fatta: s.fatta })));
+  }
+
+  hasPendingChanges(): boolean {
+    const dettagliDirty = this.editMode && this.serializeDettagli() !== this.dettagliSnapshot;
+    const cementiDirty = this.cementiSelections.length > 0 && this.serializeCementi() !== this.cementiSnapshot;
+    const accessoriDirty = this.accessoriSelections.length > 0 && this.serializeAccessori() !== this.accessoriSnapshot;
+    const camDirty = this.camSnapshot !== null && this.selectedDetail?.camSiNo !== this.camSnapshot;
+    return dettagliDirty || cementiDirty || accessoriDirty || camDirty;
+  }
+
   closeDetailModal(): void {
+    if (this.hasPendingChanges()) {
+      this.closeConfirmOpen = true;
+      return;
+    }
+    this.doCloseDetailModal();
+  }
+
+  doCloseDetailModal(): void {
+    this.closeConfirmOpen = false;
     this.detailModalOpen = false;
     this.selectedDetail = null;
     this.history = [];
     this.attachments = [];
+    this.cementiSnapshot = '';
+    this.accessoriSnapshot = '';
+    this.camSnapshot = null;
+    this.editMode = false;
+    this.dettagliSnapshot = '';
   }
 
   changeView(view: ViewMode): void {
@@ -710,7 +772,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   openEdit(): void {
     if (!this.selectedDetail) return;
-    this.editingId = this.selectedDetail.id;
     this.formModel = {
       rif: this.selectedDetail.rif ?? '',
       cliente: this.selectedDetail.cliente ?? '',
@@ -732,7 +793,9 @@ export class AppComponent implements OnInit, OnDestroy {
       folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti ?? '',
       folderLinkFoto: this.selectedDetail.folderLinkFoto ?? '',
     };
-    this.formVisible = true;
+    this.dettagliSnapshot = this.serializeDettagli();
+    this.editMode = true;
+    this.activeDetailTab = 'dettagli';
   }
 
   closeForm(): void {
@@ -2028,6 +2091,7 @@ export class AppComponent implements OnInit, OnDestroy {
             fatta: found?.fatta ?? false,
           };
         });
+        this.cementiSnapshot = this.serializeCementi();
       },
       error: () => {
         this.cementiSelections = this.cementiTipiList.map((tipo) => ({
@@ -2037,6 +2101,7 @@ export class AppComponent implements OnInit, OnDestroy {
           ordinata: false,
           fatta: false,
         }));
+        this.cementiSnapshot = this.serializeCementi();
       },
     });
   }
@@ -2055,6 +2120,7 @@ export class AppComponent implements OnInit, OnDestroy {
             fatta: found?.fatta ?? false,
           };
         });
+        this.accessoriSnapshot = this.serializeAccessori();
       },
       error: () => {
         this.accessoriSelections = this.accessoriTipiList.map((tipo) => ({
@@ -2064,51 +2130,90 @@ export class AppComponent implements OnInit, OnDestroy {
           ordinata: false,
           fatta: false,
         }));
+        this.accessoriSnapshot = this.serializeAccessori();
       },
     });
   }
 
-  saveCementi(): void {
+  saveAll(): void {
     if (!this.selectedDetail) return;
-    const items = this.cementiSelections
-      .filter((s) => s.selezionato)
-      .map((s) => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
-    this.consegneService.updateOrderCementi(this.selectedDetail.id, items).subscribe({
-      next: () => {
-        this.operationSuccess = 'Cementi salvati';
-        setTimeout(() => { this.operationSuccess = ''; }, 3000);
-      },
-      error: (err: { error?: { message?: string } }) => {
-        this.operationError = err?.error?.message ?? 'Errore salvataggio cementi';
-      },
-    });
-  }
+    const id = this.selectedDetail.id;
 
-  saveAccessori(): void {
-    if (!this.selectedDetail) return;
-    const items = this.accessoriSelections
-      .filter((s) => s.selezionato)
-      .map((s) => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
-    this.consegneService.updateOrderAccessori(this.selectedDetail.id, items).subscribe({
-      next: () => {
-        this.operationSuccess = 'Accessori salvati';
-        setTimeout(() => { this.operationSuccess = ''; }, 3000);
-      },
-      error: (err: { error?: { message?: string } }) => {
-        this.operationError = err?.error?.message ?? 'Errore salvataggio accessori';
-      },
-    });
-  }
+    const dettagliDirty = this.editMode && this.serializeDettagli() !== this.dettagliSnapshot;
+    const cementiDirty = this.cementiSelections.length > 0 && this.serializeCementi() !== this.cementiSnapshot;
+    const accessoriDirty = this.accessoriSelections.length > 0 && this.serializeAccessori() !== this.accessoriSnapshot;
+    const camDirty = this.camSnapshot !== null && this.selectedDetail.camSiNo !== this.camSnapshot;
 
-  saveCam(): void {
-    if (!this.selectedDetail) return;
-    this.consegneService.update(this.selectedDetail.id, { camSiNo: this.selectedDetail.camSiNo }).subscribe({
+    if (!dettagliDirty && !cementiDirty && !accessoriDirty && !camDirty) return;
+
+    const taskObs: Observable<unknown>[] = [];
+
+    if (dettagliDirty) {
+      const payload = {
+        rif: this.formModel.rif,
+        cliente: this.formModel.cliente,
+        tipoImpianto: this.formModel.tipoImpianto || null,
+        dataConsegna: this.formModel.dataConsegna || null,
+        cantiere: this.formModel.cantiere || null,
+        dataOrdine: this.formModel.dataOrdine || null,
+        stato: this.formModel.stato || this.selectedDetail.stato,
+        note: this.formModel.note || null,
+        trasporto: this.formModel.trasporto,
+        scaricoCarico: this.formModel.scaricoCarico,
+        accontoPagato: this.formModel.accontoPagato,
+        commercialeId: this.formModel.commercialeId,
+        responsabileInternoId: this.formModel.responsabileInternoId,
+        folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
+        folderLinkFoto: this.formModel.folderLinkFoto || null,
+      };
+      taskObs.push(this.consegneService.update(id, payload));
+    }
+    if (cementiDirty) {
+      const items = this.cementiSelections.filter(s => s.selezionato).map(s => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
+      taskObs.push(this.consegneService.updateOrderCementi(id, items));
+    }
+    if (accessoriDirty) {
+      const items = this.accessoriSelections.filter(s => s.selezionato).map(s => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
+      taskObs.push(this.consegneService.updateOrderAccessori(id, items));
+    }
+    if (camDirty) {
+      taskObs.push(this.consegneService.update(id, { camSiNo: this.selectedDetail.camSiNo }));
+    }
+
+    forkJoin(taskObs).subscribe({
       next: () => {
-        this.operationSuccess = 'C.A.M. salvato';
+        if (dettagliDirty) {
+          // Aggiorna selectedDetail con i valori salvati e chiudi editMode
+          Object.assign(this.selectedDetail!, {
+            rif: this.formModel.rif,
+            cliente: this.formModel.cliente,
+            tipoImpianto: this.formModel.tipoImpianto || null,
+            dataConsegna: this.formModel.dataConsegna || null,
+            cantiere: this.formModel.cantiere || null,
+            dataOrdine: this.formModel.dataOrdine || null,
+            stato: this.formModel.stato,
+            note: this.formModel.note || null,
+            trasporto: this.formModel.trasporto,
+            scaricoCarico: this.formModel.scaricoCarico,
+            accontoPagato: this.formModel.accontoPagato,
+            commercialeId: this.formModel.commercialeId,
+            responsabileInternoId: this.formModel.responsabileInternoId,
+            folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
+            folderLinkFoto: this.formModel.folderLinkFoto || null,
+          });
+          this.dettagliSnapshot = this.serializeDettagli();
+          this.editMode = false;
+          this.refreshData(1);
+        }
+        if (cementiDirty) this.cementiSnapshot = this.serializeCementi();
+        if (accessoriDirty) this.accessoriSnapshot = this.serializeAccessori();
+        if (camDirty) this.camSnapshot = this.selectedDetail!.camSiNo ?? false;
+        this.operationSuccess = 'Modifiche salvate';
         setTimeout(() => { this.operationSuccess = ''; }, 3000);
       },
       error: (err: { error?: { message?: string } }) => {
-        this.operationError = err?.error?.message ?? 'Errore salvataggio C.A.M.';
+        this.operationError = err?.error?.message ?? 'Errore nel salvataggio';
+        setTimeout(() => { this.operationError = ''; }, 3000);
       },
     });
   }

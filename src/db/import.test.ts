@@ -19,14 +19,12 @@ describe('import helpers', () => {
       cliente: 'Lucchini Costruzioni',
       tipo_impianto: 'N1 METEOTANK',
       data_consegna: '2026-03-13',
-      traspor: '2 COTRAM',
       stato: 'IN CORSO',
     })
 
     expect(valid).toBeTruthy()
     expect(valid?.rifto).toBe('50025')
     expect(valid?.tipoImpianto).toBe('N1 METEOTANK')
-    expect(valid?.traspor).toBe('2 COTRAM')
     expect(valid?.dataConsegna?.toISOString().slice(0, 10)).toBe('2026-03-13')
 
     const invalid = normalizeRow({

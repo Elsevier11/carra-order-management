@@ -142,14 +142,6 @@ const STATUS_ORDER = [
         </div>
       </article>
 
-      <!-- Vettori: totale vs ritardi -->
-      <article class="chart-card">
-        <h2>Vettori — totale ordini vs ritardi</h2>
-        <div class="chart-wrap">
-          <canvas baseChart [data]="carrierChartData" [options]="carrierChartOptions" [type]="'bar'"></canvas>
-        </div>
-      </article>
-
       <!-- Top clienti (full width) -->
       <article class="chart-card full">
         <h2>Top clienti — ordini attivi</h2>
@@ -227,38 +219,6 @@ export class DashboardChartsComponent {
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { display: false } },
-      y: { ticks: { stepSize: 1 }, beginAtZero: true },
-    },
-  };
-
-  // Vettori: grouped bar totale + ritardi
-  get carrierChartData(): ChartConfiguration<'bar'>['data'] {
-    const data = this.stats.byCarrierWithLate;
-    return {
-      labels: data.map((r) => r.vettore),
-      datasets: [
-        {
-          label: 'Totale',
-          data: data.map((r) => r.total),
-          backgroundColor: '#6ee7b7',
-          borderRadius: 4,
-        },
-        {
-          label: 'In ritardo',
-          data: data.map((r) => r.late),
-          backgroundColor: '#fca5a5',
-          borderRadius: 4,
-        },
-      ],
-    };
-  }
-
-  readonly carrierChartOptions: ChartConfiguration<'bar'>['options'] = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { position: 'bottom' } },
     scales: {
       x: { grid: { display: false } },
       y: { ticks: { stepSize: 1 }, beginAtZero: true },

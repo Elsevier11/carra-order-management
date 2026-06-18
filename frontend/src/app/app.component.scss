@@ -271,10 +271,33 @@
 
 // ── Detail modal header ───────────────────────────────────────
 .detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 2px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.detail-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.modal-close-btn {
+  padding: 4px 9px;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .detail-stato-badge {
@@ -319,6 +342,10 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px 24px;
+
+  &.detail-kv-grid--2col {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .detail-kv {
@@ -539,17 +566,39 @@
   flex-direction: column;
 }
 
+.detail-toast {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  z-index: 20;
+  pointer-events: none;
+  animation: toast-fadeout 0.35s ease 2.65s forwards;
+}
+
+.detail-toast--success {
+  background: var(--success);
+  color: #fff;
+}
+
+.detail-toast--error {
+  background: var(--alert);
+  color: #fff;
+}
+
+@keyframes toast-fadeout {
+  to { opacity: 0; }
+}
+
 .detail-tab-body {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
 }
 
-.detail-actions-row {
-  display: flex;
-  gap: 8px;
-  padding: 12px 0 4px;
-}
 
 .badge-ok,
 .badge-warn {
@@ -1242,10 +1291,47 @@ tr.selected-row:hover {
 
 // ── Cartella di rete ────────────────────────────────────────────────────────────
 
-.folder-link-row {
+.folder-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.folder-entry {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.folder-entry-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.folder-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+}
+
+.icon-btn {
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.folder-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .folder-link-path {
@@ -1256,6 +1342,7 @@ tr.selected-row:hover {
   border-radius: 6px;
   word-break: break-all;
   flex: 1;
+  min-width: 0;
 }
 
 .settings-desc {

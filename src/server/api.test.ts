@@ -197,16 +197,13 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(list.status).toBe(403)
   })
 
-  it('GET /api/consegne/stats returns grouped status and carrier', async () => {
+  it('GET /api/consegne/stats returns grouped status', async () => {
     const res = await request(app).get('/api/consegne/stats')
 
     expect(res.status).toBe(200)
     const byStatus = Object.fromEntries(res.body.byStatus.map((x: { stato: string; count: number }) => [x.stato, x.count]))
-    const byCarrier = Object.fromEntries(res.body.byCarrier.map((x: { vettore: string; count: number }) => [x.vettore, x.count]))
     expect(Number(byStatus['IN CORSO'] ?? 0)).toBeGreaterThanOrEqual(2)
     expect(Number(byStatus.CONCLUSI ?? 0)).toBeGreaterThanOrEqual(1)
-    expect(Number(byCarrier.TEST_COTRAM ?? 0)).toBeGreaterThanOrEqual(2)
-    expect(Number(byCarrier.TEST_BRT ?? 0)).toBeGreaterThanOrEqual(1)
     expect(Array.isArray(res.body.weeklyTrend)).toBe(true)
   })
 
@@ -235,7 +232,6 @@ describe.runIf(runDbTests)('Consegne API', () => {
       stato: 'IN LAVORAZIONE',
       dataConsegna: '2026-05-10',
       dataOrdine: '2026-05-01',
-      vettore: 'TEST_COTRAM',
     })
     expect(created.status).toBe(201)
     const id = created.body.id as number
@@ -382,7 +378,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
 
     expect(res.status).toBe(200)
     expect(res.headers['content-type']).toContain('text/csv')
-    expect(res.text).toContain('rif,cliente,tipoImpianto,dataConsegna,cantiere,vettore,stato,note')
+    expect(res.text).toContain('rif,cliente,tipoImpianto,dataConsegna,cantiere,stato,note')
     expect(res.text).toContain('__TEST__A-001')
   })
 

@@ -800,7 +800,7 @@
   </div>
 
   @if (detailModalOpen && selectedDetail) {
-    <div class="modal-backdrop" (click)="closeDetailModal()">
+    <div class="modal-backdrop">
       <div class="modal modal--detail" (click)="$event.stopPropagation()">
 
         @if (loadingDetails) {
@@ -809,12 +809,41 @@
 
           <!-- ── Hero header ─────────────────────────────────────── -->
           <div class="detail-header">
-            <span class="status-chip detail-stato-badge" [ngClass]="columnClass(selectedDetail.stato)">
-              {{ selectedDetail.stato }}
-            </span>
-            <h2 class="detail-title">{{ selectedDetail.rif }}</h2>
-            <p class="detail-subtitle">{{ selectedDetail.cliente || '—' }}</p>
+            <div class="detail-header-left">
+              <span class="status-chip detail-stato-badge" [ngClass]="columnClass(selectedDetail.stato)">
+                {{ selectedDetail.stato }}
+              </span>
+              <h2 class="detail-title">{{ selectedDetail.rif }}</h2>
+              <p class="detail-subtitle">{{ selectedDetail.cliente || '—' }}</p>
+            </div>
+            <div class="detail-header-actions">
+              @if (canWrite) {
+                @if (!editMode) {
+                  <button type="button" (click)="openEdit()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Modifica
+                  </button>
+                }
+                <button type="button" class="ghost-danger" (click)="deleteSelected()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  Elimina
+                </button>
+                <button type="button" [class.ghost]="!hasPendingChanges()" (click)="saveAll()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Salva
+                </button>
+              }
+              <button type="button" class="ghost modal-close-btn" (click)="closeDetailModal()" aria-label="Chiudi">✕</button>
+            </div>
           </div>
+
+          <!-- ── Toast di feedback (indipendente dal tab) ─────────── -->
+          @if (operationSuccess) {
+            <div class="detail-toast detail-toast--success">✓ {{ operationSuccess }}</div>
+          }
+          @if (operationError) {
+            <div class="detail-toast detail-toast--error">{{ operationError }}</div>
+          }
 
           <!-- ── Tab switcher ───────────────────────────────────────── -->
           <div class="detail-tabs">
@@ -830,30 +859,97 @@
           <!-- ── Tab: Dettagli ──────────────────────────────────────── -->
           @if (activeDetailTab === 'dettagli') {
 
-          @if (canWrite) {
-            <div class="detail-actions-row">
-              <button type="button" (click)="openEdit()">Modifica</button>
-              <button type="button" class="ghost-danger" (click)="deleteSelected()">Elimina</button>
+          @if (editMode) {
+          <!-- ── Edit mode ─────────────────────────────────────────── -->
+          <div class="detail-section detail-edit-section">
+            <div class="modal-grid">
+              <div class="form-field">
+                <label class="form-field__label form-field__label--required">Riferimento</label>
+                <input type="text" [(ngModel)]="formModel.rif" placeholder="es. 409/23" />
+              </div>
+              <div class="form-field">
+                <label class="form-field__label form-field__label--required">Cliente</label>
+                <input type="text" [(ngModel)]="formModel.cliente" placeholder="Ragione sociale" />
+              </div>
+              <div class="form-field">
+                <label class="form-field__label">Tipo impianto</label>
+                <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="es. N°1 METEOTANK MP/SD 1200" />
+              </div>
+              <div class="form-field">
+                <label class="form-field__label">Data consegna</label>
+                <input type="date" [(ngModel)]="formModel.dataConsegna" />
+              </div>
+              <div class="form-field">
+                <label class="form-field__label">Cantiere</label>
+                <input type="text" [(ngModel)]="formModel.cantiere" placeholder="Indirizzo cantiere" />
+              </div>
+              <div class="form-field">
+                <label class="form-field__label">Data ordine</label>
+                <input type="date" [(ngModel)]="formModel.dataOrdine" />
+              </div>
+              <div class="form-field">
+                <label class="form-field__label">Stato</label>
+                <select [(ngModel)]="formModel.stato">
+                  @for (status of statusFlow; track status) {
+                    <option [value]="status">{{ status }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="form-field__label">Commerciale</label>
+                <select [(ngModel)]="formModel.commercialeId">
+                  <option [ngValue]="null">Nessun commerciale</option>
+                  @for (c of commercialiRows; track c.id) {
+                    <option [ngValue]="c.id">{{ c.nome }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="form-field__label">Responsabile</label>
+                <select [(ngModel)]="formModel.responsabileInternoId">
+                  <option [ngValue]="null">Nessun responsabile</option>
+                  @for (r of responsabiliRows; track r.id) {
+                    <option [ngValue]="r.id">{{ r.nome }}</option>
+                  }
+                </select>
+              </div>
+              <label class="kanban-toggle">
+                <input type="checkbox" [(ngModel)]="formModel.trasporto" />
+                <span>Trasporto a nostro carico</span>
+              </label>
+              <label class="kanban-toggle">
+                <input type="checkbox" [(ngModel)]="formModel.scaricoCarico" />
+                <span>Scarico a nostro carico</span>
+              </label>
+              <label class="kanban-toggle">
+                <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
+                <span>Acconto pagato</span>
+              </label>
+              <textarea [(ngModel)]="formModel.note" placeholder="Note operative..."></textarea>
             </div>
-          }
+          </div>
 
-          <!-- ── Dati ordine + Assegnazioni + Impianto ──────────────────── -->
+          } @else {
+          <!-- ── Read mode ──────────────────────────────────────────── -->
+
+          <!-- Riga 1: Impianto | Cantiere | Data consegna -->
           <div class="detail-section">
             <div class="detail-kv-grid">
-              @if (selectedDetail.tipoImpianto) {
-                <div class="detail-kv detail-kv--full">
-                  <span class="kv-label">Impianto</span>
-                  <span class="kv-value kv-value--prominent">{{ selectedDetail.tipoImpianto }}</span>
-                </div>
-              }
               <div class="detail-kv">
-                <span class="kv-label">Data consegna</span>
-                <span class="kv-value">{{ selectedDetail.dataConsegna ? (selectedDetail.dataConsegna | date:'dd/MM/yyyy') : '—' }}</span>
+                <span class="kv-label">Impianto</span>
+                <span class="kv-value kv-value--prominent">{{ selectedDetail.tipoImpianto || '—' }}</span>
               </div>
               <div class="detail-kv">
                 <span class="kv-label">Cantiere</span>
                 <span class="kv-value">{{ selectedDetail.cantiere || '—' }}</span>
               </div>
+              <div class="detail-kv">
+                <span class="kv-label">Data consegna</span>
+                <span class="kv-value">{{ selectedDetail.dataConsegna ? (selectedDetail.dataConsegna | date:'dd/MM/yyyy') : '—' }}</span>
+              </div>
+            </div>
+            <!-- Riga 2: Commerciale | Responsabile -->
+            <div class="detail-kv-grid detail-kv-grid--2col" style="margin-top: 10px">
               <div class="detail-kv">
                 <span class="kv-label">Commerciale</span>
                 <span class="kv-value">{{ nomeCommerciale(selectedDetail.commercialeId) }}</span>
@@ -865,104 +961,97 @@
             </div>
           </div>
 
-          <!-- ── Cartella di rete ──────────────────────────────────────── -->
-          @if (selectedDetail.folderLinkDocumenti) {
-            <div class="detail-section">
-              <div class="detail-section-title">Cartella documenti</div>
-              <div class="folder-link-row">
-                <code class="folder-link-path">{{ selectedDetail.folderLinkDocumenti }}</code>
-                <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkDocumenti!)" title="Apri in Esplora file">
-                  Apri cartella
-                </a>
-                <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkDocumenti!)">
-                  Copia percorso
-                </button>
+          <!-- Logistica & Pagamento -->
+          <div class="detail-section">
+            <div class="detail-section-title">Logistica & Pagamento</div>
+            <div class="detail-pills-row">
+              <div class="detail-pill-item">
+                <span class="kv-label">Trasporto ns. carico</span>
+                <span [class]="selectedDetail.trasporto ? 'badge-ok' : 'badge-neutral'">{{ selectedDetail.trasporto ? 'SI' : 'NO' }}</span>
+              </div>
+              <div class="detail-pill-item">
+                <span class="kv-label">Scarico ns. carico</span>
+                <span [class]="selectedDetail.scaricoCarico ? 'badge-ok' : 'badge-neutral'">{{ selectedDetail.scaricoCarico ? 'SI' : 'NO' }}</span>
+              </div>
+              <div class="detail-pill-item">
+                <span class="kv-label">Acconto pagato</span>
+                <span [class]="selectedDetail.accontoPagato ? 'badge-ok' : 'badge-neutral'">{{ selectedDetail.accontoPagato ? 'SI' : 'NO' }}</span>
               </div>
             </div>
-          }
-          @if (selectedDetail.folderLinkFoto) {
-            <div class="detail-section">
-              <div class="detail-section-title">Cartella foto</div>
-              <div class="folder-link-row">
-                <code class="folder-link-path">{{ selectedDetail.folderLinkFoto }}</code>
-                <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkFoto!)" title="Apri in Esplora file">
-                  Apri cartella
-                </a>
-                <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkFoto!)">
-                  Copia percorso
-                </button>
-              </div>
-            </div>
-          }
-
-          <!-- ── Logistica & Pagamento | Allegati affiancati ──────────── -->
-          <div class="detail-bottom-grid">
-
-            <div class="detail-section">
-              <div class="detail-section-title">Logistica & Pagamento</div>
-              <div class="detail-pills-row">
-                <div class="detail-pill-item">
-                  <span class="kv-label">Trasporto ns. carico</span>
-                  <span [class]="selectedDetail.trasporto ? 'badge-ok' : 'badge-neutral'">
-                    {{ selectedDetail.trasporto ? 'SI' : 'NO' }}
-                  </span>
-                </div>
-                <div class="detail-pill-item">
-                  <span class="kv-label">Scarico ns. carico</span>
-                  <span [class]="selectedDetail.scaricoCarico ? 'badge-ok' : 'badge-neutral'">
-                    {{ selectedDetail.scaricoCarico ? 'SI' : 'NO' }}
-                  </span>
-                </div>
-                <div class="detail-pill-item">
-                  <span class="kv-label">Acconto pagato</span>
-                  <span [class]="selectedDetail.accontoPagato ? 'badge-ok' : 'badge-neutral'">
-                    {{ selectedDetail.accontoPagato ? 'SI' : 'NO' }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="detail-section">
-              <div class="detail-section-title">Allegati</div>
-              @if (loadingAttachments) {
-                <p>Caricamento allegati...</p>
-              } @else {
-                @if (canWrite) {
-                  <div class="attachment-upload">
-                    <input type="file" (change)="onAttachmentSelected($event)" />
-                    <button type="button" [disabled]="!selectedUploadFile" (click)="uploadAttachment()">Upload</button>
-                  </div>
-                }
-                @if (!attachments.length) {
-                  <p class="detail-empty">Nessun allegato.</p>
-                } @else {
-                  <ul class="history-list">
-                    @for (attachment of attachments; track attachment.id) {
-                      <li>
-                        <strong>{{ attachment.fileName }}</strong>
-                        <small>{{ attachment.mimeType }} · {{ formatFileSize(attachment.sizeBytes) }} · {{ attachment.uploadedBy || 'sistema' }}</small>
-                        <div class="attachment-actions">
-                          <button type="button" class="ghost" (click)="openAttachment(attachment)">Apri</button>
-                          @if (canWrite) {
-                            <button type="button" class="danger" (click)="deleteAttachment(attachment)">Elimina</button>
-                          }
-                        </div>
-                      </li>
-                    }
-                  </ul>
-                }
-              }
-            </div>
-
           </div>
 
-          <!-- ── Note (se valorizzate) ──────────────────────────── -->
+          <!-- Note (se valorizzate) -->
           @if (selectedDetail.note) {
             <div class="detail-section">
               <div class="detail-section-title">Note</div>
               <p class="detail-note-box">{{ selectedDetail.note }}</p>
             </div>
           }
+
+          } <!-- end @if editMode -->
+
+          <!-- ── Allegati + Cartelle (sempre visibili) ──────────────── -->
+          <div class="detail-section">
+            <div class="detail-section-title">Allegati</div>
+            <div class="folder-entries">
+              <div class="folder-entry">
+                <span class="folder-entry-label">Documenti</span>
+                @if (editMode) {
+                  <input type="text" class="folder-input" [(ngModel)]="formModel.folderLinkDocumenti" placeholder="\\server\cartella\documenti" />
+                } @else if (selectedDetail.folderLinkDocumenti) {
+                  <div class="folder-link-row">
+                    <code class="folder-link-path">{{ selectedDetail.folderLinkDocumenti }}</code>
+                    <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkDocumenti!)" title="Apri in Esplora file">Apri</a>
+                    <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkDocumenti!)">Copia percorso</button>
+                  </div>
+                } @else {
+                  <span class="kv-value" style="color: var(--muted)">Non impostata</span>
+                }
+              </div>
+              <div class="folder-entry">
+                <span class="folder-entry-label">Foto</span>
+                @if (editMode) {
+                  <input type="text" class="folder-input" [(ngModel)]="formModel.folderLinkFoto" placeholder="\\server\cartella\foto" />
+                } @else if (selectedDetail.folderLinkFoto) {
+                  <div class="folder-link-row">
+                    <code class="folder-link-path">{{ selectedDetail.folderLinkFoto }}</code>
+                    <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkFoto!)" title="Apri in Esplora file">Apri</a>
+                    <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkFoto!)">Copia percorso</button>
+                  </div>
+                } @else {
+                  <span class="kv-value" style="color: var(--muted)">Non impostata</span>
+                }
+              </div>
+            </div>
+            @if (loadingAttachments) {
+              <p>Caricamento allegati...</p>
+            } @else {
+              @if (canWrite) {
+                <div class="attachment-upload">
+                  <input type="file" (change)="onAttachmentSelected($event)" />
+                  <button type="button" [disabled]="!selectedUploadFile" (click)="uploadAttachment()">Upload</button>
+                </div>
+              }
+              @if (!attachments.length) {
+                <p class="detail-empty">Nessun allegato.</p>
+              } @else {
+                <ul class="history-list">
+                  @for (attachment of attachments; track attachment.id) {
+                    <li>
+                      <strong>{{ attachment.fileName }}</strong>
+                      <small>{{ attachment.mimeType }} · {{ formatFileSize(attachment.sizeBytes) }} · {{ attachment.uploadedBy || 'sistema' }}</small>
+                      <div class="attachment-actions">
+                        <button type="button" class="ghost" (click)="openAttachment(attachment)">Apri</button>
+                        @if (canWrite) {
+                          <button type="button" class="danger" (click)="deleteAttachment(attachment)">Elimina</button>
+                        }
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
+            }
+          </div>
 
           } <!-- end tab: dettagli -->
 
@@ -1129,7 +1218,7 @@
 
             @if (!['DISEGNO IN GESTIONE','DISEGNO APPROVATO','IN LAVORAZIONE','CONSEGNA PIANIFICATA'].includes(selectedDetail.stato)) {
               <div class="detail-section">
-                <p class="detail-empty">Nessun campo di avanzamento per lo stato <strong>{{ selectedDetail.stato }}</strong>.</p>
+                <p class="detail-empty">Nessun dato aggiuntivo richiesto per questo stato. Usa il pannello qui sotto per passare allo stato successivo.</p>
               </div>
             }
 
@@ -1162,8 +1251,6 @@
           <!-- ── Tab: Cementi ──────────────────────────────────────── -->
           @if (activeDetailTab === 'cementi') {
             <div class="detail-section">
-              @if (operationError) { <div class="error">{{ operationError }}</div> }
-              @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
               @if (!cementiTipiList.length) {
                 <p class="detail-empty">Nessun tipo di cemento configurato.</p>
               } @else {
@@ -1187,11 +1274,6 @@
                     </div>
                   }
                 </div>
-                @if (canWrite) {
-                  <div class="modal-actions" style="margin-top: 16px">
-                    <button type="button" (click)="saveCementi()">Salva Cementi</button>
-                  </div>
-                }
               }
             </div>
           }
@@ -1199,8 +1281,6 @@
           <!-- ── Tab: Accessori ─────────────────────────────────────── -->
           @if (activeDetailTab === 'accessori') {
             <div class="detail-section">
-              @if (operationError) { <div class="error">{{ operationError }}</div> }
-              @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
               @if (!accessoriTipiList.length) {
                 <p class="detail-empty">Nessun tipo di accessorio configurato.</p>
               } @else {
@@ -1224,11 +1304,6 @@
                     </div>
                   }
                 </div>
-                @if (canWrite) {
-                  <div class="modal-actions" style="margin-top: 16px">
-                    <button type="button" (click)="saveAccessori()">Salva Accessori</button>
-                  </div>
-                }
               }
             </div>
           }
@@ -1236,8 +1311,6 @@
           <!-- ── Tab: C.A.M. ────────────────────────────────────────── -->
           @if (activeDetailTab === 'cam') {
             <div class="detail-section">
-              @if (operationError) { <div class="error">{{ operationError }}</div> }
-              @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
               <div class="detail-section-title">Certificazione Ambientale Minima (C.A.M.)</div>
               <div class="cam-toggle-row">
                 <label class="cam-toggle-label">
@@ -1245,11 +1318,6 @@
                   <span>{{ selectedDetail.camSiNo ? 'SI' : 'NO' }}</span>
                 </label>
               </div>
-              @if (canWrite) {
-                <div class="modal-actions" style="margin-top: 16px">
-                  <button type="button" (click)="saveCam()">Salva C.A.M.</button>
-                </div>
-              }
             </div>
           }
 
@@ -1258,9 +1326,22 @@
         } <!-- end @else loadingDetails -->
 
         <div class="modal-actions">
-          <button type="button" class="ghost" (click)="openHistoryModal(selectedDetail!)">Percorso completo</button>
-          <button type="button" class="ghost" (click)="closeDetailModal()">Chiudi</button>
+          <button type="button" class="ghost" (click)="openHistoryModal(selectedDetail!)">Storico</button>
         </div>
+
+        @if (closeConfirmOpen) {
+          <div class="import-confirm-overlay" (click)="closeConfirmOpen = false">
+            <div class="import-confirm-card" (click)="$event.stopPropagation()">
+              <div class="import-confirm-icon">⚠️</div>
+              <h3>Modifiche non salvate</h3>
+              <p>Ci sono modifiche non ancora salvate. Chiudendo andranno perse.</p>
+              <div class="import-confirm-actions">
+                <button type="button" class="danger" (click)="doCloseDetailModal()">Chiudi senza salvare</button>
+                <button type="button" class="ghost" (click)="closeConfirmOpen = false">Continua a modificare</button>
+              </div>
+            </div>
+          </div>
+        }
 
         @if (deleteConfirmOpen) {
           <div class="import-confirm-overlay" (click)="deleteConfirmOpen = false">
@@ -1283,7 +1364,7 @@
   @if (formVisible) {
     <div class="modal-backdrop">
       <div class="modal">
-        <h2>{{ editingId ? 'Modifica ordine' : 'Nuovo ordine' }}</h2>
+        <h2>Nuovo ordine</h2>
         <div class="modal-grid">
         <div class="form-field">
           <label class="form-field__label form-field__label--required">Riferimento</label>

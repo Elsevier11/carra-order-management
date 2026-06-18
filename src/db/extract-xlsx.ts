@@ -10,7 +10,6 @@ export type ExtractedRow = {
   dataConsegna: string
   cantiere: string
   dataOrdine: string
-  vettore: string
   scarico: string
   vascheCav: string
   accessori: string
@@ -99,7 +98,6 @@ export function extractWorkbook(workbook: WorkBook, sheetsCount = 4) {
       dataConsegna: findColumnIndex(header, ['data consegna'], true),
       cantiere: findColumnIndex(header, ['cantiere']),
       dataOrdine: findColumnIndex(header, ['data ordine'], true),
-      vettore: findColumnIndex(header, ['traspor', 'trasporto']),
       scarico: findColumnIndex(header, ['scarico']),
       vascheCav: findColumnIndex(header, ['vasche c.a.v.']),
       accessori: findColumnIndex(header, ['accessori']),
@@ -140,7 +138,6 @@ export function extractWorkbook(workbook: WorkBook, sheetsCount = 4) {
         dataConsegna: cell(row, column.dataConsegna),
         cantiere: cell(row, column.cantiere),
         dataOrdine: cell(row, column.dataOrdine),
-        vettore: cell(row, column.vettore),
         scarico: cell(row, column.scarico),
         vascheCav: cell(row, column.vascheCav),
         accessori: cell(row, column.accessori),
