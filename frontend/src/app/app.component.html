@@ -742,7 +742,7 @@
                         <strong>{{ attachment.fileName }}</strong>
                         <small>{{ attachment.mimeType }} · {{ formatFileSize(attachment.sizeBytes) }} · {{ attachment.uploadedBy || 'sistema' }}</small>
                         <div class="attachment-actions">
-                          <button type="button" class="ghost" (click)="downloadAttachment(attachment)">Download</button>
+                          <button type="button" class="ghost" (click)="openAttachment(attachment)">Apri</button>
                           @if (canWrite) {
                             <button type="button" class="danger" (click)="deleteAttachment(attachment)">Elimina</button>
                           }

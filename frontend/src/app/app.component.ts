@@ -806,6 +806,11 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  openAttachment(attachment: AttachmentRecord): void {
+    const url = `/api/consegne/${this.selectedDetail!.id}/attachments/${attachment.id}`;
+    window.open(url, '_blank');
+  }
+
   downloadAttachment(item: AttachmentRecord): void {
     if (!this.selectedDetail) return;
     this.consegneService.downloadAttachment(this.selectedDetail.id, item.id).subscribe({
