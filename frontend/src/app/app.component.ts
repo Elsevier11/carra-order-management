@@ -59,7 +59,7 @@ type EditableConsegna = {
 };
 
 type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche' | 'settings';
-type RegistryTab = 'users' | 'commerciali' | 'responsabili';
+type RegistryTab = 'persone' | 'produzione';
 
 @Component({
   selector: 'app-root',
@@ -87,7 +87,7 @@ export class AppComponent implements OnInit, OnDestroy {
   operationError = '';
   operationSuccess = '';
   activeView: ViewMode = 'kanban';
-  activeRegistryTab: RegistryTab = 'users';
+  activeRegistryTab: RegistryTab = 'persone';
   showFiltersPanel = false;
 
   private readonly searchSubject = new Subject<void>();
@@ -192,6 +192,7 @@ export class AppComponent implements OnInit, OnDestroy {
   };
   detailModalOpen = false;
   deleteConfirmOpen = false;
+  confirmModal: { message: string; onConfirm: () => void } | null = null;
 
   commercialiRows: CommercialeRecord[] = [];
   commercialiLoading = false;
@@ -296,7 +297,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   // ── Detail modal tab switcher ─────────────────────────────────────────────
-  activeDetailTab: 'dettagli' | 'cementi' | 'accessori' | 'cam' = 'dettagli';
+  activeDetailTab: 'dettagli' | 'cementi' | 'accessori' | 'cam' | 'gestione' = 'dettagli';
 
   cementiTipiList: CementoTipo[] = [];
   accessoriTipiList: AccessorioTipo[] = [];
@@ -488,11 +489,6 @@ export class AppComponent implements OnInit, OnDestroy {
     if ((view === 'audit' || view === 'anagrafiche' || view === 'settings') && !this.isAdmin) return;
     if (view === 'settings') {
       this.loadSettings();
-      this.loadMittentiDisegnoAdmin();
-      this.loadOperaiAdmin();
-      this.loadVettoriAdmin();
-      this.loadCementiTipiAdmin();
-      this.loadAccessoriTipiAdmin();
     }
     this.operationError = '';
     this.operationSuccess = '';
@@ -504,7 +500,14 @@ export class AppComponent implements OnInit, OnDestroy {
     } else if (view === 'audit') {
       this.loadAudit(1);
     } else if (view === 'anagrafiche') {
-      this.loadActiveRegistryTab();
+      this.loadUsers();
+      this.loadCommerciali();
+      this.loadResponsabili();
+      this.loadMittentiDisegnoAdmin();
+      this.loadOperaiAdmin();
+      this.loadVettoriAdmin();
+      this.loadCementiTipiAdmin();
+      this.loadAccessoriTipiAdmin();
     }
   }
 
@@ -776,6 +779,19 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  openConfirm(message: string, onConfirm: () => void): void {
+    this.confirmModal = { message, onConfirm };
+  }
+
+  doConfirm(): void {
+    this.confirmModal?.onConfirm();
+    this.confirmModal = null;
+  }
+
+  closeConfirm(): void {
+    this.confirmModal = null;
+  }
+
   deleteSelected(): void {
     if (!this.selectedDetail) return;
     this.deleteConfirmOpen = true;
@@ -885,17 +901,18 @@ export class AppComponent implements OnInit, OnDestroy {
 
   deleteAttachment(item: AttachmentRecord): void {
     if (!this.selectedDetail) return;
-    const ok = confirm(`Eliminare allegato ${item.fileName}?`);
-    if (!ok) return;
-    this.consegneService.deleteAttachment(this.selectedDetail.id, item.id).subscribe({
-      next: () => {
-        this.operationSuccess = 'Allegato eliminato';
-        this.loadAttachments(this.selectedDetail!.id);
-        this.loadHistory(this.selectedDetail!.id);
-      },
-      error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore eliminazione allegato';
-      },
+    const id = this.selectedDetail.id;
+    this.openConfirm(`Eliminare allegato "${item.fileName}"?`, () => {
+      this.consegneService.deleteAttachment(id, item.id).subscribe({
+        next: () => {
+          this.operationSuccess = 'Allegato eliminato';
+          this.loadAttachments(this.selectedDetail!.id);
+          this.loadHistory(this.selectedDetail!.id);
+        },
+        error: (error) => {
+          this.operationError = error?.error?.message ?? 'Errore eliminazione allegato';
+        },
+      });
     });
   }
 
@@ -1242,15 +1259,11 @@ export class AppComponent implements OnInit, OnDestroy {
   deleteCommerciale(id: number): void {
     if (!this.isAdmin) return;
     const item = this.commercialiRows.find((c) => c.id === id);
-    if (!confirm(`Eliminare il commerciale "${item?.nome}"?`)) return;
-    this.consegneService.deleteCommerciale(id).subscribe({
-      next: () => {
-        this.operationSuccess = 'Commerciale eliminato';
-        this.loadCommerciali();
-      },
-      error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore eliminazione commerciale';
-      },
+    this.openConfirm(`Eliminare il commerciale "${item?.nome}"?`, () => {
+      this.consegneService.deleteCommerciale(id).subscribe({
+        next: () => { this.operationSuccess = 'Commerciale eliminato'; this.loadCommerciali(); },
+        error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione commerciale'; },
+      });
     });
   }
 
@@ -1287,15 +1300,11 @@ export class AppComponent implements OnInit, OnDestroy {
   deleteResponsabile(id: number): void {
     if (!this.isAdmin) return;
     const item = this.responsabiliRows.find((r) => r.id === id);
-    if (!confirm(`Eliminare il responsabile "${item?.nome}"?`)) return;
-    this.consegneService.deleteResponsabile(id).subscribe({
-      next: () => {
-        this.operationSuccess = 'Responsabile eliminato';
-        this.loadResponsabili();
-      },
-      error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore eliminazione responsabile';
-      },
+    this.openConfirm(`Eliminare il responsabile "${item?.nome}"?`, () => {
+      this.consegneService.deleteResponsabile(id).subscribe({
+        next: () => { this.operationSuccess = 'Responsabile eliminato'; this.loadResponsabili(); },
+        error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione responsabile'; },
+      });
     });
   }
 
@@ -1361,7 +1370,8 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   deleteMittenteDisegno(item: MittenteDisegno): void {
-    if (!this.isAdmin || !confirm(`Eliminare il mittente "${item.nome}"?`)) return;
+    if (!this.isAdmin) return;
+    this.openConfirm(`Eliminare il mittente "${item.nome}"?`, () => {
     this.consegneService.deleteMittenteDisegno(item.id).subscribe({
       next: () => {
         this.operationSuccess = 'Mittente eliminato';
@@ -1370,6 +1380,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.consegneService.listMittentiDisegno().subscribe({ next: (r) => { this.mittentiDisegno = r.data; }, error: () => {} });
       },
       error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione mittente disegno'; },
+    });
     });
   }
 
@@ -1427,15 +1438,17 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   deleteOperaio(item: Operaio): void {
-    if (!this.isAdmin || !confirm(`Eliminare l'operaio "${item.nome}"?`)) return;
-    this.consegneService.deleteOperaio(item.id).subscribe({
-      next: () => {
-        this.operationSuccess = 'Operaio eliminato';
-        this.loadOperaiAdmin();
-        this.operaiList = [];
-        this.consegneService.listOperai().subscribe({ next: (r) => { this.operaiList = r.data; }, error: () => {} });
-      },
-      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione operaio'; },
+    if (!this.isAdmin) return;
+    this.openConfirm(`Eliminare l'operaio "${item.nome}"?`, () => {
+      this.consegneService.deleteOperaio(item.id).subscribe({
+        next: () => {
+          this.operationSuccess = 'Operaio eliminato';
+          this.loadOperaiAdmin();
+          this.operaiList = [];
+          this.consegneService.listOperai().subscribe({ next: (r) => { this.operaiList = r.data; }, error: () => {} });
+        },
+        error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione operaio'; },
+      });
     });
   }
 
@@ -1493,15 +1506,17 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   deleteVettore(item: Vettore): void {
-    if (!this.isAdmin || !confirm(`Eliminare il vettore "${item.nome}"?`)) return;
-    this.consegneService.deleteVettore(item.id).subscribe({
-      next: () => {
-        this.operationSuccess = 'Vettore eliminato';
-        this.loadVettoriAdmin();
-        this.vettoriList = [];
-        this.consegneService.listVettori().subscribe({ next: (r) => { this.vettoriList = r.data; }, error: () => {} });
-      },
-      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione vettore'; },
+    if (!this.isAdmin) return;
+    this.openConfirm(`Eliminare il vettore "${item.nome}"?`, () => {
+      this.consegneService.deleteVettore(item.id).subscribe({
+        next: () => {
+          this.operationSuccess = 'Vettore eliminato';
+          this.loadVettoriAdmin();
+          this.vettoriList = [];
+          this.consegneService.listVettori().subscribe({ next: (r) => { this.vettoriList = r.data; }, error: () => {} });
+        },
+        error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione vettore'; },
+      });
     });
   }
 
@@ -1548,10 +1563,12 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   deleteCementoTipo(item: CementoTipo): void {
-    if (!this.isAdmin || !confirm(`Eliminare il tipo cemento "${item.nome}"?`)) return;
-    this.consegneService.deleteCementoTipo(item.id).subscribe({
-      next: () => { this.operationSuccess = 'Tipo cemento eliminato'; this.loadCementiTipiAdmin(); },
-      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione tipo cemento'; },
+    if (!this.isAdmin) return;
+    this.openConfirm(`Eliminare il tipo cemento "${item.nome}"?`, () => {
+      this.consegneService.deleteCementoTipo(item.id).subscribe({
+        next: () => { this.operationSuccess = 'Tipo cemento eliminato'; this.loadCementiTipiAdmin(); },
+        error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione tipo cemento'; },
+      });
     });
   }
 
@@ -1598,10 +1615,12 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   deleteAccessorioTipo(item: AccessorioTipo): void {
-    if (!this.isAdmin || !confirm(`Eliminare il tipo accessorio "${item.nome}"?`)) return;
-    this.consegneService.deleteAccessorioTipo(item.id).subscribe({
-      next: () => { this.operationSuccess = 'Tipo accessorio eliminato'; this.loadAccessoriTipiAdmin(); },
-      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione tipo accessorio'; },
+    if (!this.isAdmin) return;
+    this.openConfirm(`Eliminare il tipo accessorio "${item.nome}"?`, () => {
+      this.consegneService.deleteAccessorioTipo(item.id).subscribe({
+        next: () => { this.operationSuccess = 'Tipo accessorio eliminato'; this.loadAccessoriTipiAdmin(); },
+        error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione tipo accessorio'; },
+      });
     });
   }
 
@@ -1872,6 +1891,10 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.selectedDetail?.operaiAssegnati?.some((o) => o.id === id) ?? false;
   }
 
+  operaiNomiLabel(operai: { nome: string }[] | undefined): string {
+    return operai?.length ? operai.map((o) => o.nome).join(', ') : '—';
+  }
+
   toggleOperaio(id: number): void {
     if (!this.selectedDetail) return;
     const existing = this.selectedDetail.operaiAssegnati ?? [];
@@ -1960,7 +1983,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // ── Detail tab methods ────────────────────────────────────────────────────
 
-  setDetailTab(tab: 'dettagli' | 'cementi' | 'accessori' | 'cam'): void {
+  setDetailTab(tab: 'dettagli' | 'cementi' | 'accessori' | 'cam' | 'gestione'): void {
     this.activeDetailTab = tab;
   }
 
@@ -2158,12 +2181,16 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private loadActiveRegistryTab(): void {
-    if (this.activeRegistryTab === 'users') {
+    if (this.activeRegistryTab === 'persone') {
       this.loadUsers();
-    } else if (this.activeRegistryTab === 'commerciali') {
       this.loadCommerciali();
-    } else if (this.activeRegistryTab === 'responsabili') {
       this.loadResponsabili();
+      this.loadMittentiDisegnoAdmin();
+      this.loadOperaiAdmin();
+    } else if (this.activeRegistryTab === 'produzione') {
+      this.loadVettoriAdmin();
+      this.loadCementiTipiAdmin();
+      this.loadAccessoriTipiAdmin();
     }
   }
 

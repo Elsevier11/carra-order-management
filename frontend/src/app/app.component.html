@@ -235,16 +235,15 @@
     } @else if (activeView === 'anagrafiche') {
       <section class="detail-card">
         <div class="registry-tabs">
-          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'users'" (click)="setRegistryTab('users')">Utenti</button>
-          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'commerciali'" (click)="setRegistryTab('commerciali')">Commerciali</button>
-          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'responsabili'" (click)="setRegistryTab('responsabili')">Responsabili</button>
+          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'persone'" (click)="setRegistryTab('persone')">Persone</button>
+          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'produzione'" (click)="setRegistryTab('produzione')">Produzione</button>
         </div>
       </section>
 
       @if (operationError) { <div class="error">{{ operationError }}</div> }
       @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
 
-      @if (activeRegistryTab === 'users') {
+      @if (activeRegistryTab === 'persone') {
         <section class="detail-card">
           <h2>Gestione utenti</h2>
           <div class="modal-grid">
@@ -322,64 +321,255 @@
             </div>
           </section>
         }
-      } @else if (activeRegistryTab === 'commerciali') {
-        <section class="detail-card">
-          <h2>Gestione Commerciali</h2>
-          <div class="modal-grid">
-            <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
-            <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
-          </div>
-        </section>
 
-        <section class="table-card">
-          @if (commercialiLoading) {
-            <p>Caricamento...</p>
-          } @else {
-            <table class="audit-table">
-              <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-              <tbody>
-                @for (item of commercialiRows; track item.id) {
-                  <tr>
-                    <td>{{ item.nome }}</td>
-                    <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
-                  </tr>
-                }
-                @if (!commercialiRows.length) {
-                  <tr><td colspan="2">Nessun commerciale.</td></tr>
-                }
-              </tbody>
-            </table>
-          }
-        </section>
-      } @else if (activeRegistryTab === 'responsabili') {
-        <section class="detail-card">
-          <h2>Gestione Responsabili Interni</h2>
-          <div class="modal-grid">
-            <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
-            <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
+        <div class="settings-page">
+          <div class="settings-card">
+            <h2 class="settings-card-title">Commerciali</h2>
+            @if (commercialiLoading) {
+              <p class="settings-loading">Caricamento...</p>
+            } @else {
+              <table class="audit-table">
+                <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                <tbody>
+                  @for (item of commercialiRows; track item.id) {
+                    <tr>
+                      <td>{{ item.nome }}</td>
+                      <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
+                    </tr>
+                  }
+                  @if (!commercialiRows.length) {
+                    <tr><td colspan="2">Nessun commerciale.</td></tr>
+                  }
+                </tbody>
+              </table>
+              <div class="settings-inline-add">
+                <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
+                <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
+              </div>
+            }
           </div>
-        </section>
 
-        <section class="table-card">
-          @if (responsabiliLoading) {
-            <p>Caricamento...</p>
-          } @else {
-            <table class="audit-table">
-              <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-              <tbody>
-                @for (item of responsabiliRows; track item.id) {
-                  <tr>
-                    <td>{{ item.nome }}</td>
-                    <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
-                  </tr>
-                }
-                @if (!responsabiliRows.length) {
-                  <tr><td colspan="2">Nessun responsabile.</td></tr>
-                }
-              </tbody>
-            </table>
+          <div class="settings-card">
+            <h2 class="settings-card-title">Responsabili</h2>
+            @if (responsabiliLoading) {
+              <p class="settings-loading">Caricamento...</p>
+            } @else {
+              <table class="audit-table">
+                <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                <tbody>
+                  @for (item of responsabiliRows; track item.id) {
+                    <tr>
+                      <td>{{ item.nome }}</td>
+                      <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
+                    </tr>
+                  }
+                  @if (!responsabiliRows.length) {
+                    <tr><td colspan="2">Nessun responsabile.</td></tr>
+                  }
+                </tbody>
+              </table>
+              <div class="settings-inline-add">
+                <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
+                <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
+              </div>
+            }
+          </div>
+
+          @if (isAdmin) {
+            <div class="settings-card">
+              <h2 class="settings-card-title">Mittenti Disegno</h2>
+              @if (mittentiDisegnoLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of mittentiDisegnoRows; track item.id) {
+                      <tr>
+                        @if (editingMittenteDisegno?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editMittenteDisegnoNome" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editMittenteDisegnoNome.trim()" (click)="saveMittenteDisegno()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditMittenteDisegno()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditMittenteDisegno(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteMittenteDisegno(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!mittentiDisegnoRows.length) {
+                      <tr><td colspan="2">Nessun mittente disegno.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newMittenteDisegnoNome" placeholder="Nome mittente" />
+                  <button type="button" [disabled]="!newMittenteDisegnoNome.trim()" (click)="createMittenteDisegno()">Aggiungi</button>
+                </div>
+              }
+            </div>
+
+            <div class="settings-card">
+              <h2 class="settings-card-title">Operai</h2>
+              @if (operaiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of operaiRows; track item.id) {
+                      <tr>
+                        @if (editingOperaio?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editOperaioNome" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editOperaioNome.trim()" (click)="saveOperaio()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditOperaio()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditOperaio(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteOperaio(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!operaiRows.length) {
+                      <tr><td colspan="2">Nessun operaio.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newOperaioNome" placeholder="Nome operaio" />
+                  <button type="button" [disabled]="!newOperaioNome.trim()" (click)="createOperaio()">Aggiungi</button>
+                </div>
+              }
+            </div>
           }
-        </section>
+        </div>
+      } @else if (activeRegistryTab === 'produzione') {
+        <div class="settings-page">
+          <div class="settings-card">
+            <h2 class="settings-card-title">Vettori</h2>
+            @if (vettoriLoading) {
+              <p class="settings-loading">Caricamento...</p>
+            } @else {
+              <table class="audit-table">
+                <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                <tbody>
+                  @for (item of vettoriRows; track item.id) {
+                    <tr>
+                      @if (editingVettore?.id === item.id) {
+                        <td><input type="text" [(ngModel)]="editVettoreNome" /></td>
+                        <td>
+                          <button type="button" [disabled]="!editVettoreNome.trim()" (click)="saveVettore()">Salva</button>
+                          <button type="button" class="ghost" (click)="cancelEditVettore()">Annulla</button>
+                        </td>
+                      } @else {
+                        <td>{{ item.nome }}</td>
+                        <td>
+                          <button type="button" class="ghost" (click)="startEditVettore(item)">Modifica</button>
+                          <button type="button" class="danger" (click)="deleteVettore(item)">Elimina</button>
+                        </td>
+                      }
+                    </tr>
+                  }
+                  @if (!vettoriRows.length) {
+                    <tr><td colspan="2">Nessun vettore.</td></tr>
+                  }
+                </tbody>
+              </table>
+              <div class="settings-inline-add">
+                <input type="text" [(ngModel)]="newVettoreNome" placeholder="Nome vettore" />
+                <button type="button" [disabled]="!newVettoreNome.trim()" (click)="createVettore()">Aggiungi</button>
+              </div>
+            }
+          </div>
+
+          <div class="settings-card">
+            <h2 class="settings-card-title">Tipi Cemento</h2>
+            @if (cementiTipiLoading) {
+              <p class="settings-loading">Caricamento...</p>
+            } @else {
+              <table class="audit-table">
+                <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
+                <tbody>
+                  @for (item of cementiTipiRows; track item.id) {
+                    <tr>
+                      @if (editingCementoTipo?.id === item.id) {
+                        <td><input type="text" [(ngModel)]="editCementoTipoNome" /></td>
+                        <td><input type="number" [(ngModel)]="editCementoTipoOrdine" style="width:5rem" /></td>
+                        <td>
+                          <button type="button" [disabled]="!editCementoTipoNome.trim()" (click)="saveCementoTipo()">Salva</button>
+                          <button type="button" class="ghost" (click)="cancelEditCementoTipo()">Annulla</button>
+                        </td>
+                      } @else {
+                        <td>{{ item.nome }}</td>
+                        <td>{{ item.ordine }}</td>
+                        <td>
+                          <button type="button" class="ghost" (click)="startEditCementoTipo(item)">Modifica</button>
+                          <button type="button" class="danger" (click)="deleteCementoTipo(item)">Elimina</button>
+                        </td>
+                      }
+                    </tr>
+                  }
+                  @if (!cementiTipiRows.length) {
+                    <tr><td colspan="3">Nessun tipo cemento.</td></tr>
+                  }
+                </tbody>
+              </table>
+              <div class="settings-inline-add">
+                <input type="text" [(ngModel)]="newCementoTipoNome" placeholder="Nome tipo cemento" />
+                <input type="number" [(ngModel)]="newCementoTipoOrdine" placeholder="Ordine" style="width:5rem" />
+                <button type="button" [disabled]="!newCementoTipoNome.trim()" (click)="createCementoTipo()">Aggiungi</button>
+              </div>
+            }
+          </div>
+
+          <div class="settings-card">
+            <h2 class="settings-card-title">Tipi Accessorio</h2>
+            @if (accessoriTipiLoading) {
+              <p class="settings-loading">Caricamento...</p>
+            } @else {
+              <table class="audit-table">
+                <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
+                <tbody>
+                  @for (item of accessoriTipiRows; track item.id) {
+                    <tr>
+                      @if (editingAccessorioTipo?.id === item.id) {
+                        <td><input type="text" [(ngModel)]="editAccessorioTipoNome" /></td>
+                        <td><input type="number" [(ngModel)]="editAccessorioTipoOrdine" style="width:5rem" /></td>
+                        <td>
+                          <button type="button" [disabled]="!editAccessorioTipoNome.trim()" (click)="saveAccessorioTipo()">Salva</button>
+                          <button type="button" class="ghost" (click)="cancelEditAccessorioTipo()">Annulla</button>
+                        </td>
+                      } @else {
+                        <td>{{ item.nome }}</td>
+                        <td>{{ item.ordine }}</td>
+                        <td>
+                          <button type="button" class="ghost" (click)="startEditAccessorioTipo(item)">Modifica</button>
+                          <button type="button" class="danger" (click)="deleteAccessorioTipo(item)">Elimina</button>
+                        </td>
+                      }
+                    </tr>
+                  }
+                  @if (!accessoriTipiRows.length) {
+                    <tr><td colspan="3">Nessun tipo accessorio.</td></tr>
+                  }
+                </tbody>
+              </table>
+              <div class="settings-inline-add">
+                <input type="text" [(ngModel)]="newAccessorioTipoNome" placeholder="Nome tipo accessorio" />
+                <input type="number" [(ngModel)]="newAccessorioTipoOrdine" placeholder="Ordine" style="width:5rem" />
+                <button type="button" [disabled]="!newAccessorioTipoNome.trim()" (click)="createAccessorioTipo()">Aggiungi</button>
+              </div>
+            }
+          </div>
+        </div>
       }
     } @else {
       @if (operationError) {
@@ -508,199 +698,6 @@
               nel Registry di Windows. Nessuna modifica al sistema al di fuori di questo.
             </p>
           </div>
-
-          @if (isAdmin) {
-            <div class="settings-card">
-              <h2 class="settings-card-title">Mittenti Disegno</h2>
-              @if (mittentiDisegnoLoading) {
-                <p class="settings-loading">Caricamento...</p>
-              } @else {
-                <table class="audit-table">
-                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-                  <tbody>
-                    @for (item of mittentiDisegnoRows; track item.id) {
-                      <tr>
-                        @if (editingMittenteDisegno?.id === item.id) {
-                          <td><input type="text" [(ngModel)]="editMittenteDisegnoNome" /></td>
-                          <td>
-                            <button type="button" [disabled]="!editMittenteDisegnoNome.trim()" (click)="saveMittenteDisegno()">Salva</button>
-                            <button type="button" class="ghost" (click)="cancelEditMittenteDisegno()">Annulla</button>
-                          </td>
-                        } @else {
-                          <td>{{ item.nome }}</td>
-                          <td>
-                            <button type="button" class="ghost" (click)="startEditMittenteDisegno(item)">Modifica</button>
-                            <button type="button" class="danger" (click)="deleteMittenteDisegno(item)">Elimina</button>
-                          </td>
-                        }
-                      </tr>
-                    }
-                    @if (!mittentiDisegnoRows.length) {
-                      <tr><td colspan="2">Nessun mittente disegno.</td></tr>
-                    }
-                  </tbody>
-                </table>
-                <div class="settings-inline-add">
-                  <input type="text" [(ngModel)]="newMittenteDisegnoNome" placeholder="Nome mittente" />
-                  <button type="button" [disabled]="!newMittenteDisegnoNome.trim()" (click)="createMittenteDisegno()">Aggiungi</button>
-                </div>
-              }
-            </div>
-
-            <div class="settings-card">
-              <h2 class="settings-card-title">Operai</h2>
-              @if (operaiLoading) {
-                <p class="settings-loading">Caricamento...</p>
-              } @else {
-                <table class="audit-table">
-                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-                  <tbody>
-                    @for (item of operaiRows; track item.id) {
-                      <tr>
-                        @if (editingOperaio?.id === item.id) {
-                          <td><input type="text" [(ngModel)]="editOperaioNome" /></td>
-                          <td>
-                            <button type="button" [disabled]="!editOperaioNome.trim()" (click)="saveOperaio()">Salva</button>
-                            <button type="button" class="ghost" (click)="cancelEditOperaio()">Annulla</button>
-                          </td>
-                        } @else {
-                          <td>{{ item.nome }}</td>
-                          <td>
-                            <button type="button" class="ghost" (click)="startEditOperaio(item)">Modifica</button>
-                            <button type="button" class="danger" (click)="deleteOperaio(item)">Elimina</button>
-                          </td>
-                        }
-                      </tr>
-                    }
-                    @if (!operaiRows.length) {
-                      <tr><td colspan="2">Nessun operaio.</td></tr>
-                    }
-                  </tbody>
-                </table>
-                <div class="settings-inline-add">
-                  <input type="text" [(ngModel)]="newOperaioNome" placeholder="Nome operaio" />
-                  <button type="button" [disabled]="!newOperaioNome.trim()" (click)="createOperaio()">Aggiungi</button>
-                </div>
-              }
-            </div>
-
-            <div class="settings-card">
-              <h2 class="settings-card-title">Vettori</h2>
-              @if (vettoriLoading) {
-                <p class="settings-loading">Caricamento...</p>
-              } @else {
-                <table class="audit-table">
-                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-                  <tbody>
-                    @for (item of vettoriRows; track item.id) {
-                      <tr>
-                        @if (editingVettore?.id === item.id) {
-                          <td><input type="text" [(ngModel)]="editVettoreNome" /></td>
-                          <td>
-                            <button type="button" [disabled]="!editVettoreNome.trim()" (click)="saveVettore()">Salva</button>
-                            <button type="button" class="ghost" (click)="cancelEditVettore()">Annulla</button>
-                          </td>
-                        } @else {
-                          <td>{{ item.nome }}</td>
-                          <td>
-                            <button type="button" class="ghost" (click)="startEditVettore(item)">Modifica</button>
-                            <button type="button" class="danger" (click)="deleteVettore(item)">Elimina</button>
-                          </td>
-                        }
-                      </tr>
-                    }
-                    @if (!vettoriRows.length) {
-                      <tr><td colspan="2">Nessun vettore.</td></tr>
-                    }
-                  </tbody>
-                </table>
-                <div class="settings-inline-add">
-                  <input type="text" [(ngModel)]="newVettoreNome" placeholder="Nome vettore" />
-                  <button type="button" [disabled]="!newVettoreNome.trim()" (click)="createVettore()">Aggiungi</button>
-                </div>
-              }
-            </div>
-
-            <div class="settings-card">
-              <h2 class="settings-card-title">Tipi Cemento</h2>
-              @if (cementiTipiLoading) {
-                <p class="settings-loading">Caricamento...</p>
-              } @else {
-                <table class="audit-table">
-                  <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
-                  <tbody>
-                    @for (item of cementiTipiRows; track item.id) {
-                      <tr>
-                        @if (editingCementoTipo?.id === item.id) {
-                          <td><input type="text" [(ngModel)]="editCementoTipoNome" /></td>
-                          <td><input type="number" [(ngModel)]="editCementoTipoOrdine" style="width:5rem" /></td>
-                          <td>
-                            <button type="button" [disabled]="!editCementoTipoNome.trim()" (click)="saveCementoTipo()">Salva</button>
-                            <button type="button" class="ghost" (click)="cancelEditCementoTipo()">Annulla</button>
-                          </td>
-                        } @else {
-                          <td>{{ item.nome }}</td>
-                          <td>{{ item.ordine }}</td>
-                          <td>
-                            <button type="button" class="ghost" (click)="startEditCementoTipo(item)">Modifica</button>
-                            <button type="button" class="danger" (click)="deleteCementoTipo(item)">Elimina</button>
-                          </td>
-                        }
-                      </tr>
-                    }
-                    @if (!cementiTipiRows.length) {
-                      <tr><td colspan="3">Nessun tipo cemento.</td></tr>
-                    }
-                  </tbody>
-                </table>
-                <div class="settings-inline-add">
-                  <input type="text" [(ngModel)]="newCementoTipoNome" placeholder="Nome tipo cemento" />
-                  <input type="number" [(ngModel)]="newCementoTipoOrdine" placeholder="Ordine" style="width:5rem" />
-                  <button type="button" [disabled]="!newCementoTipoNome.trim()" (click)="createCementoTipo()">Aggiungi</button>
-                </div>
-              }
-            </div>
-
-            <div class="settings-card">
-              <h2 class="settings-card-title">Tipi Accessorio</h2>
-              @if (accessoriTipiLoading) {
-                <p class="settings-loading">Caricamento...</p>
-              } @else {
-                <table class="audit-table">
-                  <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
-                  <tbody>
-                    @for (item of accessoriTipiRows; track item.id) {
-                      <tr>
-                        @if (editingAccessorioTipo?.id === item.id) {
-                          <td><input type="text" [(ngModel)]="editAccessorioTipoNome" /></td>
-                          <td><input type="number" [(ngModel)]="editAccessorioTipoOrdine" style="width:5rem" /></td>
-                          <td>
-                            <button type="button" [disabled]="!editAccessorioTipoNome.trim()" (click)="saveAccessorioTipo()">Salva</button>
-                            <button type="button" class="ghost" (click)="cancelEditAccessorioTipo()">Annulla</button>
-                          </td>
-                        } @else {
-                          <td>{{ item.nome }}</td>
-                          <td>{{ item.ordine }}</td>
-                          <td>
-                            <button type="button" class="ghost" (click)="startEditAccessorioTipo(item)">Modifica</button>
-                            <button type="button" class="danger" (click)="deleteAccessorioTipo(item)">Elimina</button>
-                          </td>
-                        }
-                      </tr>
-                    }
-                    @if (!accessoriTipiRows.length) {
-                      <tr><td colspan="3">Nessun tipo accessorio.</td></tr>
-                    }
-                  </tbody>
-                </table>
-                <div class="settings-inline-add">
-                  <input type="text" [(ngModel)]="newAccessorioTipoNome" placeholder="Nome tipo accessorio" />
-                  <input type="number" [(ngModel)]="newAccessorioTipoOrdine" placeholder="Ordine" style="width:5rem" />
-                  <button type="button" [disabled]="!newAccessorioTipoNome.trim()" (click)="createAccessorioTipo()">Aggiungi</button>
-                </div>
-              }
-            </div>
-          }
         </div>
       }
 
@@ -822,13 +819,23 @@
           <!-- ── Tab switcher ───────────────────────────────────────── -->
           <div class="detail-tabs">
             <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'dettagli'" (click)="setDetailTab('dettagli')">Dettagli</button>
+            <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'gestione'" (click)="setDetailTab('gestione')">Gestione</button>
             <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'cementi'" (click)="setDetailTab('cementi')">Cementi</button>
             <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'accessori'" (click)="setDetailTab('accessori')">Accessori</button>
             <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'cam'" (click)="setDetailTab('cam')">C.A.M.</button>
           </div>
 
+          <div class="detail-tab-body">
+
           <!-- ── Tab: Dettagli ──────────────────────────────────────── -->
           @if (activeDetailTab === 'dettagli') {
+
+          @if (canWrite) {
+            <div class="detail-actions-row">
+              <button type="button" (click)="openEdit()">Modifica</button>
+              <button type="button" class="ghost-danger" (click)="deleteSelected()">Elimina</button>
+            </div>
+          }
 
           <!-- ── Dati ordine + Assegnazioni + Impianto ──────────────────── -->
           <div class="detail-section">
@@ -957,143 +964,200 @@
             </div>
           }
 
-          <!-- ── Campi condizionali per stato ─────────────────── -->
-          @if (selectedDetail.stato === 'DISEGNO IN GESTIONE' && canWrite) {
-            <div class="detail-section">
-              <div class="detail-section-title">Gestione Disegno</div>
-              <div class="detail-kv-grid">
-                <div class="detail-kv">
-                  <label class="kv-label">Data spedizione disegno</label>
-                  <input type="date" [(ngModel)]="selectedDetail.disegnoSpeditoAt" />
-                </div>
-                <div class="detail-kv">
-                  <label class="kv-label">Mittente</label>
-                  <select [(ngModel)]="selectedDetail.disegnoMittenteId">
-                    <option [ngValue]="null">— seleziona —</option>
-                    @for (m of mittentiDisegno; track m.id) {
-                      <option [ngValue]="m.id">{{ m.nome }}</option>
+          } <!-- end tab: dettagli -->
+
+          <!-- ── Tab: Gestione ─────────────────────────────────────── -->
+          @if (activeDetailTab === 'gestione') {
+
+            <!-- Campi specifici per stato -->
+            @if (selectedDetail.stato === 'DISEGNO IN GESTIONE') {
+              <div class="detail-section">
+                <div class="detail-section-title">Gestione Disegno</div>
+                <div class="detail-kv-grid">
+                  <div class="detail-kv">
+                    <label class="kv-label">Data spedizione disegno</label>
+                    @if (canWrite) {
+                      <input type="date" [(ngModel)]="selectedDetail.disegnoSpeditoAt" />
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.disegnoSpeditoAt ? (selectedDetail.disegnoSpeditoAt | date:'dd/MM/yyyy') : '—' }}</span>
                     }
-                  </select>
+                  </div>
+                  <div class="detail-kv">
+                    <label class="kv-label">Mittente</label>
+                    @if (canWrite) {
+                      <select [(ngModel)]="selectedDetail.disegnoMittenteId">
+                        <option [ngValue]="null">— seleziona —</option>
+                        @for (m of mittentiDisegno; track m.id) {
+                          <option [ngValue]="m.id">{{ m.nome }}</option>
+                        }
+                      </select>
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.disegnoMittenteId ?? '—' }}</span>
+                    }
+                  </div>
+                  <div class="detail-kv detail-kv--full">
+                    <label class="kv-label">Note disegno</label>
+                    @if (canWrite) {
+                      <textarea [(ngModel)]="selectedDetail.disegnoNote" rows="3" style="width:100%;resize:vertical"></textarea>
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.disegnoNote || '—' }}</span>
+                    }
+                  </div>
                 </div>
-                <div class="detail-kv detail-kv--full">
-                  <label class="kv-label">Note disegno</label>
-                  <textarea [(ngModel)]="selectedDetail.disegnoNote" rows="3" style="width:100%;resize:vertical"></textarea>
-                </div>
+                @if (canWrite) {
+                  <div class="modal-actions" style="margin-top:10px">
+                    <button type="button" (click)="saveDisegnoFields()">Salva</button>
+                  </div>
+                }
               </div>
-              <div class="modal-actions" style="margin-top:10px">
-                <button type="button" (click)="saveDisegnoFields()">Salva</button>
-              </div>
-            </div>
-          }
+            }
 
-          @if (selectedDetail.stato === 'DISEGNO APPROVATO' && canWrite) {
-            <div class="detail-section">
-              <div class="detail-section-title">Disegno Approvato</div>
-              <div class="detail-kv-grid">
-                <div class="detail-kv detail-kv--full">
-                  <label class="kv-label">Massicciata</label>
-                  <textarea [(ngModel)]="selectedDetail.massicciataNota" rows="3" style="width:100%;resize:vertical"></textarea>
+            @if (selectedDetail.stato === 'DISEGNO APPROVATO') {
+              <div class="detail-section">
+                <div class="detail-section-title">Disegno Approvato</div>
+                <div class="detail-kv-grid">
+                  <div class="detail-kv detail-kv--full">
+                    <label class="kv-label">Massicciata</label>
+                    @if (canWrite) {
+                      <textarea [(ngModel)]="selectedDetail.massicciataNota" rows="3" style="width:100%;resize:vertical"></textarea>
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.massicciataNota || '—' }}</span>
+                    }
+                  </div>
+                  <div class="detail-kv detail-kv--full">
+                    <label class="kv-label">Tipologia carichi</label>
+                    @if (canWrite) {
+                      <textarea [(ngModel)]="selectedDetail.tipoCariciNota" rows="3" style="width:100%;resize:vertical"></textarea>
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.tipoCariciNota || '—' }}</span>
+                    }
+                  </div>
                 </div>
-                <div class="detail-kv detail-kv--full">
-                  <label class="kv-label">Tipologia carichi</label>
-                  <textarea [(ngModel)]="selectedDetail.tipoCariciNota" rows="3" style="width:100%;resize:vertical"></textarea>
-                </div>
+                @if (canWrite) {
+                  <div class="modal-actions" style="margin-top:10px">
+                    <button type="button" (click)="saveDisegnoApprovatoFields()">Salva</button>
+                  </div>
+                }
               </div>
-              <div class="modal-actions" style="margin-top:10px">
-                <button type="button" (click)="saveDisegnoApprovatoFields()">Salva</button>
-              </div>
-            </div>
-          }
+            }
 
-          @if (selectedDetail.stato === 'IN LAVORAZIONE' && canWrite) {
-            <div class="detail-section">
-              <div class="detail-section-title">Lavorazione</div>
-              <div class="detail-kv-grid">
-                <div class="detail-kv">
-                  <label class="kv-label">Data assegnazione</label>
-                  <input type="date" [(ngModel)]="selectedDetail.lavorazioneAssegnataAt" />
+            @if (selectedDetail.stato === 'IN LAVORAZIONE') {
+              <div class="detail-section">
+                <div class="detail-section-title">Lavorazione</div>
+                <div class="detail-kv-grid">
+                  <div class="detail-kv">
+                    <label class="kv-label">Data assegnazione</label>
+                    @if (canWrite) {
+                      <input type="date" [(ngModel)]="selectedDetail.lavorazioneAssegnataAt" />
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.lavorazioneAssegnataAt ? (selectedDetail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : '—' }}</span>
+                    }
+                  </div>
+                  <div class="detail-kv detail-kv--full">
+                    <label class="kv-label">Operai assegnati</label>
+                    @if (canWrite) {
+                      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+                        @for (op of operaiList; track op.id) {
+                          <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
+                            <input type="checkbox" [checked]="isOperaioSelected(op.id)" (change)="toggleOperaio(op.id)" />
+                            {{ op.nome }}
+                          </label>
+                        }
+                      </div>
+                    } @else {
+                      <span class="kv-value">{{ operaiNomiLabel(selectedDetail.operaiAssegnati) }}</span>
+                    }
+                  </div>
                 </div>
-                <div class="detail-kv detail-kv--full">
-                  <label class="kv-label">Operai assegnati</label>
-                  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
-                    @for (op of operaiList; track op.id) {
-                      <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
-                        <input type="checkbox" [checked]="isOperaioSelected(op.id)" (change)="toggleOperaio(op.id)" />
-                        {{ op.nome }}
+                @if (canWrite) {
+                  <div class="modal-actions" style="margin-top:10px">
+                    <button type="button" (click)="saveLavorazioneFields()">Salva</button>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (selectedDetail.stato === 'CONSEGNA PIANIFICATA') {
+              <div class="detail-section">
+                <div class="detail-section-title">Consegna Pianificata</div>
+                <div class="detail-kv-grid">
+                  <div class="detail-kv">
+                    <label class="kv-label">Data consegna effettiva</label>
+                    @if (canWrite) {
+                      <input type="date" [(ngModel)]="selectedDetail.consegnaDataEffettiva" />
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.consegnaDataEffettiva ? (selectedDetail.consegnaDataEffettiva | date:'dd/MM/yyyy') : '—' }}</span>
+                    }
+                  </div>
+                  <div class="detail-kv">
+                    <label class="kv-label">Vettore</label>
+                    @if (canWrite) {
+                      <select [(ngModel)]="selectedDetail.vettoreId">
+                        <option [ngValue]="null">— seleziona —</option>
+                        @for (v of vettoriList; track v.id) {
+                          <option [ngValue]="v.id">{{ v.nome }}</option>
+                        }
+                      </select>
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.vettoreId ?? '—' }}</span>
+                    }
+                  </div>
+                  <div class="detail-kv detail-kv--full">
+                    <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:4px">
+                      <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="canWrite ? 'pointer' : 'default'">
+                        <input type="checkbox" [(ngModel)]="selectedDetail.ddtPronti" [disabled]="!canWrite" />
+                        DDT pronti
                       </label>
-                    }
+                      <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="canWrite ? 'pointer' : 'default'">
+                        <input type="checkbox" [(ngModel)]="selectedDetail.bancale" [disabled]="!canWrite" />
+                        Bancale
+                      </label>
+                      <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="canWrite ? 'pointer' : 'default'">
+                        <input type="checkbox" [(ngModel)]="selectedDetail.caricoVerificato" [disabled]="!canWrite" />
+                        Carico verificato
+                      </label>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="modal-actions" style="margin-top:10px">
-                <button type="button" (click)="saveLavorazioneFields()">Salva</button>
-              </div>
-            </div>
-          }
-
-          @if (selectedDetail.stato === 'CONSEGNA PIANIFICATA' && canWrite) {
-            <div class="detail-section">
-              <div class="detail-section-title">Consegna Pianificata</div>
-              <div class="detail-kv-grid">
-                <div class="detail-kv">
-                  <label class="kv-label">Data consegna effettiva</label>
-                  <input type="date" [(ngModel)]="selectedDetail.consegnaDataEffettiva" />
-                </div>
-                <div class="detail-kv">
-                  <label class="kv-label">Vettore</label>
-                  <select [(ngModel)]="selectedDetail.vettoreId">
-                    <option [ngValue]="null">— seleziona —</option>
-                    @for (v of vettoriList; track v.id) {
-                      <option [ngValue]="v.id">{{ v.nome }}</option>
-                    }
-                  </select>
-                </div>
-                <div class="detail-kv detail-kv--full">
-                  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:4px">
-                    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
-                      <input type="checkbox" [(ngModel)]="selectedDetail.ddtPronti" />
-                      DDT pronti
-                    </label>
-                    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
-                      <input type="checkbox" [(ngModel)]="selectedDetail.bancale" />
-                      Bancale
-                    </label>
-                    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
-                      <input type="checkbox" [(ngModel)]="selectedDetail.caricoVerificato" />
-                      Carico verificato
-                    </label>
+                @if (canWrite) {
+                  <div class="modal-actions" style="margin-top:10px">
+                    <button type="button" (click)="saveConsegnaFields()">Salva</button>
                   </div>
-                </div>
+                }
               </div>
-              <div class="modal-actions" style="margin-top:10px">
-                <button type="button" (click)="saveConsegnaFields()">Salva</button>
-              </div>
-            </div>
-          }
+            }
 
-          <!-- ── Cambio stato rapido ────────────────────────────── -->
-          @if (canWrite) {
+            @if (!['DISEGNO IN GESTIONE','DISEGNO APPROVATO','IN LAVORAZIONE','CONSEGNA PIANIFICATA'].includes(selectedDetail.stato)) {
+              <div class="detail-section">
+                <p class="detail-empty">Nessun campo di avanzamento per lo stato <strong>{{ selectedDetail.stato }}</strong>.</p>
+              </div>
+            }
+
+            <!-- Cambio stato -->
             <div class="detail-section">
-              <div class="detail-section-title">Cambio stato rapido</div>
+              <div class="detail-section-title">Cambio stato</div>
               @if (operationError) { <div class="error">{{ operationError }}</div> }
               @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
-              <div class="transition-grid">
-                <div class="transition-select-wrap">
-                  <select [(ngModel)]="transitionModel.toStatus">
-                    <option value="">Seleziona stato</option>
-                    @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
-                      <option [value]="status">{{ status }}</option>
-                    }
-                  </select>
-                  <small class="transition-hint">Gli stati disponibili dipendono dal flusso corrente dell'ordine.</small>
+              @if (canWrite) {
+                <div class="transition-grid">
+                  <div class="transition-select-wrap">
+                    <select [(ngModel)]="transitionModel.toStatus">
+                      <option value="">Seleziona stato</option>
+                      @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
+                        <option [value]="status">{{ status }}</option>
+                      }
+                    </select>
+                    <small class="transition-hint">Gli stati disponibili dipendono dal flusso corrente dell'ordine.</small>
+                  </div>
+                  <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
+                  <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
                 </div>
-                <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
-                <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
-              </div>
+              } @else {
+                <p class="detail-empty">Accesso in sola lettura — cambio stato non disponibile.</p>
+              }
             </div>
-          }
 
-          } <!-- end tab: dettagli -->
+          } <!-- end tab: gestione -->
 
           <!-- ── Tab: Cementi ──────────────────────────────────────── -->
           @if (activeDetailTab === 'cementi') {
@@ -1189,13 +1253,11 @@
             </div>
           }
 
+          </div><!-- end detail-tab-body -->
+
         } <!-- end @else loadingDetails -->
 
         <div class="modal-actions">
-          @if (canWrite) {
-            <button type="button" (click)="openEdit()">Modifica</button>
-            <button type="button" class="ghost-danger" (click)="deleteSelected()">Elimina</button>
-          }
           <button type="button" class="ghost" (click)="openHistoryModal(selectedDetail!)">Percorso completo</button>
           <button type="button" class="ghost" (click)="closeDetailModal()">Chiudi</button>
         </div>
@@ -1480,6 +1542,19 @@
               {{ sqlImportExecuting ? 'Importazione in corso...' : 'Importa selezionati (' + sqlImportSelectedCount + ')' }}
             </button>
             <button type="button" class="ghost" (click)="closeSqlImportModal()">Annulla</button>
+          </div>
+        }
+
+        @if (confirmModal) {
+          <div class="import-confirm-overlay" (click)="closeConfirm()">
+            <div class="import-confirm-card" (click)="$event.stopPropagation()">
+              <div class="import-confirm-icon">⚠️</div>
+              <p>{{ confirmModal.message }}</p>
+              <div class="import-confirm-actions">
+                <button type="button" class="danger" (click)="doConfirm()">Conferma</button>
+                <button type="button" class="ghost" (click)="closeConfirm()">Annulla</button>
+              </div>
+            </div>
           </div>
         }
 

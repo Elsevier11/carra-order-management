@@ -274,6 +274,7 @@
   margin-bottom: 2px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .detail-stato-badge {
@@ -524,14 +525,30 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .modal--detail {
   max-width: 1100px;
   width: min(96vw, 1100px);
+  height: 88vh;
   max-height: 92vh;
-  overflow-y: auto;
+  overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-tab-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.detail-actions-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0 4px;
 }
 
 .badge-ok,
