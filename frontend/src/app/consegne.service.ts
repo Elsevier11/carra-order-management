@@ -134,6 +134,10 @@ export class ConsegneService {
     return this.http.put(`${this.baseUrl}/${id}`, payload);
   }
 
+  updateOperai(id: number, operaiIds: number[]): Observable<unknown> {
+    return this.http.put(`${this.baseUrl}/${id}/operai`, { operaiIds });
+  }
+
   delete(id: number) {
     return this.http.delete(`${this.baseUrl}/${id}`);
   }

@@ -1548,13 +1548,21 @@ export class AppComponent implements OnInit, OnDestroy {
 
   saveLavorazioneFields(): void {
     if (!this.selectedDetail) return;
-    this.consegneService.update(this.selectedDetail.id, {
+    const id = this.selectedDetail.id;
+    const operaiIds = this.selectedDetail.operaiAssegnati?.map((o) => o.id) ?? [];
+    this.consegneService.update(id, {
       lavorazioneAssegnataAt: this.selectedDetail.lavorazioneAssegnataAt || null,
-      operaiAssegnati: this.selectedDetail.operaiAssegnati?.map((o) => o.id) ?? [],
     }).subscribe({
       next: () => {
-        this.operationSuccess = 'Dati lavorazione salvati';
-        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+        this.consegneService.updateOperai(id, operaiIds).subscribe({
+          next: () => {
+            this.operationSuccess = 'Dati lavorazione salvati';
+            setTimeout(() => { this.operationSuccess = ''; }, 3000);
+          },
+          error: (err: { error?: { message?: string } }) => {
+            this.operationError = err?.error?.message ?? 'Errore salvataggio operai';
+          },
+        });
       },
       error: (err: { error?: { message?: string } }) => {
         this.operationError = err?.error?.message ?? 'Errore salvataggio';
