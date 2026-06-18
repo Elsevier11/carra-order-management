@@ -220,6 +220,45 @@ export class AppComponent implements OnInit, OnDestroy {
   operaiList: Operaio[] = [];
   vettoriList: Vettore[] = [];
 
+  // ── Admin CRUD: Mittenti Disegno ──────────────────────────────────────────
+  mittentiDisegnoRows: MittenteDisegno[] = [];
+  mittentiDisegnoLoading = false;
+  newMittenteDisegnoNome = '';
+  editingMittenteDisegno: MittenteDisegno | null = null;
+  editMittenteDisegnoNome = '';
+
+  // ── Admin CRUD: Operai ────────────────────────────────────────────────────
+  operaiRows: Operaio[] = [];
+  operaiLoading = false;
+  newOperaioNome = '';
+  editingOperaio: Operaio | null = null;
+  editOperaioNome = '';
+
+  // ── Admin CRUD: Vettori ───────────────────────────────────────────────────
+  vettoriRows: Vettore[] = [];
+  vettoriLoading = false;
+  newVettoreNome = '';
+  editingVettore: Vettore | null = null;
+  editVettoreNome = '';
+
+  // ── Admin CRUD: Tipi Cemento ──────────────────────────────────────────────
+  cementiTipiRows: CementoTipo[] = [];
+  cementiTipiLoading = false;
+  newCementoTipoNome = '';
+  newCementoTipoOrdine = 0;
+  editingCementoTipo: CementoTipo | null = null;
+  editCementoTipoNome = '';
+  editCementoTipoOrdine = 0;
+
+  // ── Admin CRUD: Tipi Accessorio ───────────────────────────────────────────
+  accessoriTipiRows: AccessorioTipo[] = [];
+  accessoriTipiLoading = false;
+  newAccessorioTipoNome = '';
+  newAccessorioTipoOrdine = 0;
+  editingAccessorioTipo: AccessorioTipo | null = null;
+  editAccessorioTipoNome = '';
+  editAccessorioTipoOrdine = 0;
+
   // ── Settings ERP ─────────────────────────────────────────────────────────────
   settingsConfig: SqlServerConfigResponse | null = null;
   settingsLoading = false;
@@ -447,7 +486,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
   changeView(view: ViewMode): void {
     if ((view === 'audit' || view === 'anagrafiche' || view === 'settings') && !this.isAdmin) return;
-    if (view === 'settings') this.loadSettings();
+    if (view === 'settings') {
+      this.loadSettings();
+      this.loadMittentiDisegnoAdmin();
+      this.loadOperaiAdmin();
+      this.loadVettoriAdmin();
+      this.loadCementiTipiAdmin();
+      this.loadAccessoriTipiAdmin();
+    }
     this.operationError = '';
     this.operationSuccess = '';
     this.activeView = view;
@@ -1250,6 +1296,250 @@ export class AppComponent implements OnInit, OnDestroy {
 
   nomeResponsabile(id: number | null): string {
     return this.responsabiliRows.find((r) => r.id === id)?.nome ?? '-';
+  }
+
+  // ── Mittenti Disegno CRUD ─────────────────────────────────────────────────
+
+  loadMittentiDisegnoAdmin(): void {
+    this.mittentiDisegnoLoading = true;
+    this.consegneService.listMittentiDisegno().subscribe({
+      next: (response) => { this.mittentiDisegnoRows = response.data; this.mittentiDisegnoLoading = false; },
+      error: (error) => { this.mittentiDisegnoLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento mittenti disegno'; },
+    });
+  }
+
+  createMittenteDisegno(): void {
+    if (!this.isAdmin || !this.newMittenteDisegnoNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createMittenteDisegno({ nome: this.newMittenteDisegnoNome.trim() }).subscribe({
+      next: () => { this.operationSuccess = `Mittente "${this.newMittenteDisegnoNome}" creato`; this.newMittenteDisegnoNome = ''; this.loadMittentiDisegnoAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione mittente disegno'; },
+    });
+  }
+
+  startEditMittenteDisegno(item: MittenteDisegno): void {
+    this.editingMittenteDisegno = item;
+    this.editMittenteDisegnoNome = item.nome;
+  }
+
+  saveMittenteDisegno(): void {
+    if (!this.editingMittenteDisegno || !this.editMittenteDisegnoNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.updateMittenteDisegno(this.editingMittenteDisegno.id, { nome: this.editMittenteDisegnoNome.trim() }).subscribe({
+      next: () => { this.operationSuccess = 'Mittente aggiornato'; this.editingMittenteDisegno = null; this.editMittenteDisegnoNome = ''; this.loadMittentiDisegnoAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento mittente disegno'; },
+    });
+  }
+
+  cancelEditMittenteDisegno(): void {
+    this.editingMittenteDisegno = null;
+    this.editMittenteDisegnoNome = '';
+  }
+
+  deleteMittenteDisegno(item: MittenteDisegno): void {
+    if (!this.isAdmin || !confirm(`Eliminare il mittente "${item.nome}"?`)) return;
+    this.consegneService.deleteMittenteDisegno(item.id).subscribe({
+      next: () => { this.operationSuccess = 'Mittente eliminato'; this.loadMittentiDisegnoAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione mittente disegno'; },
+    });
+  }
+
+  // ── Operai CRUD ───────────────────────────────────────────────────────────
+
+  loadOperaiAdmin(): void {
+    this.operaiLoading = true;
+    this.consegneService.listOperai().subscribe({
+      next: (response) => { this.operaiRows = response.data; this.operaiLoading = false; },
+      error: (error) => { this.operaiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento operai'; },
+    });
+  }
+
+  createOperaio(): void {
+    if (!this.isAdmin || !this.newOperaioNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createOperaio({ nome: this.newOperaioNome.trim() }).subscribe({
+      next: () => { this.operationSuccess = `Operaio "${this.newOperaioNome}" creato`; this.newOperaioNome = ''; this.loadOperaiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione operaio'; },
+    });
+  }
+
+  startEditOperaio(item: Operaio): void {
+    this.editingOperaio = item;
+    this.editOperaioNome = item.nome;
+  }
+
+  saveOperaio(): void {
+    if (!this.editingOperaio || !this.editOperaioNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.updateOperaio(this.editingOperaio.id, { nome: this.editOperaioNome.trim() }).subscribe({
+      next: () => { this.operationSuccess = 'Operaio aggiornato'; this.editingOperaio = null; this.editOperaioNome = ''; this.loadOperaiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento operaio'; },
+    });
+  }
+
+  cancelEditOperaio(): void {
+    this.editingOperaio = null;
+    this.editOperaioNome = '';
+  }
+
+  deleteOperaio(item: Operaio): void {
+    if (!this.isAdmin || !confirm(`Eliminare l'operaio "${item.nome}"?`)) return;
+    this.consegneService.deleteOperaio(item.id).subscribe({
+      next: () => { this.operationSuccess = 'Operaio eliminato'; this.loadOperaiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione operaio'; },
+    });
+  }
+
+  // ── Vettori CRUD ──────────────────────────────────────────────────────────
+
+  loadVettoriAdmin(): void {
+    this.vettoriLoading = true;
+    this.consegneService.listVettori().subscribe({
+      next: (response) => { this.vettoriRows = response.data; this.vettoriLoading = false; },
+      error: (error) => { this.vettoriLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento vettori'; },
+    });
+  }
+
+  createVettore(): void {
+    if (!this.isAdmin || !this.newVettoreNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createVettore({ nome: this.newVettoreNome.trim() }).subscribe({
+      next: () => { this.operationSuccess = `Vettore "${this.newVettoreNome}" creato`; this.newVettoreNome = ''; this.loadVettoriAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione vettore'; },
+    });
+  }
+
+  startEditVettore(item: Vettore): void {
+    this.editingVettore = item;
+    this.editVettoreNome = item.nome;
+  }
+
+  saveVettore(): void {
+    if (!this.editingVettore || !this.editVettoreNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.updateVettore(this.editingVettore.id, { nome: this.editVettoreNome.trim() }).subscribe({
+      next: () => { this.operationSuccess = 'Vettore aggiornato'; this.editingVettore = null; this.editVettoreNome = ''; this.loadVettoriAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento vettore'; },
+    });
+  }
+
+  cancelEditVettore(): void {
+    this.editingVettore = null;
+    this.editVettoreNome = '';
+  }
+
+  deleteVettore(item: Vettore): void {
+    if (!this.isAdmin || !confirm(`Eliminare il vettore "${item.nome}"?`)) return;
+    this.consegneService.deleteVettore(item.id).subscribe({
+      next: () => { this.operationSuccess = 'Vettore eliminato'; this.loadVettoriAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione vettore'; },
+    });
+  }
+
+  // ── Tipi Cemento CRUD ─────────────────────────────────────────────────────
+
+  loadCementiTipiAdmin(): void {
+    this.cementiTipiLoading = true;
+    this.consegneService.listCementiTipi().subscribe({
+      next: (rows) => { this.cementiTipiRows = rows; this.cementiTipiLoading = false; },
+      error: (error) => { this.cementiTipiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento tipi cemento'; },
+    });
+  }
+
+  createCementoTipo(): void {
+    if (!this.isAdmin || !this.newCementoTipoNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createCementoTipo({ nome: this.newCementoTipoNome.trim(), ordine: this.newCementoTipoOrdine }).subscribe({
+      next: () => { this.operationSuccess = `Tipo cemento "${this.newCementoTipoNome}" creato`; this.newCementoTipoNome = ''; this.newCementoTipoOrdine = 0; this.loadCementiTipiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione tipo cemento'; },
+    });
+  }
+
+  startEditCementoTipo(item: CementoTipo): void {
+    this.editingCementoTipo = item;
+    this.editCementoTipoNome = item.nome;
+    this.editCementoTipoOrdine = item.ordine;
+  }
+
+  saveCementoTipo(): void {
+    if (!this.editingCementoTipo || !this.editCementoTipoNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.updateCementoTipo(this.editingCementoTipo.id, { nome: this.editCementoTipoNome.trim(), ordine: this.editCementoTipoOrdine }).subscribe({
+      next: () => { this.operationSuccess = 'Tipo cemento aggiornato'; this.editingCementoTipo = null; this.editCementoTipoNome = ''; this.editCementoTipoOrdine = 0; this.loadCementiTipiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento tipo cemento'; },
+    });
+  }
+
+  cancelEditCementoTipo(): void {
+    this.editingCementoTipo = null;
+    this.editCementoTipoNome = '';
+    this.editCementoTipoOrdine = 0;
+  }
+
+  deleteCementoTipo(item: CementoTipo): void {
+    if (!this.isAdmin || !confirm(`Eliminare il tipo cemento "${item.nome}"?`)) return;
+    this.consegneService.deleteCementoTipo(item.id).subscribe({
+      next: () => { this.operationSuccess = 'Tipo cemento eliminato'; this.loadCementiTipiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione tipo cemento'; },
+    });
+  }
+
+  // ── Tipi Accessorio CRUD ──────────────────────────────────────────────────
+
+  loadAccessoriTipiAdmin(): void {
+    this.accessoriTipiLoading = true;
+    this.consegneService.listAccessoriTipi().subscribe({
+      next: (rows) => { this.accessoriTipiRows = rows; this.accessoriTipiLoading = false; },
+      error: (error) => { this.accessoriTipiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento tipi accessorio'; },
+    });
+  }
+
+  createAccessorioTipo(): void {
+    if (!this.isAdmin || !this.newAccessorioTipoNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.createAccessorioTipo({ nome: this.newAccessorioTipoNome.trim(), ordine: this.newAccessorioTipoOrdine }).subscribe({
+      next: () => { this.operationSuccess = `Tipo accessorio "${this.newAccessorioTipoNome}" creato`; this.newAccessorioTipoNome = ''; this.newAccessorioTipoOrdine = 0; this.loadAccessoriTipiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore creazione tipo accessorio'; },
+    });
+  }
+
+  startEditAccessorioTipo(item: AccessorioTipo): void {
+    this.editingAccessorioTipo = item;
+    this.editAccessorioTipoNome = item.nome;
+    this.editAccessorioTipoOrdine = item.ordine;
+  }
+
+  saveAccessorioTipo(): void {
+    if (!this.editingAccessorioTipo || !this.editAccessorioTipoNome.trim()) return;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.updateAccessorioTipo(this.editingAccessorioTipo.id, { nome: this.editAccessorioTipoNome.trim(), ordine: this.editAccessorioTipoOrdine }).subscribe({
+      next: () => { this.operationSuccess = 'Tipo accessorio aggiornato'; this.editingAccessorioTipo = null; this.editAccessorioTipoNome = ''; this.editAccessorioTipoOrdine = 0; this.loadAccessoriTipiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore aggiornamento tipo accessorio'; },
+    });
+  }
+
+  cancelEditAccessorioTipo(): void {
+    this.editingAccessorioTipo = null;
+    this.editAccessorioTipoNome = '';
+    this.editAccessorioTipoOrdine = 0;
+  }
+
+  deleteAccessorioTipo(item: AccessorioTipo): void {
+    if (!this.isAdmin || !confirm(`Eliminare il tipo accessorio "${item.nome}"?`)) return;
+    this.consegneService.deleteAccessorioTipo(item.id).subscribe({
+      next: () => { this.operationSuccess = 'Tipo accessorio eliminato'; this.loadAccessoriTipiAdmin(); },
+      error: (error) => { this.operationError = error?.error?.message ?? 'Errore eliminazione tipo accessorio'; },
+    });
   }
 
   formatFileSize(bytes: number): string {

@@ -1272,6 +1272,21 @@ tr.selected-row:hover {
   }
 }
 
+.settings-inline-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+
+  input[type='text'] {
+    flex: 1;
+  }
+
+  input[type='number'] {
+    width: 5rem;
+  }
+}
+
 // ── Detail modal tab switcher ─────────────────────────────────────────────────
 
 .detail-tabs {

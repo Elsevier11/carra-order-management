@@ -180,12 +180,48 @@ export class ConsegneService {
     return this.http.get<{ data: MittenteDisegno[] }>(`${environment.apiUrl}/mittenti-disegno`);
   }
 
+  createMittenteDisegno(payload: { nome: string }): Observable<MittenteDisegno> {
+    return this.http.post<MittenteDisegno>(`${environment.apiUrl}/mittenti-disegno`, payload);
+  }
+
+  updateMittenteDisegno(id: number, payload: { nome: string }): Observable<MittenteDisegno> {
+    return this.http.put<MittenteDisegno>(`${environment.apiUrl}/mittenti-disegno/${id}`, payload);
+  }
+
+  deleteMittenteDisegno(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/mittenti-disegno/${id}`);
+  }
+
   listOperai(): Observable<{ data: Operaio[] }> {
     return this.http.get<{ data: Operaio[] }>(`${environment.apiUrl}/operai`);
   }
 
+  createOperaio(payload: { nome: string }): Observable<Operaio> {
+    return this.http.post<Operaio>(`${environment.apiUrl}/operai`, payload);
+  }
+
+  updateOperaio(id: number, payload: { nome: string }): Observable<Operaio> {
+    return this.http.put<Operaio>(`${environment.apiUrl}/operai/${id}`, payload);
+  }
+
+  deleteOperaio(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/operai/${id}`);
+  }
+
   listVettori(): Observable<{ data: Vettore[] }> {
     return this.http.get<{ data: Vettore[] }>(`${environment.apiUrl}/vettori`);
+  }
+
+  createVettore(payload: { nome: string }): Observable<Vettore> {
+    return this.http.post<Vettore>(`${environment.apiUrl}/vettori`, payload);
+  }
+
+  updateVettore(id: number, payload: { nome: string }): Observable<Vettore> {
+    return this.http.put<Vettore>(`${environment.apiUrl}/vettori/${id}`, payload);
+  }
+
+  deleteVettore(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/vettori/${id}`);
   }
 
   // ── ERP SQL Server import ──────────────────────────────────────────────────
@@ -212,8 +248,32 @@ export class ConsegneService {
     return this.http.get<CementoTipo[]>(`${environment.apiUrl}/cementi-tipi`);
   }
 
+  createCementoTipo(payload: { nome: string; ordine: number }): Observable<CementoTipo> {
+    return this.http.post<CementoTipo>(`${environment.apiUrl}/cementi-tipi`, payload);
+  }
+
+  updateCementoTipo(id: number, payload: { nome: string; ordine: number }): Observable<CementoTipo> {
+    return this.http.put<CementoTipo>(`${environment.apiUrl}/cementi-tipi/${id}`, payload);
+  }
+
+  deleteCementoTipo(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/cementi-tipi/${id}`);
+  }
+
   listAccessoriTipi(): Observable<AccessorioTipo[]> {
     return this.http.get<AccessorioTipo[]>(`${environment.apiUrl}/accessori-tipi`);
+  }
+
+  createAccessorioTipo(payload: { nome: string; ordine: number }): Observable<AccessorioTipo> {
+    return this.http.post<AccessorioTipo>(`${environment.apiUrl}/accessori-tipi`, payload);
+  }
+
+  updateAccessorioTipo(id: number, payload: { nome: string; ordine: number }): Observable<AccessorioTipo> {
+    return this.http.put<AccessorioTipo>(`${environment.apiUrl}/accessori-tipi/${id}`, payload);
+  }
+
+  deleteAccessorioTipo(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/accessori-tipi/${id}`);
   }
 
   getOrderCementi(id: number): Observable<{ data: OrderCemento[] }> {
