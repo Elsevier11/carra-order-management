@@ -9,6 +9,11 @@ import usersRoutes from './routes/users'
 import commercialiRoutes from './routes/commerciali'
 import responsabiliRoutes from './routes/responsabili'
 import settingsRoutes from './routes/settings'
+import mittentiDisegnoRoutes from './routes/mittenti-disegno'
+import operaiRoutes from './routes/operai'
+import vettoriRoutes from './routes/vettori'
+import cementiTipiRoutes from './routes/cementi-tipi'
+import accessoriTipiRoutes from './routes/accessori-tipi'
 import { BadRequestError } from './errors'
 import { auditMiddleware } from './audit'
 
@@ -40,6 +45,11 @@ export function createApp() {
   app.use('/api/commerciali', commercialiRoutes)
   app.use('/api/responsabili', responsabiliRoutes)
   app.use('/api/settings', settingsRoutes)
+  app.use('/api/mittenti-disegno', mittentiDisegnoRoutes)
+  app.use('/api/operai', operaiRoutes)
+  app.use('/api/vettori', vettoriRoutes)
+  app.use('/api/cementi-tipi', cementiTipiRoutes)
+  app.use('/api/accessori-tipi', accessoriTipiRoutes)
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof ZodError) {
