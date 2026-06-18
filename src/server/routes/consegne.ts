@@ -859,7 +859,7 @@ router.get('/:id', async (req, res, next) => {
       ...normalizeRow(row),
       operaiAssegnati: operaiRows,
       cementi: cementiRows,
-      accessoriAssegnati: accessoriRows,
+      accessori: accessoriRows,
     })
   } catch (error) {
     return next(error)
@@ -1057,16 +1057,23 @@ router.put('/:id/operai', requireAuth, requireRole(['admin', 'operativo']), asyn
     const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
-    await db.delete(orderOperai).where(eq(orderOperai.orderId, id))
-    if (operaiIds.length > 0) {
-      await db.insert(orderOperai).values(operaiIds.map((operaioId) => ({ orderId: id, operaioId })))
-    }
-
-    await addOrderEvent({
-      orderId: id,
-      eventType: 'OPERAI_UPDATED',
-      actor: req.user?.username ?? null,
-      details: { operaiIds },
+    await db.transaction(async (tx) => {
+      await tx.delete(orderOperai).where(eq(orderOperai.orderId, id))
+      if (operaiIds.length > 0) {
+        await tx.insert(orderOperai).values(operaiIds.map((operaioId) => ({ orderId: id, operaioId })))
+      }
+      await tx.execute(sql`
+        insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
+        values (
+          ${id},
+          ${'OPERAI_UPDATED'},
+          ${null},
+          ${null},
+          ${null},
+          ${req.user?.username ?? null},
+          ${JSON.stringify({ operaiIds })}
+        )
+      `)
     })
 
     const rows = await db
@@ -1115,16 +1122,23 @@ router.put('/:id/cementi', requireAuth, requireRole(['admin', 'operativo']), asy
     const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
-    await db.delete(orderCementi).where(eq(orderCementi.orderId, id))
-    if (items.length > 0) {
-      await db.insert(orderCementi).values(items.map((item) => ({ orderId: id, tipoId: item.tipoId, ordinata: item.ordinata, fatta: item.fatta })))
-    }
-
-    await addOrderEvent({
-      orderId: id,
-      eventType: 'CEMENTI_UPDATED',
-      actor: req.user?.username ?? null,
-      details: { count: items.length },
+    await db.transaction(async (tx) => {
+      await tx.delete(orderCementi).where(eq(orderCementi.orderId, id))
+      if (items.length > 0) {
+        await tx.insert(orderCementi).values(items.map((item) => ({ orderId: id, tipoId: item.tipoId, ordinata: item.ordinata, fatta: item.fatta })))
+      }
+      await tx.execute(sql`
+        insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
+        values (
+          ${id},
+          ${'CEMENTI_UPDATED'},
+          ${null},
+          ${null},
+          ${null},
+          ${req.user?.username ?? null},
+          ${JSON.stringify({ count: items.length })}
+        )
+      `)
     })
 
     const rows = await db
@@ -1180,16 +1194,23 @@ router.put('/:id/accessori', requireAuth, requireRole(['admin', 'operativo']), a
     const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
-    await db.delete(orderAccessori).where(eq(orderAccessori.orderId, id))
-    if (items.length > 0) {
-      await db.insert(orderAccessori).values(items.map((item) => ({ orderId: id, tipoId: item.tipoId, ordinata: item.ordinata, fatta: item.fatta })))
-    }
-
-    await addOrderEvent({
-      orderId: id,
-      eventType: 'ACCESSORI_UPDATED',
-      actor: req.user?.username ?? null,
-      details: { count: items.length },
+    await db.transaction(async (tx) => {
+      await tx.delete(orderAccessori).where(eq(orderAccessori.orderId, id))
+      if (items.length > 0) {
+        await tx.insert(orderAccessori).values(items.map((item) => ({ orderId: id, tipoId: item.tipoId, ordinata: item.ordinata, fatta: item.fatta })))
+      }
+      await tx.execute(sql`
+        insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
+        values (
+          ${id},
+          ${'ACCESSORI_UPDATED'},
+          ${null},
+          ${null},
+          ${null},
+          ${req.user?.username ?? null},
+          ${JSON.stringify({ count: items.length })}
+        )
+      `)
     })
 
     const rows = await db
