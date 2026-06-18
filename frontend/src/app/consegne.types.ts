@@ -6,7 +6,6 @@ export interface ConsegnaRecord {
   dataConsegna: string | null;
   cantiere: string | null;
   dataOrdine: string | null;
-  vettore: string | null;
   scarico: string | null;
   vascheCav: string | null;
   accessori: string | null;
@@ -18,7 +17,8 @@ export interface ConsegnaRecord {
   accontoPagato: boolean;
   commercialeId: number | null;
   responsabileInternoId: number | null;
-  folderLink: string | null;
+  folderLinkDocumenti: string | null;
+  folderLinkFoto: string | null;
 }
 
 export interface CommercialeRecord {
@@ -38,7 +38,6 @@ export type ConsegnaStatus = 'IN CORSO' | 'DISEGNO IN GESTIONE' | 'IN LAVORAZION
 export interface ConsegnaFilters {
   q?: string;
   cliente?: string;
-  vettore?: string;
   stato?: string;
   fromDate?: string;
   toDate?: string;
@@ -66,8 +65,6 @@ export interface ConsegnaStats {
     totaleAttivi: number;
     accontiDaIncassare: number;
   };
-  byCarrier: Array<{ vettore: string; count: number }>;
-  byCarrierWithLate: Array<{ vettore: string; total: number; late: number }>;
   byStatus: Array<{ stato: string; count: number }>;
   pipelineConRitardi: Array<{ stato: string; total: number; late: number }>;
   weeklyTrend: Array<{ week: string; count: number }>;
@@ -77,7 +74,6 @@ export interface ConsegnaStats {
 
 export interface FilterOptions {
   clienti: string[];
-  vettori: string[];
   stati: string[];
 }
 

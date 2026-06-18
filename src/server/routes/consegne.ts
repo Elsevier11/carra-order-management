@@ -64,11 +64,10 @@ const listQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().optional(),
   cliente: z.string().optional(),
-  vettore: z.string().optional(),
   stato: z.string().optional(),
   fromDate: z.string().regex(dateOnlyRegex, 'fromDate must be YYYY-MM-DD').optional(),
   toDate: z.string().regex(dateOnlyRegex, 'toDate must be YYYY-MM-DD').optional(),
-  sortBy: z.enum(['rif', 'cliente', 'dataConsegna', 'vettore', 'stato']).default('dataConsegna'),
+  sortBy: z.enum(['rif', 'cliente', 'dataConsegna', 'stato']).default('dataConsegna'),
   sortDir: z.enum(['asc', 'desc']).default('desc'),
 })
 
@@ -91,10 +90,6 @@ function buildListFilters(query: ListQuery) {
 
   if (query.cliente) {
     filters.push(ilike(ordini.cliente, `%${query.cliente.trim()}%`))
-  }
-
-  if (query.vettore) {
-    filters.push(ilike(ordini.traspor, `%${query.vettore.trim()}%`))
   }
 
   if (query.stato) {
@@ -121,7 +116,6 @@ const consegnaInputSchema = z.object({
   dataConsegna: z.string().regex(dateOrDateTimeRegex, 'dataConsegna must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   cantiere: z.string().optional().nullable(),
   dataOrdine: z.string().regex(dateOrDateTimeRegex, 'dataOrdine must be YYYY-MM-DD or ISO datetime').optional().nullable(),
-  vettore: z.string().optional().nullable(),
   scarico: z.string().optional().nullable(),
   vascheCav: z.string().optional().nullable(),
   accessori: z.string().optional().nullable(),
@@ -133,7 +127,8 @@ const consegnaInputSchema = z.object({
   accontoPagato: z.boolean().optional().default(false),
   commercialeId: z.number().int().positive().optional().nullable(),
   responsabileInternoId: z.number().int().positive().optional().nullable(),
-  folderLink: z.string().optional().nullable(),
+  folderLinkDocumenti: z.string().optional().nullable(),
+  folderLinkFoto: z.string().optional().nullable(),
 })
 
 const transitionSchema = z.object({
@@ -176,7 +171,6 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     dataConsegna: toIsoDate(row.dataConsegna),
     cantiere: row.cantiere,
     dataOrdine: toIsoDate(row.dataOrdine),
-    vettore: row.traspor,
     scarico: row.scarico,
     vascheCav: row.vascheCav,
     accessori: row.accessori,
@@ -188,7 +182,8 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     accontoPagato: row.accontoPagato ?? false,
     commercialeId: row.commercialeId ?? null,
     responsabileInternoId: row.responsabileInternoId ?? null,
-    folderLink: row.folderLink ?? null,
+    folderLinkDocumenti: row.folderLinkDocumenti ?? null,
+    folderLinkFoto: row.folderLinkFoto ?? null,
     createdAt: row.createdAt,
   }
 }
@@ -267,7 +262,6 @@ router.get('/', async (req, res, next) => {
       rif: ordini.rifto,
       cliente: ordini.cliente,
       dataConsegna: ordini.dataConsegna,
-      vettore: ordini.traspor,
       stato: ordini.stato,
     }[query.sortBy]
 
@@ -309,7 +303,6 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
       rif: ordini.rifto,
       cliente: ordini.cliente,
       dataConsegna: ordini.dataConsegna,
-      vettore: ordini.traspor,
       stato: ordini.stato,
     }[query.sortBy]
 
@@ -320,7 +313,7 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
       .orderBy(query.sortDir === 'asc' ? asc(sortColumn) : desc(sortColumn))
       .limit(10000)
 
-    const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'cantiere', 'vettore', 'stato', 'note']
+    const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'cantiere', 'stato', 'note']
     const csvRows = rows.map((row) => {
       const normalized = normalizeRow(row)
       return [
@@ -329,7 +322,6 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
         normalized.tipoImpianto ?? '',
         normalized.dataConsegna ?? '',
         normalized.cantiere ?? '',
-        normalized.vettore ?? '',
         normalized.stato ?? '',
         normalized.note ?? '',
       ]
@@ -400,7 +392,6 @@ router.get('/stats', async (_req, res, next) => {
     const [
       weekRows,
       lateRows,
-      byCarrierRows,
       byStatusRows,
       weeklyTrendRows,
       totalAttiviRows,
@@ -410,7 +401,6 @@ router.get('/stats', async (_req, res, next) => {
       pipelineLateRows,
       upcomingRows,
       byClienteRows,
-      byCarrierLateRows,
     ] = await Promise.all([
       db
         .select({ count: count() })
@@ -425,14 +415,6 @@ router.get('/stats', async (_req, res, next) => {
             or(sql`${ordini.stato} is null`, sql`upper(${ordini.stato}) not in ('CONSEGNATO', 'CHIUSO')`),
           ),
         ),
-      db
-        .select({
-          vettore: sql<string>`coalesce(${ordini.traspor}, 'N/D')`,
-          count: count(),
-        })
-        .from(ordini)
-        .groupBy(sql`coalesce(${ordini.traspor}, 'N/D')`)
-        .orderBy(desc(count())),
       db
         .select({
           stato: sql<string>`coalesce(${ordini.stato}, 'IN CORSO')`,
@@ -496,16 +478,6 @@ router.get('/stats', async (_req, res, next) => {
         .groupBy(ordini.cliente)
         .orderBy(desc(count()))
         .limit(10),
-      // vettori con ritardi
-      db
-        .select({
-          vettore: sql<string>`coalesce(${ordini.traspor}, 'N/D')`,
-          late: count(),
-        })
-        .from(ordini)
-        .where(and(lt(ordini.dataConsegna, startOfToday), activeFilter))
-        .groupBy(sql`coalesce(${ordini.traspor}, 'N/D')`)
-        .orderBy(desc(count())),
     ])
 
     const pipelineLateMap = new Map(pipelineLateRows.map((r) => [r.stato, Number(r.late)]))
@@ -513,13 +485,6 @@ router.get('/stats', async (_req, res, next) => {
       stato: r.stato,
       total: Number(r.total),
       late: pipelineLateMap.get(r.stato) ?? 0,
-    }))
-
-    const carrierLateMap = new Map(byCarrierLateRows.map((r) => [r.vettore, Number(r.late)]))
-    const byCarrierWithLate = byCarrierRows.map((r) => ({
-      vettore: r.vettore,
-      total: Number(r.count),
-      late: carrierLateMap.get(r.vettore) ?? 0,
     }))
 
     res.json({
@@ -530,8 +495,6 @@ router.get('/stats', async (_req, res, next) => {
         totaleAttivi: Number(totalAttiviRows[0]?.count ?? 0),
         accontiDaIncassare: Number(accontiRows[0]?.count ?? 0),
       },
-      byCarrier: byCarrierRows,
-      byCarrierWithLate,
       byStatus: byStatusRows,
       pipelineConRitardi,
       weeklyTrend: weeklyTrendRows.reverse(),
@@ -545,15 +508,13 @@ router.get('/stats', async (_req, res, next) => {
 
 router.get('/filters', async (_req, res, next) => {
   try {
-    const [clienti, vettori, stati] = await Promise.all([
+    const [clienti, stati] = await Promise.all([
       db.selectDistinct({ value: ordini.cliente }).from(ordini).where(sql`${ordini.cliente} is not null`),
-      db.selectDistinct({ value: ordini.traspor }).from(ordini).where(sql`${ordini.traspor} is not null`),
       db.selectDistinct({ value: ordini.stato }).from(ordini).where(sql`${ordini.stato} is not null`),
     ])
 
     res.json({
       clienti: clienti.map((r) => r.value).filter(Boolean).sort(),
-      vettori: vettori.map((r) => r.value).filter(Boolean).sort(),
       stati: stati.map((r) => r.value).filter(Boolean).sort(),
     })
   } catch (error) {
@@ -846,7 +807,6 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
         dataConsegna: payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null,
         cantiere: payload.cantiere ?? null,
         dataOrdine: payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null,
-        traspor: payload.vettore ?? null,
         scarico: payload.scarico ?? null,
         vascheCav: payload.vascheCav ?? null,
         accessori: payload.accessori ?? null,
@@ -897,7 +857,6 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('dataConsegna' in payload) updateData.dataConsegna = payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null
     if ('cantiere' in payload) updateData.cantiere = payload.cantiere ?? null
     if ('dataOrdine' in payload) updateData.dataOrdine = payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null
-    if ('vettore' in payload) updateData.traspor = payload.vettore ?? null
     if ('scarico' in payload) updateData.scarico = payload.scarico ?? null
     if ('vascheCav' in payload) updateData.vascheCav = payload.vascheCav ?? null
     if ('accessori' in payload) updateData.accessori = payload.accessori ?? null
@@ -909,7 +868,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('accontoPagato' in payload) updateData.accontoPagato = payload.accontoPagato ?? false
     if ('commercialeId' in payload) updateData.commercialeId = payload.commercialeId ?? null
     if ('responsabileInternoId' in payload) updateData.responsabileInternoId = payload.responsabileInternoId ?? null
-    if ('folderLink' in payload) updateData.folderLink = payload.folderLink ?? null
+    if ('folderLinkDocumenti' in payload) updateData.folderLinkDocumenti = payload.folderLinkDocumenti ?? null
+    if ('folderLinkFoto' in payload) updateData.folderLinkFoto = payload.folderLinkFoto ?? null
 
     // Calculate field-level diff (old vs new)
     const diff: Record<string, { from: unknown; to: unknown }> = {}
@@ -931,7 +891,6 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('dataConsegna' in payload) diffStr('dataConsegna', normDate(existing.dataConsegna), payload.dataConsegna)
     if ('cantiere' in payload) diffStr('cantiere', existing.cantiere, payload.cantiere)
     if ('dataOrdine' in payload) diffStr('dataOrdine', normDate(existing.dataOrdine), payload.dataOrdine)
-    if ('vettore' in payload) diffStr('vettore', existing.traspor, payload.vettore)
     if ('scarico' in payload) diffStr('scarico', existing.scarico, payload.scarico)
     if ('vascheCav' in payload) diffStr('vascheCav', existing.vascheCav, payload.vascheCav)
     if ('accessori' in payload) diffStr('accessori', existing.accessori, payload.accessori)
@@ -943,7 +902,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('accontoPagato' in payload) diffBool('accontoPagato', existing.accontoPagato, payload.accontoPagato)
     if ('commercialeId' in payload) diffNum('commercialeId', existing.commercialeId, payload.commercialeId)
     if ('responsabileInternoId' in payload) diffNum('responsabileInternoId', existing.responsabileInternoId, payload.responsabileInternoId)
-    if ('folderLink' in payload) diffStr('folderLink', existing.folderLink, payload.folderLink)
+    if ('folderLinkDocumenti' in payload) diffStr('folderLinkDocumenti', existing.folderLinkDocumenti, payload.folderLinkDocumenti)
+    if ('folderLinkFoto' in payload) diffStr('folderLinkFoto', existing.folderLinkFoto, payload.folderLinkFoto)
 
     const [updated] = await db.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
 

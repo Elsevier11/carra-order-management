@@ -585,7 +585,6 @@
                             <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
                           }
                           <div class="kanban-card-meta">
-                            <span class="kanban-card-meta__vettore">{{ item.vettore || '—' }}</span>
                             <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
                           </div>
                           @if (isLate(item)) {
@@ -641,10 +640,6 @@
                 <span class="kv-value">{{ selectedDetail.dataConsegna ? (selectedDetail.dataConsegna | date:'dd/MM/yyyy') : '—' }}</span>
               </div>
               <div class="detail-kv">
-                <span class="kv-label">Vettore</span>
-                <span class="kv-value">{{ selectedDetail.vettore || '—' }}</span>
-              </div>
-              <div class="detail-kv">
                 <span class="kv-label">Cantiere</span>
                 <span class="kv-value">{{ selectedDetail.cantiere || '—' }}</span>
               </div>
@@ -660,15 +655,29 @@
           </div>
 
           <!-- ── Cartella di rete ──────────────────────────────────────── -->
-          @if (selectedDetail.folderLink) {
+          @if (selectedDetail.folderLinkDocumenti) {
             <div class="detail-section">
               <div class="detail-section-title">Cartella documenti</div>
               <div class="folder-link-row">
-                <code class="folder-link-path">{{ selectedDetail.folderLink }}</code>
-                <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLink!)" title="Apri in Esplora file">
+                <code class="folder-link-path">{{ selectedDetail.folderLinkDocumenti }}</code>
+                <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkDocumenti!)" title="Apri in Esplora file">
                   Apri cartella
                 </a>
-                <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLink!)">
+                <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkDocumenti!)">
+                  Copia percorso
+                </button>
+              </div>
+            </div>
+          }
+          @if (selectedDetail.folderLinkFoto) {
+            <div class="detail-section">
+              <div class="detail-section-title">Cartella foto</div>
+              <div class="folder-link-row">
+                <code class="folder-link-path">{{ selectedDetail.folderLinkFoto }}</code>
+                <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkFoto!)" title="Apri in Esplora file">
+                  Apri cartella
+                </a>
+                <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkFoto!)">
                   Copia percorso
                 </button>
               </div>
@@ -826,10 +835,6 @@
           <input type="date" [(ngModel)]="formModel.dataOrdine" />
         </div>
         <div class="form-field">
-          <label class="form-field__label">Vettore</label>
-          <input type="text" [(ngModel)]="formModel.vettore" placeholder="Nome vettore" />
-        </div>
-        <div class="form-field">
           <label class="form-field__label">Stato</label>
           <select [(ngModel)]="formModel.stato">
             @for (status of statusFlow; track status) {
@@ -869,8 +874,12 @@
         </label>
         <textarea [(ngModel)]="formModel.note" placeholder="Note operative..."></textarea>
         <div class="form-field">
-          <label class="form-field__label">Cartella di rete</label>
-          <input type="text" [(ngModel)]="formModel.folderLink" placeholder="\\server\cartella" />
+          <label class="form-field__label">Cartella documenti</label>
+          <input type="text" [(ngModel)]="formModel.folderLinkDocumenti" placeholder="\\server\cartella\documenti" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Cartella foto</label>
+          <input type="text" [(ngModel)]="formModel.folderLinkFoto" placeholder="\\server\cartella\foto" />
         </div>
         </div>
         <div class="modal-actions">

@@ -36,7 +36,6 @@ type EditableConsegna = {
   dataConsegna: string;
   cantiere: string;
   dataOrdine: string;
-  vettore: string;
   scarico: string;
   vascheCav: string;
   accessori: string;
@@ -48,7 +47,8 @@ type EditableConsegna = {
   accontoPagato: boolean;
   commercialeId: number | null;
   responsabileInternoId: number | null;
-  folderLink: string;
+  folderLinkDocumenti: string;
+  folderLinkFoto: string;
 };
 
 type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche' | 'settings';
@@ -149,7 +149,6 @@ export class AppComponent implements OnInit, OnDestroy {
   filters: ConsegnaFilters = {
     q: '',
     cliente: '',
-    vettore: '',
     stato: '',
     fromDate: '',
     toDate: '',
@@ -157,14 +156,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   availableFilters = {
     clienti: [] as string[],
-    vettori: [] as string[],
     stati: [] as string[],
   };
 
   stats: ConsegnaStats = {
     kpi: { consegneSettimanaCorrente: 0, consegneProssimaSettimana: 0, ritardi: 0, totaleAttivi: 0, accontiDaIncassare: 0 },
-    byCarrier: [],
-    byCarrierWithLate: [],
     byStatus: [],
     pipelineConRitardi: [],
     weeklyTrend: [],
@@ -252,7 +248,6 @@ export class AppComponent implements OnInit, OnDestroy {
     { name: 'Cliente', prop: 'cliente' },
     { name: 'Tipo Impianto', prop: 'tipoImpianto' },
     { name: 'Data Consegna', prop: 'dataConsegna' },
-    { name: 'Vettore', prop: 'vettore' },
     { name: 'Stato', prop: 'stato' },
   ];
 
@@ -261,7 +256,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get activeFiltersCount(): number {
-    return [this.filters.q, this.filters.cliente, this.filters.vettore, this.filters.stato, this.filters.fromDate, this.filters.toDate]
+    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.fromDate, this.filters.toDate]
       .filter((v) => !!v).length;
   }
 
@@ -600,7 +595,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.filters = {
       q: '',
       cliente: '',
-      vettore: '',
       stato: '',
       fromDate: '',
       toDate: '',
@@ -648,7 +642,6 @@ export class AppComponent implements OnInit, OnDestroy {
       dataConsegna: this.selectedDetail.dataConsegna ?? '',
       cantiere: this.selectedDetail.cantiere ?? '',
       dataOrdine: this.selectedDetail.dataOrdine ?? '',
-      vettore: this.selectedDetail.vettore ?? '',
       scarico: this.selectedDetail.scarico ?? '',
       vascheCav: this.selectedDetail.vascheCav ?? '',
       accessori: this.selectedDetail.accessori ?? '',
@@ -660,7 +653,8 @@ export class AppComponent implements OnInit, OnDestroy {
       accontoPagato: this.selectedDetail.accontoPagato ?? false,
       commercialeId: this.selectedDetail.commercialeId ?? null,
       responsabileInternoId: this.selectedDetail.responsabileInternoId ?? null,
-      folderLink: this.selectedDetail.folderLink ?? '',
+      folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti ?? '',
+      folderLinkFoto: this.selectedDetail.folderLinkFoto ?? '',
     };
     this.formVisible = true;
   }
@@ -677,7 +671,6 @@ export class AppComponent implements OnInit, OnDestroy {
       dataConsegna: this.formModel.dataConsegna || null,
       cantiere: this.formModel.cantiere || null,
       dataOrdine: this.formModel.dataOrdine || null,
-      vettore: this.formModel.vettore || null,
       scarico: this.formModel.scarico || null,
       vascheCav: this.formModel.vascheCav || null,
       accessori: this.formModel.accessori || null,
@@ -689,7 +682,8 @@ export class AppComponent implements OnInit, OnDestroy {
       accontoPagato: this.formModel.accontoPagato,
       commercialeId: this.formModel.commercialeId,
       responsabileInternoId: this.formModel.responsabileInternoId,
-      folderLink: this.formModel.folderLink || null,
+      folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
+      folderLinkFoto: this.formModel.folderLinkFoto || null,
     };
 
     const req = this.editingId ? this.consegneService.update(this.editingId, payload) : this.consegneService.create(payload);
@@ -1086,7 +1080,6 @@ export class AppComponent implements OnInit, OnDestroy {
       dataConsegna: 'Data consegna',
       cantiere: 'Cantiere',
       dataOrdine: 'Data ordine',
-      vettore: 'Vettore',
       scarico: 'Scarico',
       vascheCav: 'Vasche/Cav.',
       accessori: 'Accessori',
@@ -1451,7 +1444,6 @@ export class AppComponent implements OnInit, OnDestroy {
       dataConsegna: '',
       cantiere: '',
       dataOrdine: '',
-      vettore: '',
       scarico: '',
       vascheCav: '',
       accessori: '',
@@ -1463,7 +1455,8 @@ export class AppComponent implements OnInit, OnDestroy {
       accontoPagato: false,
       commercialeId: null,
       responsabileInternoId: null,
-      folderLink: '',
+      folderLinkDocumenti: '',
+      folderLinkFoto: '',
     };
   }
 
@@ -1513,7 +1506,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private normalizeFiltersAgainstAvailableOptions(): void {
     if (this.filters.cliente && !this.availableFilters.clienti.includes(this.filters.cliente)) this.filters.cliente = '';
-    if (this.filters.vettore && !this.availableFilters.vettori.includes(this.filters.vettore)) this.filters.vettore = '';
     if (this.filters.stato && !this.availableFilters.stati.includes(this.filters.stato)) this.filters.stato = '';
     this.normalizeDateFilters();
   }

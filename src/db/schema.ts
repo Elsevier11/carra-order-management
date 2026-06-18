@@ -1,4 +1,4 @@
-import { bigint, boolean, integer, jsonb, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
+import { bigint, boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core'
 
 export const commerciali = pgTable('commerciali', {
   id: serial('id').primaryKey(),
@@ -12,6 +12,42 @@ export const responsabiliInterni = pgTable('responsabili_interni', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// --- Nuove tabelle anagrafe ---
+
+export const mittentiDisegno = pgTable('mittenti_disegno', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const operai = pgTable('operai', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const vettori = pgTable('vettori', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const cementiTipi = pgTable('cementi_tipi', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  ordine: integer('ordine').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const accessoriTipi = pgTable('accessori_tipi', {
+  id: serial('id').primaryKey(),
+  nome: text('nome').notNull(),
+  ordine: integer('ordine').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// --- Tabella principale ordini ---
+
 export const ordini = pgTable('ordini', {
   id: serial('id').primaryKey(),
   rifto: text('rifto'),
@@ -20,7 +56,6 @@ export const ordini = pgTable('ordini', {
   dataConsegna: timestamp('data_consegna'),
   cantiere: text('cantiere'),
   dataOrdine: timestamp('data_ordine'),
-  traspor: text('traspor'),
   scarico: text('scarico'),
   vascheCav: text('vasche_cav'),
   accessori: text('accessori'),
@@ -34,8 +69,54 @@ export const ordini = pgTable('ordini', {
   responsabileInternoId: integer('responsabile_interno_id').references(() => responsabiliInterni.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
   externalRef: text('external_ref'),
-  folderLink: text('folder_link'),
+  // migrato da folder_link → folder_link_documenti
+  folderLinkDocumenti: text('folder_link_documenti'),
+  folderLinkFoto: text('folder_link_foto'),
+  // campi DISEGNO IN GESTIONE
+  disegnoSpeditoAt: timestamp('disegno_spedito_at'),
+  disegnoMittenteId: integer('disegno_mittente_id').references(() => mittentiDisegno.id, { onDelete: 'set null' }),
+  disegnoNote: text('disegno_note'),
+  // campi DISEGNO APPROVATO
+  massicciataNota: text('massicciata_nota'),
+  tipoCariciNota: text('tipo_carici_nota'),
+  // campi IN LAVORAZIONE
+  lavorazioneAssegnataAt: timestamp('lavorazione_assegnata_at'),
+  // campi CONSEGNA PIANIFICATA
+  consegnaDataEffettiva: timestamp('consegna_data_effettiva'),
+  vettoreId: integer('vettore_id').references(() => vettori.id, { onDelete: 'set null' }),
+  ddtPronti: boolean('ddt_pronti').notNull().default(false),
+  bancale: boolean('bancale').notNull().default(false),
+  caricoVerificato: boolean('carico_verificato').notNull().default(false),
+  // tab C.A.M.
+  camSiNo: boolean('cam_si_no').notNull().default(false),
 })
+
+// --- Tabelle relazione per ordine ---
+
+export const orderOperai = pgTable('order_operai', {
+  orderId: integer('order_id').notNull().references(() => ordini.id, { onDelete: 'cascade' }),
+  operaioId: integer('operaio_id').notNull().references(() => operai.id, { onDelete: 'cascade' }),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.orderId, table.operaioId] }),
+}))
+
+export const orderCementi = pgTable('order_cementi', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id').notNull().references(() => ordini.id, { onDelete: 'cascade' }),
+  tipoId: integer('tipo_id').notNull().references(() => cementiTipi.id, { onDelete: 'cascade' }),
+  ordinata: boolean('ordinata').notNull().default(false),
+  fatta: boolean('fatta').notNull().default(false),
+})
+
+export const orderAccessori = pgTable('order_accessori', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id').notNull().references(() => ordini.id, { onDelete: 'cascade' }),
+  tipoId: integer('tipo_id').notNull().references(() => accessoriTipi.id, { onDelete: 'cascade' }),
+  ordinata: boolean('ordinata').notNull().default(false),
+  fatta: boolean('fatta').notNull().default(false),
+})
+
+// --- Tabelle esistenti invariate ---
 
 export const importConfig = pgTable('import_config', {
   key: text('key').primaryKey(),
