@@ -83,6 +83,11 @@
   color: #7c3aed;
 }
 
+.status-chip.status-disegno-approvato {
+  border-color: rgba(5, 150, 105, 0.24);
+  color: #059669;
+}
+
 .status-chip.status-pronti-avvisati {
   border-color: rgba(180, 83, 9, 0.24);
   color: #b45309;
@@ -106,7 +111,7 @@
 .kanban-grid {
   margin-top: 20px;
   display: grid;
-  grid-template-columns: repeat(7, minmax(240px, 1fr));
+  grid-template-columns: repeat(8, minmax(240px, 1fr));
   gap: 16px;
   align-items: stretch;
   overflow-x: auto;
@@ -165,6 +170,10 @@
 
 .kanban-column.status-disegno-gestione {
   --kanban-color: #7c3aed;
+}
+
+.kanban-column.status-disegno-approvato {
+  --kanban-color: #059669;
 }
 
 .kanban-column.status-pronti-avvisati {
@@ -274,13 +283,6 @@
   gap: 6px;
   color: #64748b;
   font-size: 0.78rem;
-}
-
-.kanban-card-meta__vettore {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 55%;
 }
 
 .kanban-card-meta__date {

@@ -20,12 +20,15 @@ import {
   ConsegnaStats,
   ConsegnaStatus,
   ErpOrderPreviewItem,
+  MittenteDisegno,
+  Operaio,
   OrderEvent,
   ResponsabileRecord,
   SqlServerConfigResponse,
   SqlServerConfigSavePayload,
   SqlServerImportResult,
   SqlServerTestResult,
+  Vettore,
 } from './consegne.types';
 import { SettingsService } from './settings.service';
 
@@ -95,15 +98,16 @@ export class AppComponent implements OnInit, OnDestroy {
   user: AuthUser | null = null;
   canWrite = false;
 
-  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONCLUSI', 'SOSPESO'];
+  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'SOSPESO'];
   readonly transitionRules: Record<ConsegnaStatus, ConsegnaStatus[]> = {
     'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
-    'DISEGNO IN GESTIONE': ['IN LAVORAZIONE', 'SOSPESO'],
-    'IN LAVORAZIONE': ['PRONTI & AVVISATI', 'SOSPESO'],
+    'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
+    'DISEGNO APPROVATO': ['IN LAVORAZIONE', 'SOSPESO'],
+    'IN LAVORAZIONE': ['CONCLUSI', 'SOSPESO'],
+    'CONCLUSI': ['PRONTI & AVVISATI', 'SOSPESO'],
     'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
-    'CONSEGNA PIANIFICATA': ['CONCLUSI', 'SOSPESO'],
-    CONCLUSI: [],
-    SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
+    'CONSEGNA PIANIFICATA': [],
+    'SOSPESO': ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
   };
 
   boardColumns: BoardColumn[] = [];
@@ -206,6 +210,11 @@ export class AppComponent implements OnInit, OnDestroy {
     userId: null,
     password: '',
   };
+
+  // ── Lookup lists per campi condizionali per stato ─────────────────────────
+  mittentiDisegno: MittenteDisegno[] = [];
+  operaiList: Operaio[] = [];
+  vettoriList: Vettore[] = [];
 
   // ── Settings ERP ─────────────────────────────────────────────────────────────
   settingsConfig: SqlServerConfigResponse | null = null;
@@ -405,6 +414,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.detailModalOpen = true;
         this.loadHistory(id);
         this.loadAttachments(id);
+        this.loadLookupLists();
       },
       error: () => {
         this.loadingDetails = false;
@@ -463,6 +473,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const map: Record<string, string> = {
       'IN CORSO': 'status-in-corso',
       'DISEGNO IN GESTIONE': 'status-disegno-gestione',
+      'DISEGNO APPROVATO': 'status-disegno-approvato',
       'IN LAVORAZIONE': 'status-in-lavorazione',
       'PRONTI & AVVISATI': 'status-pronti-avvisati',
       'CONSEGNA PIANIFICATA': 'status-consegna-pianificata',
@@ -1289,6 +1300,27 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadLookupLists(): void {
+    if (!this.mittentiDisegno.length) {
+      this.consegneService.listMittentiDisegno().subscribe({
+        next: (r) => { this.mittentiDisegno = r.data; },
+        error: () => {},
+      });
+    }
+    if (!this.operaiList.length) {
+      this.consegneService.listOperai().subscribe({
+        next: (r) => { this.operaiList = r.data; },
+        error: () => {},
+      });
+    }
+    if (!this.vettoriList.length) {
+      this.consegneService.listVettori().subscribe({
+        next: (r) => { this.vettoriList = r.data; },
+        error: () => {},
+      });
+    }
+  }
+
   private loadAttachments(orderId: number): void {
     this.loadingAttachments = true;
     this.consegneService.listAttachments(orderId).subscribe({
@@ -1458,6 +1490,95 @@ export class AppComponent implements OnInit, OnDestroy {
       folderLinkDocumenti: '',
       folderLinkFoto: '',
     };
+  }
+
+  // ── Operai multi-select helpers ───────────────────────────────────────────
+
+  isOperaioSelected(id: number): boolean {
+    return this.selectedDetail?.operaiAssegnati?.some((o) => o.id === id) ?? false;
+  }
+
+  toggleOperaio(id: number): void {
+    if (!this.selectedDetail) return;
+    const existing = this.selectedDetail.operaiAssegnati ?? [];
+    if (this.isOperaioSelected(id)) {
+      this.selectedDetail = { ...this.selectedDetail, operaiAssegnati: existing.filter((o) => o.id !== id) };
+    } else {
+      const operaio = this.operaiList.find((o) => o.id === id);
+      if (operaio) {
+        this.selectedDetail = { ...this.selectedDetail, operaiAssegnati: [...existing, { id: operaio.id, nome: operaio.nome }] };
+      }
+    }
+  }
+
+  // ── Stato-specific save methods ───────────────────────────────────────────
+
+  saveDisegnoFields(): void {
+    if (!this.selectedDetail) return;
+    this.consegneService.update(this.selectedDetail.id, {
+      disegnoSpeditoAt: this.selectedDetail.disegnoSpeditoAt || null,
+      disegnoMittenteId: this.selectedDetail.disegnoMittenteId || null,
+      disegnoNote: this.selectedDetail.disegnoNote || null,
+    }).subscribe({
+      next: () => {
+        this.operationSuccess = 'Dati disegno salvati';
+        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Errore salvataggio';
+      },
+    });
+  }
+
+  saveDisegnoApprovatoFields(): void {
+    if (!this.selectedDetail) return;
+    this.consegneService.update(this.selectedDetail.id, {
+      massicciataNota: this.selectedDetail.massicciataNota || null,
+      tipoCariciNota: this.selectedDetail.tipoCariciNota || null,
+    }).subscribe({
+      next: () => {
+        this.operationSuccess = 'Dati disegno approvato salvati';
+        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Errore salvataggio';
+      },
+    });
+  }
+
+  saveLavorazioneFields(): void {
+    if (!this.selectedDetail) return;
+    this.consegneService.update(this.selectedDetail.id, {
+      lavorazioneAssegnataAt: this.selectedDetail.lavorazioneAssegnataAt || null,
+      operaiAssegnati: this.selectedDetail.operaiAssegnati?.map((o) => o.id) ?? [],
+    }).subscribe({
+      next: () => {
+        this.operationSuccess = 'Dati lavorazione salvati';
+        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Errore salvataggio';
+      },
+    });
+  }
+
+  saveConsegnaFields(): void {
+    if (!this.selectedDetail) return;
+    this.consegneService.update(this.selectedDetail.id, {
+      consegnaDataEffettiva: this.selectedDetail.consegnaDataEffettiva || null,
+      vettoreId: this.selectedDetail.vettoreId || null,
+      ddtPronti: this.selectedDetail.ddtPronti,
+      bancale: this.selectedDetail.bancale,
+      caricoVerificato: this.selectedDetail.caricoVerificato,
+    }).subscribe({
+      next: () => {
+        this.operationSuccess = 'Dati consegna salvati';
+        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Errore salvataggio';
+      },
+    });
   }
 
   copyFolderLink(path: string): void {

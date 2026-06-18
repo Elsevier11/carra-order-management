@@ -753,6 +753,120 @@
             </div>
           }
 
+          <!-- ── Campi condizionali per stato ─────────────────── -->
+          @if (selectedDetail.stato === 'DISEGNO IN GESTIONE' && canWrite) {
+            <div class="detail-section">
+              <div class="detail-section-title">Gestione Disegno</div>
+              <div class="detail-kv-grid">
+                <div class="detail-kv">
+                  <label class="kv-label">Data spedizione disegno</label>
+                  <input type="date" [(ngModel)]="selectedDetail.disegnoSpeditoAt" />
+                </div>
+                <div class="detail-kv">
+                  <label class="kv-label">Mittente</label>
+                  <select [(ngModel)]="selectedDetail.disegnoMittenteId">
+                    <option [ngValue]="null">— seleziona —</option>
+                    @for (m of mittentiDisegno; track m.id) {
+                      <option [ngValue]="m.id">{{ m.nome }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="detail-kv detail-kv--full">
+                  <label class="kv-label">Note disegno</label>
+                  <textarea [(ngModel)]="selectedDetail.disegnoNote" rows="3" style="width:100%;resize:vertical"></textarea>
+                </div>
+              </div>
+              <div class="modal-actions" style="margin-top:10px">
+                <button type="button" (click)="saveDisegnoFields()">Salva</button>
+              </div>
+            </div>
+          }
+
+          @if (selectedDetail.stato === 'DISEGNO APPROVATO' && canWrite) {
+            <div class="detail-section">
+              <div class="detail-section-title">Disegno Approvato</div>
+              <div class="detail-kv-grid">
+                <div class="detail-kv detail-kv--full">
+                  <label class="kv-label">Massicciata</label>
+                  <textarea [(ngModel)]="selectedDetail.massicciataNota" rows="3" style="width:100%;resize:vertical"></textarea>
+                </div>
+                <div class="detail-kv detail-kv--full">
+                  <label class="kv-label">Tipologia carichi</label>
+                  <textarea [(ngModel)]="selectedDetail.tipoCariciNota" rows="3" style="width:100%;resize:vertical"></textarea>
+                </div>
+              </div>
+              <div class="modal-actions" style="margin-top:10px">
+                <button type="button" (click)="saveDisegnoApprovatoFields()">Salva</button>
+              </div>
+            </div>
+          }
+
+          @if (selectedDetail.stato === 'IN LAVORAZIONE' && canWrite) {
+            <div class="detail-section">
+              <div class="detail-section-title">Lavorazione</div>
+              <div class="detail-kv-grid">
+                <div class="detail-kv">
+                  <label class="kv-label">Data assegnazione</label>
+                  <input type="date" [(ngModel)]="selectedDetail.lavorazioneAssegnataAt" />
+                </div>
+                <div class="detail-kv detail-kv--full">
+                  <label class="kv-label">Operai assegnati</label>
+                  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+                    @for (op of operaiList; track op.id) {
+                      <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
+                        <input type="checkbox" [checked]="isOperaioSelected(op.id)" (change)="toggleOperaio(op.id)" />
+                        {{ op.nome }}
+                      </label>
+                    }
+                  </div>
+                </div>
+              </div>
+              <div class="modal-actions" style="margin-top:10px">
+                <button type="button" (click)="saveLavorazioneFields()">Salva</button>
+              </div>
+            </div>
+          }
+
+          @if (selectedDetail.stato === 'CONSEGNA PIANIFICATA' && canWrite) {
+            <div class="detail-section">
+              <div class="detail-section-title">Consegna Pianificata</div>
+              <div class="detail-kv-grid">
+                <div class="detail-kv">
+                  <label class="kv-label">Data consegna effettiva</label>
+                  <input type="date" [(ngModel)]="selectedDetail.consegnaDataEffettiva" />
+                </div>
+                <div class="detail-kv">
+                  <label class="kv-label">Vettore</label>
+                  <select [(ngModel)]="selectedDetail.vettoreId">
+                    <option [ngValue]="null">— seleziona —</option>
+                    @for (v of vettoriList; track v.id) {
+                      <option [ngValue]="v.id">{{ v.nome }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="detail-kv detail-kv--full">
+                  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:4px">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
+                      <input type="checkbox" [(ngModel)]="selectedDetail.ddtPronti" />
+                      DDT pronti
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
+                      <input type="checkbox" [(ngModel)]="selectedDetail.bancale" />
+                      Bancale
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
+                      <input type="checkbox" [(ngModel)]="selectedDetail.caricoVerificato" />
+                      Carico verificato
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-actions" style="margin-top:10px">
+                <button type="button" (click)="saveConsegnaFields()">Salva</button>
+              </div>
+            </div>
+          }
+
           <!-- ── Cambio stato rapido ────────────────────────────── -->
           @if (canWrite) {
             <div class="detail-section">

@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, ErpOrderPreviewItem, FilterOptions, ImportConfig, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse } from './consegne.types';
+import { AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, ErpOrderPreviewItem, FilterOptions, ImportConfig, MittenteDisegno, Operaio, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse, Vettore } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
@@ -168,6 +168,20 @@ export class ConsegneService {
 
   deleteResponsabile(id: number): Observable<void> {
     return this.http.delete<void>(`${this.responsabiliUrl}/${id}`);
+  }
+
+  // ── Lookup lists ──────────────────────────────────────────────────────────
+
+  listMittentiDisegno(): Observable<{ data: MittenteDisegno[] }> {
+    return this.http.get<{ data: MittenteDisegno[] }>(`${environment.apiUrl}/mittenti-disegno`);
+  }
+
+  listOperai(): Observable<{ data: Operaio[] }> {
+    return this.http.get<{ data: Operaio[] }>(`${environment.apiUrl}/operai`);
+  }
+
+  listVettori(): Observable<{ data: Vettore[] }> {
+    return this.http.get<{ data: Vettore[] }>(`${environment.apiUrl}/vettori`);
   }
 
   // ── ERP SQL Server import ──────────────────────────────────────────────────
