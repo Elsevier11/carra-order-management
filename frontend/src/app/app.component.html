@@ -626,6 +626,17 @@
             <p class="detail-subtitle">{{ selectedDetail.cliente || '—' }}</p>
           </div>
 
+          <!-- ── Tab switcher ───────────────────────────────────────── -->
+          <div class="detail-tabs">
+            <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'dettagli'" (click)="setDetailTab('dettagli')">Dettagli</button>
+            <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'cementi'" (click)="setDetailTab('cementi')">Cementi</button>
+            <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'accessori'" (click)="setDetailTab('accessori')">Accessori</button>
+            <button type="button" class="detail-tab" [class.active]="activeDetailTab === 'cam'" (click)="setDetailTab('cam')">C.A.M.</button>
+          </div>
+
+          <!-- ── Tab: Dettagli ──────────────────────────────────────── -->
+          @if (activeDetailTab === 'dettagli') {
+
           <!-- ── Dati ordine + Assegnazioni + Impianto ──────────────────── -->
           <div class="detail-section">
             <div class="detail-kv-grid">
@@ -889,8 +900,103 @@
             </div>
           }
 
+          } <!-- end tab: dettagli -->
 
-        }
+          <!-- ── Tab: Cementi ──────────────────────────────────────── -->
+          @if (activeDetailTab === 'cementi') {
+            <div class="detail-section">
+              @if (operationError) { <div class="error">{{ operationError }}</div> }
+              @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
+              @if (!cementiTipiList.length) {
+                <p class="detail-empty">Nessun tipo di cemento configurato.</p>
+              } @else {
+                <div class="detail-checklist">
+                  @for (sel of cementiSelections; track sel.tipoId) {
+                    <div class="checklist-row" [class.checklist-row--selected]="sel.selezionato">
+                      <label class="checklist-main">
+                        <input type="checkbox" [(ngModel)]="sel.selezionato" />
+                        <span>{{ cementiTipiList[$index].nome }}</span>
+                      </label>
+                      @if (sel.selezionato) {
+                        <label class="checklist-flag">
+                          <input type="checkbox" [(ngModel)]="sel.ordinata" />
+                          <span>Ordinata</span>
+                        </label>
+                        <label class="checklist-flag">
+                          <input type="checkbox" [(ngModel)]="sel.fatta" />
+                          <span>Fatta</span>
+                        </label>
+                      }
+                    </div>
+                  }
+                </div>
+                @if (canWrite) {
+                  <div class="modal-actions" style="margin-top: 16px">
+                    <button type="button" (click)="saveCementi()">Salva Cementi</button>
+                  </div>
+                }
+              }
+            </div>
+          }
+
+          <!-- ── Tab: Accessori ─────────────────────────────────────── -->
+          @if (activeDetailTab === 'accessori') {
+            <div class="detail-section">
+              @if (operationError) { <div class="error">{{ operationError }}</div> }
+              @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
+              @if (!accessoriTipiList.length) {
+                <p class="detail-empty">Nessun tipo di accessorio configurato.</p>
+              } @else {
+                <div class="detail-checklist">
+                  @for (sel of accessoriSelections; track sel.tipoId) {
+                    <div class="checklist-row" [class.checklist-row--selected]="sel.selezionato">
+                      <label class="checklist-main">
+                        <input type="checkbox" [(ngModel)]="sel.selezionato" />
+                        <span>{{ accessoriTipiList[$index].nome }}</span>
+                      </label>
+                      @if (sel.selezionato) {
+                        <label class="checklist-flag">
+                          <input type="checkbox" [(ngModel)]="sel.ordinata" />
+                          <span>Ordinata</span>
+                        </label>
+                        <label class="checklist-flag">
+                          <input type="checkbox" [(ngModel)]="sel.fatta" />
+                          <span>Fatta</span>
+                        </label>
+                      }
+                    </div>
+                  }
+                </div>
+                @if (canWrite) {
+                  <div class="modal-actions" style="margin-top: 16px">
+                    <button type="button" (click)="saveAccessori()">Salva Accessori</button>
+                  </div>
+                }
+              }
+            </div>
+          }
+
+          <!-- ── Tab: C.A.M. ────────────────────────────────────────── -->
+          @if (activeDetailTab === 'cam') {
+            <div class="detail-section">
+              @if (operationError) { <div class="error">{{ operationError }}</div> }
+              @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
+              <div class="detail-section-title">Certificazione Ambientale Minima (C.A.M.)</div>
+              <div class="cam-toggle-row">
+                <label class="cam-toggle-label">
+                  <input type="checkbox" [(ngModel)]="selectedDetail.camSiNo" />
+                  <span>{{ selectedDetail.camSiNo ? 'SI' : 'NO' }}</span>
+                </label>
+              </div>
+              @if (canWrite) {
+                <div class="modal-actions" style="margin-top: 16px">
+                  <button type="button" (click)="saveCam()">Salva C.A.M.</button>
+                </div>
+              }
+            </div>
+          }
+
+        } <!-- end @else loadingDetails -->
 
         <div class="modal-actions">
           @if (canWrite) {

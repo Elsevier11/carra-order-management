@@ -1271,3 +1271,106 @@ tr.selected-row:hover {
     border-radius: 4px;
   }
 }
+
+// ── Detail modal tab switcher ─────────────────────────────────────────────────
+
+.detail-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border, #e2e8f0);
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.detail-tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  border: none;
+  color: var(--ink-secondary, #64748b);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--surface-alt, #f1f5f9);
+    color: var(--ink, #1e293b);
+  }
+
+  &.active {
+    background: var(--accent, #3b82f6);
+    color: #fff;
+  }
+}
+
+// ── Cementi / Accessori checklist ─────────────────────────────────────────────
+
+.detail-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-alt, #f8fafc);
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+
+  &.checklist-row--selected {
+    border-color: var(--accent, #3b82f6);
+    background: color-mix(in srgb, var(--accent, #3b82f6) 6%, #fff);
+  }
+}
+
+.checklist-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  min-width: 180px;
+  color: var(--ink, #1e293b);
+}
+
+.checklist-flag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--ink-secondary, #64748b);
+}
+
+// ── C.A.M. toggle ─────────────────────────────────────────────────────────────
+
+.cam-toggle-row {
+  margin-top: 8px;
+}
+
+.cam-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--ink, #1e293b);
+
+  span {
+    min-width: 36px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--surface-alt, #f1f5f9);
+    color: var(--ink-secondary, #64748b);
+    font-size: 0.9rem;
+    text-align: center;
+    transition: background 0.15s, color 0.15s;
+  }
+}

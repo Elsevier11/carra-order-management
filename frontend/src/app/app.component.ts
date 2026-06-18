@@ -9,11 +9,13 @@ import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { AuthService } from './auth.service';
 import { ConsegneService } from './consegne.service';
 import {
+  AccessorioTipo,
   AppUserRecord,
   AttachmentRecord,
   AuditLogRecord,
   AuthUser,
   BoardColumn,
+  CementoTipo,
   CommercialeRecord,
   ConsegnaFilters,
   ConsegnaRecord,
@@ -22,6 +24,8 @@ import {
   ErpOrderPreviewItem,
   MittenteDisegno,
   Operaio,
+  OrderAccessorio,
+  OrderCemento,
   OrderEvent,
   ResponsabileRecord,
   SqlServerConfigResponse,
@@ -252,6 +256,16 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.sqlImportSelected.size;
   }
 
+  // ── Detail modal tab switcher ─────────────────────────────────────────────
+  activeDetailTab: 'dettagli' | 'cementi' | 'accessori' | 'cam' = 'dettagli';
+
+  cementiTipiList: CementoTipo[] = [];
+  accessoriTipiList: AccessorioTipo[] = [];
+
+  // Working copies: array indexed by tipoId for the current order
+  cementiSelections: { tipoId: number; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
+  accessoriSelections: { tipoId: number; selezionato: boolean; ordinata: boolean; fatta: boolean }[] = [];
+
   readonly columns = [
     { name: 'Rif', prop: 'rif' },
     { name: 'Cliente', prop: 'cliente' },
@@ -412,9 +426,11 @@ export class AppComponent implements OnInit, OnDestroy {
         this.transitionModel.note = '';
         this.loadingDetails = false;
         this.detailModalOpen = true;
+        this.activeDetailTab = 'dettagli';
         this.loadHistory(id);
         this.loadAttachments(id);
         this.loadLookupLists();
+        this.loadCementiAccessoriForDetail(id);
       },
       error: () => {
         this.loadingDetails = false;
@@ -1585,6 +1601,134 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err: { error?: { message?: string } }) => {
         this.operationError = err?.error?.message ?? 'Errore salvataggio';
+      },
+    });
+  }
+
+  // ── Detail tab methods ────────────────────────────────────────────────────
+
+  setDetailTab(tab: 'dettagli' | 'cementi' | 'accessori' | 'cam'): void {
+    this.activeDetailTab = tab;
+  }
+
+  private loadCementiAccessoriForDetail(orderId: number): void {
+    // Load tipi lists (cached after first load)
+    if (!this.cementiTipiList.length) {
+      this.consegneService.listCementiTipi().subscribe({
+        next: (tipi) => {
+          this.cementiTipiList = tipi;
+          this.loadOrderCementi(orderId);
+        },
+        error: () => {},
+      });
+    } else {
+      this.loadOrderCementi(orderId);
+    }
+
+    if (!this.accessoriTipiList.length) {
+      this.consegneService.listAccessoriTipi().subscribe({
+        next: (tipi) => {
+          this.accessoriTipiList = tipi;
+          this.loadOrderAccessori(orderId);
+        },
+        error: () => {},
+      });
+    } else {
+      this.loadOrderAccessori(orderId);
+    }
+  }
+
+  private loadOrderCementi(orderId: number): void {
+    this.consegneService.getOrderCementi(orderId).subscribe({
+      next: (response) => {
+        const existing = response.data;
+        this.cementiSelections = this.cementiTipiList.map((tipo) => {
+          const found = existing.find((c: OrderCemento) => c.tipoId === tipo.id);
+          return {
+            tipoId: tipo.id,
+            selezionato: !!found,
+            ordinata: found?.ordinata ?? false,
+            fatta: found?.fatta ?? false,
+          };
+        });
+      },
+      error: () => {
+        this.cementiSelections = this.cementiTipiList.map((tipo) => ({
+          tipoId: tipo.id,
+          selezionato: false,
+          ordinata: false,
+          fatta: false,
+        }));
+      },
+    });
+  }
+
+  private loadOrderAccessori(orderId: number): void {
+    this.consegneService.getOrderAccessori(orderId).subscribe({
+      next: (response) => {
+        const existing = response.data;
+        this.accessoriSelections = this.accessoriTipiList.map((tipo) => {
+          const found = existing.find((a: OrderAccessorio) => a.tipoId === tipo.id);
+          return {
+            tipoId: tipo.id,
+            selezionato: !!found,
+            ordinata: found?.ordinata ?? false,
+            fatta: found?.fatta ?? false,
+          };
+        });
+      },
+      error: () => {
+        this.accessoriSelections = this.accessoriTipiList.map((tipo) => ({
+          tipoId: tipo.id,
+          selezionato: false,
+          ordinata: false,
+          fatta: false,
+        }));
+      },
+    });
+  }
+
+  saveCementi(): void {
+    if (!this.selectedDetail) return;
+    const items = this.cementiSelections
+      .filter((s) => s.selezionato)
+      .map((s) => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
+    this.consegneService.updateOrderCementi(this.selectedDetail.id, items).subscribe({
+      next: () => {
+        this.operationSuccess = 'Cementi salvati';
+        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Errore salvataggio cementi';
+      },
+    });
+  }
+
+  saveAccessori(): void {
+    if (!this.selectedDetail) return;
+    const items = this.accessoriSelections
+      .filter((s) => s.selezionato)
+      .map((s) => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
+    this.consegneService.updateOrderAccessori(this.selectedDetail.id, items).subscribe({
+      next: () => {
+        this.operationSuccess = 'Accessori salvati';
+        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Errore salvataggio accessori';
+      },
+    });
+  }
+
+  saveCam(): void {
+    if (!this.selectedDetail) return;
+    this.consegneService.update(this.selectedDetail.id, { camSiNo: this.selectedDetail.camSiNo }).subscribe({
+      next: () => {
+        this.operationSuccess = 'C.A.M. salvato';
+        setTimeout(() => { this.operationSuccess = ''; }, 3000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Errore salvataggio C.A.M.';
       },
     });
   }
