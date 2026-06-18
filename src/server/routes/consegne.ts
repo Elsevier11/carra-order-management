@@ -5,7 +5,7 @@ import { Router } from 'express'
 import { and, asc, count, desc, eq, gte, ilike, lt, lte, or, sql } from 'drizzle-orm'
 import multer from 'multer'
 import { z } from 'zod'
-import { commerciali, orderAttachments, ordini, responsabiliInterni } from '../../db/schema'
+import { accessoriTipi, cementiTipi, commerciali, operai as operaiTable, orderAccessori, orderAttachments, orderCementi, orderOperai, ordini, responsabiliInterni } from '../../db/schema'
 import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
@@ -15,15 +15,16 @@ const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/
 const dateOrDateTimeRegex = /^\d{4}-\d{2}-\d{2}(?:T.*)?$/
-const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONCLUSI', 'SOSPESO'] as const
+const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'SOSPESO'] as const
 const transitionMap: Record<(typeof allowedStatuses)[number], (typeof allowedStatuses)[number][]> = {
   'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
-  'DISEGNO IN GESTIONE': ['IN LAVORAZIONE', 'SOSPESO'],
-  'IN LAVORAZIONE': ['PRONTI & AVVISATI', 'SOSPESO'],
+  'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
+  'DISEGNO APPROVATO': ['IN LAVORAZIONE', 'SOSPESO'],
+  'IN LAVORAZIONE': ['CONCLUSI', 'SOSPESO'],
+  CONCLUSI: ['PRONTI & AVVISATI', 'SOSPESO'],
   'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
-  'CONSEGNA PIANIFICATA': ['CONCLUSI', 'SOSPESO'],
-  CONCLUSI: [],
-  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'IN LAVORAZIONE', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
+  'CONSEGNA PIANIFICATA': [],
+  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
 }
 const attachmentsRoot = path.resolve(process.env.ATTACHMENTS_DIR ?? './data/uploads')
 const allowedAttachmentExtensions = (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS ?? 'pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx')
@@ -129,6 +130,23 @@ const consegnaInputSchema = z.object({
   responsabileInternoId: z.number().int().positive().optional().nullable(),
   folderLinkDocumenti: z.string().optional().nullable(),
   folderLinkFoto: z.string().optional().nullable(),
+  // campi DISEGNO IN GESTIONE
+  disegnoSpeditoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoSpeditoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  disegnoMittenteId: z.number().int().positive().optional().nullable(),
+  disegnoNote: z.string().optional().nullable(),
+  // campi DISEGNO APPROVATO
+  massicciataNota: z.string().optional().nullable(),
+  tipoCariciNota: z.string().optional().nullable(),
+  // campi IN LAVORAZIONE
+  lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  // campi CONSEGNA PIANIFICATA
+  consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  vettoreId: z.number().int().positive().optional().nullable(),
+  ddtPronti: z.boolean().optional().default(false),
+  bancale: z.boolean().optional().default(false),
+  caricoVerificato: z.boolean().optional().default(false),
+  // tab C.A.M.
+  camSiNo: z.boolean().optional().default(false),
 })
 
 const transitionSchema = z.object({
@@ -184,6 +202,23 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     responsabileInternoId: row.responsabileInternoId ?? null,
     folderLinkDocumenti: row.folderLinkDocumenti ?? null,
     folderLinkFoto: row.folderLinkFoto ?? null,
+    // campi DISEGNO IN GESTIONE
+    disegnoSpeditoAt: toIsoDate(row.disegnoSpeditoAt),
+    disegnoMittenteId: row.disegnoMittenteId ?? null,
+    disegnoNote: row.disegnoNote ?? null,
+    // campi DISEGNO APPROVATO
+    massicciataNota: row.massicciataNota ?? null,
+    tipoCariciNota: row.tipoCariciNota ?? null,
+    // campi IN LAVORAZIONE
+    lavorazioneAssegnataAt: toIsoDate(row.lavorazioneAssegnataAt),
+    // campi CONSEGNA PIANIFICATA
+    consegnaDataEffettiva: toIsoDate(row.consegnaDataEffettiva),
+    vettoreId: row.vettoreId ?? null,
+    ddtPronti: row.ddtPronti ?? false,
+    bancale: row.bancale ?? false,
+    caricoVerificato: row.caricoVerificato ?? false,
+    // tab C.A.M.
+    camSiNo: row.camSiNo ?? false,
     createdAt: row.createdAt,
   }
 }
@@ -672,7 +707,7 @@ router.get('/:id/attachments/:attachmentId', requireAuth, async (req: Authentica
     const absolutePath = resolveAttachmentPath(attachment.storagePath)
     const content = await fs.readFile(absolutePath)
     res.setHeader('Content-Type', attachment.mimeType)
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(attachment.fileName)}"`)
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename(attachment.fileName)}"`)
     return res.send(content)
   } catch (error) {
     return next(error)
@@ -788,7 +823,44 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ message: 'Consegna not found' })
     }
 
-    return res.json(normalizeRow(row))
+    const [operaiRows, cementiRows, accessoriRows] = await Promise.all([
+      db
+        .select({ id: operaiTable.id, nome: operaiTable.nome })
+        .from(orderOperai)
+        .innerJoin(operaiTable, eq(orderOperai.operaioId, operaiTable.id))
+        .where(eq(orderOperai.orderId, id)),
+      db
+        .select({
+          tipoId: orderCementi.tipoId,
+          nome: cementiTipi.nome,
+          ordine: cementiTipi.ordine,
+          ordinata: orderCementi.ordinata,
+          fatta: orderCementi.fatta,
+        })
+        .from(orderCementi)
+        .innerJoin(cementiTipi, eq(orderCementi.tipoId, cementiTipi.id))
+        .where(eq(orderCementi.orderId, id))
+        .orderBy(cementiTipi.ordine),
+      db
+        .select({
+          tipoId: orderAccessori.tipoId,
+          nome: accessoriTipi.nome,
+          ordine: accessoriTipi.ordine,
+          ordinata: orderAccessori.ordinata,
+          fatta: orderAccessori.fatta,
+        })
+        .from(orderAccessori)
+        .innerJoin(accessoriTipi, eq(orderAccessori.tipoId, accessoriTipi.id))
+        .where(eq(orderAccessori.orderId, id))
+        .orderBy(accessoriTipi.ordine),
+    ])
+
+    return res.json({
+      ...normalizeRow(row),
+      operaiAssegnati: operaiRows,
+      cementi: cementiRows,
+      accessoriAssegnati: accessoriRows,
+    })
   } catch (error) {
     return next(error)
   }
@@ -870,6 +942,19 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('responsabileInternoId' in payload) updateData.responsabileInternoId = payload.responsabileInternoId ?? null
     if ('folderLinkDocumenti' in payload) updateData.folderLinkDocumenti = payload.folderLinkDocumenti ?? null
     if ('folderLinkFoto' in payload) updateData.folderLinkFoto = payload.folderLinkFoto ?? null
+    // nuovi campi scalar
+    if ('disegnoSpeditoAt' in payload) updateData.disegnoSpeditoAt = payload.disegnoSpeditoAt ? parseInputDate(payload.disegnoSpeditoAt) : null
+    if ('disegnoMittenteId' in payload) updateData.disegnoMittenteId = payload.disegnoMittenteId ?? null
+    if ('disegnoNote' in payload) updateData.disegnoNote = payload.disegnoNote ?? null
+    if ('massicciataNota' in payload) updateData.massicciataNota = payload.massicciataNota ?? null
+    if ('tipoCariciNota' in payload) updateData.tipoCariciNota = payload.tipoCariciNota ?? null
+    if ('lavorazioneAssegnataAt' in payload) updateData.lavorazioneAssegnataAt = payload.lavorazioneAssegnataAt ? parseInputDate(payload.lavorazioneAssegnataAt) : null
+    if ('consegnaDataEffettiva' in payload) updateData.consegnaDataEffettiva = payload.consegnaDataEffettiva ? parseInputDate(payload.consegnaDataEffettiva) : null
+    if ('vettoreId' in payload) updateData.vettoreId = payload.vettoreId ?? null
+    if ('ddtPronti' in payload) updateData.ddtPronti = payload.ddtPronti ?? false
+    if ('bancale' in payload) updateData.bancale = payload.bancale ?? false
+    if ('caricoVerificato' in payload) updateData.caricoVerificato = payload.caricoVerificato ?? false
+    if ('camSiNo' in payload) updateData.camSiNo = payload.camSiNo ?? false
 
     // Calculate field-level diff (old vs new)
     const diff: Record<string, { from: unknown; to: unknown }> = {}
@@ -904,6 +989,18 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('responsabileInternoId' in payload) diffNum('responsabileInternoId', existing.responsabileInternoId, payload.responsabileInternoId)
     if ('folderLinkDocumenti' in payload) diffStr('folderLinkDocumenti', existing.folderLinkDocumenti, payload.folderLinkDocumenti)
     if ('folderLinkFoto' in payload) diffStr('folderLinkFoto', existing.folderLinkFoto, payload.folderLinkFoto)
+    if ('disegnoSpeditoAt' in payload) diffStr('disegnoSpeditoAt', normDate(existing.disegnoSpeditoAt), payload.disegnoSpeditoAt)
+    if ('disegnoMittenteId' in payload) diffNum('disegnoMittenteId', existing.disegnoMittenteId, payload.disegnoMittenteId)
+    if ('disegnoNote' in payload) diffStr('disegnoNote', existing.disegnoNote, payload.disegnoNote)
+    if ('massicciataNota' in payload) diffStr('massicciataNota', existing.massicciataNota, payload.massicciataNota)
+    if ('tipoCariciNota' in payload) diffStr('tipoCariciNota', existing.tipoCariciNota, payload.tipoCariciNota)
+    if ('lavorazioneAssegnataAt' in payload) diffStr('lavorazioneAssegnataAt', normDate(existing.lavorazioneAssegnataAt), payload.lavorazioneAssegnataAt)
+    if ('consegnaDataEffettiva' in payload) diffStr('consegnaDataEffettiva', normDate(existing.consegnaDataEffettiva), payload.consegnaDataEffettiva)
+    if ('vettoreId' in payload) diffNum('vettoreId', existing.vettoreId, payload.vettoreId)
+    if ('ddtPronti' in payload) diffBool('ddtPronti', existing.ddtPronti, payload.ddtPronti)
+    if ('bancale' in payload) diffBool('bancale', existing.bancale, payload.bancale)
+    if ('caricoVerificato' in payload) diffBool('caricoVerificato', existing.caricoVerificato, payload.caricoVerificato)
+    if ('camSiNo' in payload) diffBool('camSiNo', existing.camSiNo, payload.camSiNo)
 
     const [updated] = await db.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
 
@@ -929,6 +1026,187 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     res.json(normalizeRow(updated))
   } catch (error) {
     next(error)
+  }
+})
+
+// --- Sub-endpoint: operai assegnati ---
+
+router.get('/:id/operai', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid id' })
+    const rows = await db
+      .select({ id: operaiTable.id, nome: operaiTable.nome })
+      .from(orderOperai)
+      .innerJoin(operaiTable, eq(orderOperai.operaioId, operaiTable.id))
+      .where(eq(orderOperai.orderId, id))
+    return res.json({ data: rows })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.put('/:id/operai', requireAuth, requireRole(['admin', 'operativo']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid id' })
+
+    const bodySchema = z.object({ operaiIds: z.array(z.number().int().positive()) })
+    const { operaiIds } = bodySchema.parse(req.body)
+
+    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    if (!existing) return res.status(404).json({ message: 'Consegna not found' })
+
+    await db.delete(orderOperai).where(eq(orderOperai.orderId, id))
+    if (operaiIds.length > 0) {
+      await db.insert(orderOperai).values(operaiIds.map((operaioId) => ({ orderId: id, operaioId })))
+    }
+
+    await addOrderEvent({
+      orderId: id,
+      eventType: 'OPERAI_UPDATED',
+      actor: req.user?.username ?? null,
+      details: { operaiIds },
+    })
+
+    const rows = await db
+      .select({ id: operaiTable.id, nome: operaiTable.nome })
+      .from(orderOperai)
+      .innerJoin(operaiTable, eq(orderOperai.operaioId, operaiTable.id))
+      .where(eq(orderOperai.orderId, id))
+    return res.json({ data: rows })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+// --- Sub-endpoint: cementi ---
+
+router.get('/:id/cementi', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid id' })
+    const rows = await db
+      .select({
+        tipoId: orderCementi.tipoId,
+        nome: cementiTipi.nome,
+        ordine: cementiTipi.ordine,
+        ordinata: orderCementi.ordinata,
+        fatta: orderCementi.fatta,
+      })
+      .from(orderCementi)
+      .innerJoin(cementiTipi, eq(orderCementi.tipoId, cementiTipi.id))
+      .where(eq(orderCementi.orderId, id))
+      .orderBy(cementiTipi.ordine)
+    return res.json({ data: rows })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.put('/:id/cementi', requireAuth, requireRole(['admin', 'operativo']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid id' })
+
+    const itemSchema = z.object({ tipoId: z.number().int().positive(), ordinata: z.boolean(), fatta: z.boolean() })
+    const items = z.array(itemSchema).parse(req.body)
+
+    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    if (!existing) return res.status(404).json({ message: 'Consegna not found' })
+
+    await db.delete(orderCementi).where(eq(orderCementi.orderId, id))
+    if (items.length > 0) {
+      await db.insert(orderCementi).values(items.map((item) => ({ orderId: id, tipoId: item.tipoId, ordinata: item.ordinata, fatta: item.fatta })))
+    }
+
+    await addOrderEvent({
+      orderId: id,
+      eventType: 'CEMENTI_UPDATED',
+      actor: req.user?.username ?? null,
+      details: { count: items.length },
+    })
+
+    const rows = await db
+      .select({
+        tipoId: orderCementi.tipoId,
+        nome: cementiTipi.nome,
+        ordine: cementiTipi.ordine,
+        ordinata: orderCementi.ordinata,
+        fatta: orderCementi.fatta,
+      })
+      .from(orderCementi)
+      .innerJoin(cementiTipi, eq(orderCementi.tipoId, cementiTipi.id))
+      .where(eq(orderCementi.orderId, id))
+      .orderBy(cementiTipi.ordine)
+    return res.json({ data: rows })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+// --- Sub-endpoint: accessori ---
+
+router.get('/:id/accessori', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid id' })
+    const rows = await db
+      .select({
+        tipoId: orderAccessori.tipoId,
+        nome: accessoriTipi.nome,
+        ordine: accessoriTipi.ordine,
+        ordinata: orderAccessori.ordinata,
+        fatta: orderAccessori.fatta,
+      })
+      .from(orderAccessori)
+      .innerJoin(accessoriTipi, eq(orderAccessori.tipoId, accessoriTipi.id))
+      .where(eq(orderAccessori.orderId, id))
+      .orderBy(accessoriTipi.ordine)
+    return res.json({ data: rows })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.put('/:id/accessori', requireAuth, requireRole(['admin', 'operativo']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid id' })
+
+    const itemSchema = z.object({ tipoId: z.number().int().positive(), ordinata: z.boolean(), fatta: z.boolean() })
+    const items = z.array(itemSchema).parse(req.body)
+
+    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    if (!existing) return res.status(404).json({ message: 'Consegna not found' })
+
+    await db.delete(orderAccessori).where(eq(orderAccessori.orderId, id))
+    if (items.length > 0) {
+      await db.insert(orderAccessori).values(items.map((item) => ({ orderId: id, tipoId: item.tipoId, ordinata: item.ordinata, fatta: item.fatta })))
+    }
+
+    await addOrderEvent({
+      orderId: id,
+      eventType: 'ACCESSORI_UPDATED',
+      actor: req.user?.username ?? null,
+      details: { count: items.length },
+    })
+
+    const rows = await db
+      .select({
+        tipoId: orderAccessori.tipoId,
+        nome: accessoriTipi.nome,
+        ordine: accessoriTipi.ordine,
+        ordinata: orderAccessori.ordinata,
+        fatta: orderAccessori.fatta,
+      })
+      .from(orderAccessori)
+      .innerJoin(accessoriTipi, eq(orderAccessori.tipoId, accessoriTipi.id))
+      .where(eq(orderAccessori.orderId, id))
+      .orderBy(accessoriTipi.ordine)
+    return res.json({ data: rows })
+  } catch (error) {
+    return next(error)
   }
 })
 
