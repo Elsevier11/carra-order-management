@@ -565,14 +565,7 @@ export class AppComponent implements OnInit, OnDestroy {
     } else if (view === 'audit') {
       this.loadAudit(1);
     } else if (view === 'anagrafiche') {
-      this.loadUsers();
-      this.loadCommerciali();
-      this.loadResponsabili();
-      this.loadMittentiDisegnoAdmin();
-      this.loadOperaiAdmin();
-      this.loadVettoriAdmin();
-      this.loadCementiTipiAdmin();
-      this.loadAccessoriTipiAdmin();
+      this.loadActiveRegistryTab();
     }
   }
 
@@ -587,11 +580,13 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   setPersoneSubTab(tab: string): void {
+    if (!this.isAdmin) return;
     this.activePersoneSubTab = tab;
     this.loadPersoneSubTab(tab);
   }
 
   setProduzioneSubTab(tab: string): void {
+    if (!this.isAdmin) return;
     this.activeProduzioneSubTab = tab;
     this.loadProduzioneSubTab(tab);
   }

@@ -261,6 +261,16 @@
       @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
 
       @if (activeRegistryTab === 'persone') {
+        @if (generatedPassword) {
+          <div class="generated-password-banner">
+            <div class="generated-password-info">
+              <span class="generated-password-label">Password generata per <strong>{{ generatedPasswordForUser }}</strong> — comunicala all'utente, non verrà più mostrata.</span>
+              <span class="generated-password-value">{{ generatedPassword }}</span>
+            </div>
+            <button type="button" class="ghost" (click)="copyGeneratedPassword()">Copia</button>
+            <button type="button" class="ghost" (click)="generatedPassword = null">✕</button>
+          </div>
+        }
         @if (activePersoneSubTab === 'utenti') {
           <section class="detail-card">
             <h2>Gestione utenti</h2>
@@ -277,16 +287,6 @@
               </label>
               <button type="button" [disabled]="newUserModel.username.trim().length < 3" (click)="createUser()">Crea utente</button>
             </div>
-            @if (generatedPassword) {
-              <div class="generated-password-banner">
-                <div class="generated-password-info">
-                  <span class="generated-password-label">Password generata per <strong>{{ generatedPasswordForUser }}</strong> — comunicala all'utente, non verrà più mostrata.</span>
-                  <span class="generated-password-value">{{ generatedPassword }}</span>
-                </div>
-                <button type="button" class="ghost" (click)="copyGeneratedPassword()">Copia</button>
-                <button type="button" class="ghost" (click)="generatedPassword = null">✕</button>
-              </div>
-            }
           </section>
 
           <section class="table-card">
