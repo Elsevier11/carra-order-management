@@ -316,6 +316,7 @@ export class AppComponent implements OnInit, OnDestroy {
   editMode = false;
   private dettagliSnapshot = '';
 
+
   readonly columns = [
     { name: 'Rif', prop: 'rif' },
     { name: 'Cliente', prop: 'cliente' },
@@ -796,6 +797,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.dettagliSnapshot = this.serializeDettagli();
     this.editMode = true;
     this.activeDetailTab = 'dettagli';
+  }
+
+  cancelEdit(): void {
+    this.editMode = false;
+    this.dettagliSnapshot = '';
   }
 
   closeForm(): void {
@@ -2229,6 +2235,47 @@ export class AppComponent implements OnInit, OnDestroy {
 
   folderProtocolUrl(path: string): SafeUrl {
     return this.sanitizer.bypassSecurityTrustUrl('carra-folder:' + encodeURIComponent(path));
+  }
+
+  pasteFolderPath(field: 'documenti' | 'foto'): void {
+    navigator.clipboard.readText().then(text => {
+      const trimmed = text?.trim();
+      if (trimmed) this.saveFolderPath(field, trimmed);
+    }).catch(() => {
+      this.operationError = 'Impossibile leggere gli appunti — usa Ctrl+V nel campo';
+      setTimeout(() => { this.operationError = ''; }, 3000);
+    });
+  }
+
+  saveFolderPath(field: 'documenti' | 'foto', path: string): void {
+    if (!this.selectedDetail) return;
+    const trimmedPath = path?.trim() || null;
+    if (field === 'documenti') {
+      this.selectedDetail.folderLinkDocumenti = trimmedPath;
+      this.formModel.folderLinkDocumenti = trimmedPath ?? '';
+    } else {
+      this.selectedDetail.folderLinkFoto = trimmedPath;
+      this.formModel.folderLinkFoto = trimmedPath ?? '';
+    }
+    const payload = field === 'documenti'
+      ? { folderLinkDocumenti: trimmedPath }
+      : { folderLinkFoto: trimmedPath };
+    this.consegneService.update(this.selectedDetail.id, payload)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.operationSuccess = trimmedPath ? 'Cartella salvata' : 'Cartella rimossa';
+          setTimeout(() => { this.operationSuccess = ''; }, 3000);
+        },
+        error: (err: { error?: { message?: string } }) => {
+          this.operationError = err?.error?.message ?? 'Errore salvataggio cartella';
+          setTimeout(() => { this.operationError = ''; }, 3000);
+        },
+      });
+  }
+
+  clearFolderPath(field: 'documenti' | 'foto'): void {
+    this.saveFolderPath(field, '');
   }
 
   private savePreset(): void {

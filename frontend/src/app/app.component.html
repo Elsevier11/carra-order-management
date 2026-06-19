@@ -824,6 +824,9 @@
                     Modifica
                   </button>
                 }
+                @if (editMode) {
+                  <button type="button" class="ghost" (click)="cancelEdit()">Annulla</button>
+                }
                 <button type="button" [class.ghost]="!hasPendingChanges()" (click)="saveAll()">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                   Salva
@@ -863,7 +866,8 @@
           @if (editMode) {
           <!-- ── Edit mode ─────────────────────────────────────────── -->
           <div class="detail-section detail-edit-section">
-            <div class="modal-grid">
+            <div class="detail-form-compact">
+              <!-- Riga 1: Rif | Cliente | Tipo impianto (span 2) -->
               <div class="form-field">
                 <label class="form-field__label form-field__label--required">Riferimento</label>
                 <input type="text" [(ngModel)]="formModel.rif" placeholder="es. 409/23" />
@@ -872,15 +876,16 @@
                 <label class="form-field__label form-field__label--required">Cliente</label>
                 <input type="text" [(ngModel)]="formModel.cliente" placeholder="Ragione sociale" />
               </div>
-              <div class="form-field">
+              <div class="form-field form-field--span2">
                 <label class="form-field__label">Tipo impianto</label>
                 <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="es. N°1 METEOTANK MP/SD 1200" />
               </div>
+              <!-- Riga 2: Data consegna | Cantiere (span 2) | Data ordine -->
               <div class="form-field">
                 <label class="form-field__label">Data consegna</label>
                 <input type="date" [(ngModel)]="formModel.dataConsegna" />
               </div>
-              <div class="form-field">
+              <div class="form-field form-field--span2">
                 <label class="form-field__label">Cantiere</label>
                 <input type="text" [(ngModel)]="formModel.cantiere" placeholder="Indirizzo cantiere" />
               </div>
@@ -888,6 +893,7 @@
                 <label class="form-field__label">Data ordine</label>
                 <input type="date" [(ngModel)]="formModel.dataOrdine" />
               </div>
+              <!-- Riga 3: Stato | Commerciale | Responsabile (span 2) -->
               <div class="form-field">
                 <label class="form-field__label">Stato</label>
                 <select [(ngModel)]="formModel.stato">
@@ -905,7 +911,7 @@
                   }
                 </select>
               </div>
-              <div class="form-field">
+              <div class="form-field form-field--span2">
                 <label class="form-field__label">Responsabile</label>
                 <select [(ngModel)]="formModel.responsabileInternoId">
                   <option [ngValue]="null">Nessun responsabile</option>
@@ -914,18 +920,22 @@
                   }
                 </select>
               </div>
-              <label class="kanban-toggle">
-                <input type="checkbox" [(ngModel)]="formModel.trasporto" />
-                <span>Trasporto a nostro carico</span>
-              </label>
-              <label class="kanban-toggle">
-                <input type="checkbox" [(ngModel)]="formModel.scaricoCarico" />
-                <span>Scarico a nostro carico</span>
-              </label>
-              <label class="kanban-toggle">
-                <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
-                <span>Acconto pagato</span>
-              </label>
+              <!-- Riga 4: Checkbox in fila -->
+              <div class="detail-form-checks">
+                <label class="kanban-toggle">
+                  <input type="checkbox" [(ngModel)]="formModel.trasporto" />
+                  <span>Trasporto a nostro carico</span>
+                </label>
+                <label class="kanban-toggle">
+                  <input type="checkbox" [(ngModel)]="formModel.scaricoCarico" />
+                  <span>Scarico a nostro carico</span>
+                </label>
+                <label class="kanban-toggle">
+                  <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
+                  <span>Acconto pagato</span>
+                </label>
+              </div>
+              <!-- Riga 5: Note (span 4) -->
               <textarea [(ngModel)]="formModel.note" placeholder="Note operative..."></textarea>
             </div>
           </div>
@@ -991,39 +1001,54 @@
 
           } <!-- end @if editMode -->
 
-          <!-- ── Allegati + Cartelle (sempre visibili) ──────────────── -->
+          <!-- ── Cartelle di riferimento (sempre visibili) ────────── -->
           <div class="detail-section">
-            <div class="detail-section-title">Allegati</div>
-            <div class="folder-entries">
-              <div class="folder-entry">
-                <span class="folder-entry-label">Documenti</span>
-                @if (editMode) {
-                  <input type="text" class="folder-input" [(ngModel)]="formModel.folderLinkDocumenti" placeholder="\\server\cartella\documenti" />
-                } @else if (selectedDetail.folderLinkDocumenti) {
-                  <div class="folder-link-row">
-                    <code class="folder-link-path">{{ selectedDetail.folderLinkDocumenti }}</code>
-                    <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkDocumenti!)" title="Apri in Esplora file">Apri</a>
-                    <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkDocumenti!)">Copia percorso</button>
-                  </div>
-                } @else {
-                  <span class="kv-value" style="color: var(--muted)">Non impostata</span>
+            <div class="detail-section-title">Cartelle di riferimento</div>
+            <div class="folder-rows">
+              <!-- Documenti -->
+              <div class="folder-row">
+                <span class="folder-row-label">Documenti</span>
+                <input type="text" class="folder-row-input"
+                  [value]="selectedDetail.folderLinkDocumenti ?? ''"
+                  (change)="saveFolderPath('documenti', $any($event.target).value)"
+                  placeholder="Incolla il percorso (copia dalla barra di Esplora file)" />
+                <button type="button" class="ghost icon-btn" (click)="pasteFolderPath('documenti')" title="Incolla dagli appunti">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                </button>
+                @if (selectedDetail.folderLinkDocumenti) {
+                  <a class="ghost icon-btn" [href]="folderProtocolUrl(selectedDetail.folderLinkDocumenti!)" title="Apri in Esplora file">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  </a>
+                  <button type="button" class="ghost-danger icon-btn" (click)="clearFolderPath('documenti')" title="Rimuovi">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
                 }
               </div>
-              <div class="folder-entry">
-                <span class="folder-entry-label">Foto</span>
-                @if (editMode) {
-                  <input type="text" class="folder-input" [(ngModel)]="formModel.folderLinkFoto" placeholder="\\server\cartella\foto" />
-                } @else if (selectedDetail.folderLinkFoto) {
-                  <div class="folder-link-row">
-                    <code class="folder-link-path">{{ selectedDetail.folderLinkFoto }}</code>
-                    <a class="btn ghost" [href]="folderProtocolUrl(selectedDetail.folderLinkFoto!)" title="Apri in Esplora file">Apri</a>
-                    <button type="button" class="ghost" (click)="copyFolderLink(selectedDetail.folderLinkFoto!)">Copia percorso</button>
-                  </div>
-                } @else {
-                  <span class="kv-value" style="color: var(--muted)">Non impostata</span>
+              <!-- Foto -->
+              <div class="folder-row">
+                <span class="folder-row-label">Foto</span>
+                <input type="text" class="folder-row-input"
+                  [value]="selectedDetail.folderLinkFoto ?? ''"
+                  (change)="saveFolderPath('foto', $any($event.target).value)"
+                  placeholder="Incolla il percorso (copia dalla barra di Esplora file)" />
+                <button type="button" class="ghost icon-btn" (click)="pasteFolderPath('foto')" title="Incolla dagli appunti">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                </button>
+                @if (selectedDetail.folderLinkFoto) {
+                  <a class="ghost icon-btn" [href]="folderProtocolUrl(selectedDetail.folderLinkFoto!)" title="Apri in Esplora file">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  </a>
+                  <button type="button" class="ghost-danger icon-btn" (click)="clearFolderPath('foto')" title="Rimuovi">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
                 }
               </div>
             </div>
+          </div>
+
+          <!-- ── Allegati (sempre visibili) ────────────────────────── -->
+          <div class="detail-section">
+            <div class="detail-section-title">Allegati</div>
             @if (loadingAttachments) {
               <p>Caricamento allegati...</p>
             } @else {
@@ -1037,20 +1062,43 @@
               @if (!attachments.length) {
                 <p class="detail-empty">Nessun allegato.</p>
               } @else {
-                <ul class="history-list">
+                <div class="attach-grid">
                   @for (attachment of attachments; track attachment.id) {
-                    <li>
-                      <strong>{{ attachment.fileName }}</strong>
-                      <small>{{ attachment.mimeType }} · {{ formatFileSize(attachment.sizeBytes) }} · {{ attachment.uploadedBy || 'sistema' }}</small>
-                      <div class="attachment-actions">
-                        <button type="button" class="ghost" (click)="openAttachment(attachment)">Apri</button>
+                    <div class="attach-card">
+                      <span class="attach-icon"
+                        [class.attach-icon--pdf]="attachment.mimeType.includes('pdf')"
+                        [class.attach-icon--img]="attachment.mimeType.includes('image')"
+                        [class.attach-icon--doc]="attachment.mimeType.includes('word') || attachment.mimeType.includes('document')"
+                        [class.attach-icon--xls]="attachment.mimeType.includes('excel') || attachment.mimeType.includes('spreadsheet')">
+                        @if (attachment.mimeType.includes('pdf')) {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h3"/></svg>
+                        } @else if (attachment.mimeType.includes('image')) {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        } @else if (attachment.mimeType.includes('word') || attachment.mimeType.includes('document')) {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        } @else if (attachment.mimeType.includes('excel') || attachment.mimeType.includes('spreadsheet')) {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="12" y1="9" x2="12" y2="21"/></svg>
+                        } @else {
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        }
+                      </span>
+                      <div class="attach-info">
+                        <span class="attach-name" [title]="attachment.fileName">{{ attachment.fileName }}</span>
+                        <span class="attach-meta">{{ formatFileSize(attachment.sizeBytes) }} · {{ attachment.uploadedBy || 'sistema' }}</span>
+                      </div>
+                      <div class="attach-btns">
+                        <button type="button" class="ghost icon-btn" (click)="openAttachment(attachment)" title="Apri">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </button>
                         @if (canWrite) {
-                          <button type="button" class="danger" (click)="deleteAttachment(attachment)">Elimina</button>
+                          <button type="button" class="ghost-danger icon-btn" (click)="deleteAttachment(attachment)" title="Elimina">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                          </button>
                         }
                       </div>
-                    </li>
+                    </div>
                   }
-                </ul>
+                </div>
               }
             }
           </div>
