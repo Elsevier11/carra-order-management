@@ -896,6 +896,22 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+  exportXlsx(): void {
+    this.consegneService.exportXlsx().subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `consegne_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore export Excel';
+      },
+    });
+  }
+
   openCreate(): void {
     this.editingId = null;
     this.formModel = this.emptyForm();
@@ -1329,7 +1345,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       ATTACHMENT_ADDED: 'Allegato aggiunto',
       ATTACHMENT_REMOVED: 'Allegato rimosso',
       CONSEGNE_LIST: 'Lista consegne',
-      CONSEGNE_EXPORT: 'Export consegne',
+      CONSEGNE_EXPORT: 'Export CSV consegne',
+      CONSEGNE_EXPORT_XLSX: 'Export Excel consegne',
       USER_CREATED: 'Utente creato',
       USER_UPDATED: 'Utente modificato',
       USER_PASSWORD_RESET: 'Reset password',

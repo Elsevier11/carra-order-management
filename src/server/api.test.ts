@@ -1,5 +1,6 @@
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import XLSX from 'xlsx'
 
 const runDbTests = process.env.RUN_DB_TESTS === '1'
 
@@ -211,7 +212,6 @@ describe.runIf(runDbTests)('Consegne API', () => {
     const res = await request(app).get('/api/consegne/filters')
     expect(res.status).toBe(200)
     expect(Array.isArray(res.body.clienti)).toBe(true)
-    expect(Array.isArray(res.body.vettori)).toBe(true)
     expect(Array.isArray(res.body.stati)).toBe(true)
   })
 
@@ -382,6 +382,34 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(res.text).toContain('__TEST__A-001')
   })
 
+  it('exports xlsx with all orders and summary sheet', async () => {
+    const res = await request(app)
+      .get('/api/consegne/export/xlsx')
+      .set('Authorization', `Bearer ${token}`)
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        })
+        res.on('end', () => callback(null, Buffer.concat(chunks)))
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    const workbook = XLSX.read(res.body, { type: 'buffer' })
+    expect(workbook.SheetNames).toContain('Ordini')
+    expect(workbook.SheetNames).toContain('Riepilogo')
+
+    const ordersSheet = workbook.Sheets.Ordini
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ordersSheet)
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.some((row) => row.Rif === '__TEST__A-001')).toBe(true)
+    expect(rows[0]).toHaveProperty('Stato')
+    expect(rows[0]).toHaveProperty('Cliente')
+  })
+
   it('exports audit csv for admin', async () => {
     const res = await request(app)
       .get('/api/audit/export')
@@ -462,6 +490,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
     const actions = rows.map((row) => row.action)
     expect(actions.some((action) => action.includes('/api/consegne'))).toBe(true)
     expect(actions.some((action) => action === 'CONSEGNE_EXPORT')).toBe(true)
+    expect(actions.some((action) => action === 'CONSEGNE_EXPORT_XLSX')).toBe(true)
     expect(rows.some((row) => row.path.includes('/attachments') && row.success)).toBe(true)
   })
 

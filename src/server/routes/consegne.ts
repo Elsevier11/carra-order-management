@@ -4,8 +4,9 @@ import path from 'node:path'
 import { Router } from 'express'
 import { and, asc, count, desc, eq, gte, ilike, lt, lte, or, sql } from 'drizzle-orm'
 import multer from 'multer'
+import XLSX from 'xlsx'
 import { z } from 'zod'
-import { accessoriTipi, cementiTipi, commerciali, operai as operaiTable, orderAccessori, orderAttachments, orderCementi, orderOperai, ordini, responsabiliInterni } from '../../db/schema'
+import { accessoriTipi, cementiTipi, commerciali, mittentiDisegno, operai as operaiTable, orderAccessori, orderAttachments, orderCementi, orderOperai, ordini, responsabiliInterni, vettori } from '../../db/schema'
 import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
@@ -36,6 +37,7 @@ const allowedAttachmentMimeTypes = (process.env.ATTACHMENTS_ALLOWED_MIME ?? 'app
   .split(',')
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean)
+const completedStatuses = new Set(['CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA EFFETTUATA'])
 const roleAttachmentLimits = {
   admin: {
     maxBytes: Number(process.env.ATTACHMENTS_MAX_SIZE_ADMIN ?? 15 * 1024 * 1024),
@@ -179,6 +181,39 @@ type Attachment = {
 
 function toIsoDate(value: Date | null): string | null {
   return value ? value.toISOString().slice(0, 10) : null
+}
+
+function formatItalianDate(value: Date | null | undefined): string {
+  if (!value) return ''
+  const day = String(value.getDate()).padStart(2, '0')
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const year = value.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+function yesNo(value: boolean | null | undefined): string {
+  return value ? 'Si' : 'No'
+}
+
+function styleCell(sheet: XLSX.WorkSheet, ref: string, style: NonNullable<XLSX.CellObject['s']>) {
+  const cell = sheet[ref]
+  if (!cell) return
+  cell.s = {
+    ...(cell.s ?? {}),
+    ...style,
+  }
+}
+
+function joinValues(values: Array<string | null | undefined>, separator = ' | '): string {
+  return values
+    .map((value) => (value ?? '').trim())
+    .filter(Boolean)
+    .join(separator)
+}
+
+function formatRelationItem(name: string, ordinata?: boolean | null, fatta?: boolean | null): string {
+  const flags = [`ord:${yesNo(ordinata)}`, `fat:${yesNo(fatta)}`]
+  return `${name} (${flags.join(', ')})`
 }
 
 function normalizeRow(row: typeof ordini.$inferSelect) {
@@ -375,6 +410,274 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="consegne_export_${new Date().toISOString().slice(0, 10)}.csv"`)
     return res.status(200).send(csv)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const [orders, commercialiRows, responsabiliRows, mittentiRows, vettoriRows, operaiRows, cementiRows, accessoriRows, attachmentRows] = await Promise.all([
+      db.select().from(ordini),
+      db.select({ id: commerciali.id, nome: commerciali.nome }).from(commerciali),
+      db.select({ id: responsabiliInterni.id, nome: responsabiliInterni.nome }).from(responsabiliInterni),
+      db.select({ id: mittentiDisegno.id, nome: mittentiDisegno.nome }).from(mittentiDisegno),
+      db.select({ id: vettori.id, nome: vettori.nome }).from(vettori),
+      db
+        .select({ orderId: orderOperai.orderId, nome: operaiTable.nome })
+        .from(orderOperai)
+        .innerJoin(operaiTable, eq(orderOperai.operaioId, operaiTable.id)),
+      db
+        .select({ orderId: orderCementi.orderId, nome: cementiTipi.nome, ordinata: orderCementi.ordinata, fatta: orderCementi.fatta })
+        .from(orderCementi)
+        .innerJoin(cementiTipi, eq(orderCementi.tipoId, cementiTipi.id)),
+      db
+        .select({ orderId: orderAccessori.orderId, nome: accessoriTipi.nome, ordinata: orderAccessori.ordinata, fatta: orderAccessori.fatta })
+        .from(orderAccessori)
+        .innerJoin(accessoriTipi, eq(orderAccessori.tipoId, accessoriTipi.id)),
+      db.select({ orderId: orderAttachments.orderId, count: count() }).from(orderAttachments).groupBy(orderAttachments.orderId),
+    ])
+
+    const commercialiMap = new Map(commercialiRows.map((row) => [row.id, row.nome]))
+    const responsabiliMap = new Map(responsabiliRows.map((row) => [row.id, row.nome]))
+    const mittentiMap = new Map(mittentiRows.map((row) => [row.id, row.nome]))
+    const vettoriMap = new Map(vettoriRows.map((row) => [row.id, row.nome]))
+    const attachmentsMap = new Map(attachmentRows.map((row) => [row.orderId, Number(row.count)]))
+
+    const operaiByOrder = new Map<number, string[]>()
+    for (const row of operaiRows) {
+      const current = operaiByOrder.get(row.orderId) ?? []
+      current.push(row.nome)
+      operaiByOrder.set(row.orderId, current)
+    }
+
+    const cementiByOrder = new Map<number, string[]>()
+    for (const row of cementiRows) {
+      const current = cementiByOrder.get(row.orderId) ?? []
+      current.push(formatRelationItem(row.nome, row.ordinata, row.fatta))
+      cementiByOrder.set(row.orderId, current)
+    }
+
+    const accessoriByOrder = new Map<number, string[]>()
+    for (const row of accessoriRows) {
+      const current = accessoriByOrder.get(row.orderId) ?? []
+      current.push(formatRelationItem(row.nome, row.ordinata, row.fatta))
+      accessoriByOrder.set(row.orderId, current)
+    }
+
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const msPerDay = 24 * 60 * 60 * 1000
+
+    const exportedRows = orders.map((row) => {
+      const status = row.stato ?? 'IN CORSO'
+      const dueDate = row.dataConsegna ?? null
+      const daysToDeadline = dueDate ? Math.round((dueDate.getTime() - startOfToday.getTime()) / msPerDay) : null
+      const isLate = daysToDeadline != null && daysToDeadline < 0 && !completedStatuses.has(status.toUpperCase())
+      const commerciale = row.commercialeId ? commercialiMap.get(row.commercialeId) ?? '' : ''
+      const responsabile = row.responsabileInternoId ? responsabiliMap.get(row.responsabileInternoId) ?? '' : ''
+      const mittente = row.disegnoMittenteId ? mittentiMap.get(row.disegnoMittenteId) ?? '' : ''
+      const vettore = row.vettoreId ? vettoriMap.get(row.vettoreId) ?? '' : ''
+
+      return {
+        'ID interno': row.id,
+        'External ref': row.externalRef ?? '',
+        Rif: row.rifto ?? '',
+        Cliente: row.cliente ?? '',
+        Stato: status,
+        'Data ordine': formatItalianDate(row.dataOrdine),
+        'Data consegna': formatItalianDate(row.dataConsegna),
+        'Giorni al termine': daysToDeadline ?? '',
+        'Giorni ritardo': isLate && daysToDeadline != null ? Math.abs(daysToDeadline) : 0,
+        'In ritardo': yesNo(isLate),
+        Cantiere: row.cantiere ?? '',
+        'Tipo impianto': row.tipoImpianto ?? '',
+        Scarico: row.scarico ?? '',
+        'Vasche/Cav': row.vascheCav ?? '',
+        Accessori: row.accessori ?? '',
+        Operai: row.operai ?? '',
+        'Operai assegnati': joinValues(operaiByOrder.get(row.id) ?? []),
+        Commerciale: commerciale,
+        'Responsabile interno': responsabile,
+        Trasporto: yesNo(row.trasporto),
+        'Scarico/Carico': yesNo(row.scaricoCarico),
+        'Acconto pagato': yesNo(row.accontoPagato),
+        CAM: yesNo(row.camSiNo),
+        'Disegno spedito il': formatItalianDate(row.disegnoSpeditoAt),
+        'Mittente disegno': mittente,
+        'Note disegno': row.disegnoNote ?? '',
+        'Massicciata nota': row.massicciataNota ?? '',
+        'Tipo carici nota': row.tipoCariciNota ?? '',
+        'Lavorazione assegnata il': formatItalianDate(row.lavorazioneAssegnataAt),
+        'Consegna effettiva il': formatItalianDate(row.consegnaDataEffettiva),
+        Vettore: vettore,
+        'DDT pronti': yesNo(row.ddtPronti),
+        Bancale: yesNo(row.bancale),
+        'Carico verificato': yesNo(row.caricoVerificato),
+        Cementi: joinValues(cementiByOrder.get(row.id) ?? []),
+        'Cementi count': (cementiByOrder.get(row.id) ?? []).length,
+        'Accessori relazioni': joinValues(accessoriByOrder.get(row.id) ?? []),
+        'Accessori count': (accessoriByOrder.get(row.id) ?? []).length,
+        Allegati: attachmentsMap.get(row.id) ?? 0,
+        'Link documenti': row.folderLinkDocumenti ?? '',
+        'Link foto': row.folderLinkFoto ?? '',
+        Note: row.note ?? '',
+        'Creato il': row.createdAt ? `${formatItalianDate(row.createdAt)} ${String(row.createdAt.getHours()).padStart(2, '0')}:${String(row.createdAt.getMinutes()).padStart(2, '0')}` : '',
+      }
+    })
+
+    const statusCounts = new Map<string, { total: number; late: number }>()
+    for (const row of exportedRows) {
+      const status = String(row.Stato || 'IN CORSO')
+      const current = statusCounts.get(status) ?? { total: 0, late: 0 }
+      current.total += 1
+      current.late += row['In ritardo'] === 'Si' ? 1 : 0
+      statusCounts.set(status, current)
+    }
+
+    const clientCounts = new Map<string, number>()
+    for (const row of exportedRows) {
+      const cliente = String(row.Cliente || '-')
+      clientCounts.set(cliente, (clientCounts.get(cliente) ?? 0) + 1)
+    }
+
+    const summaryRows = [
+      ['Riepilogo export ordini'],
+      ['KPI'],
+      ['Totale ordini', exportedRows.length],
+      ['Ordini in ritardo', exportedRows.filter((row) => row['In ritardo'] === 'Si').length],
+      ['Senza data consegna', exportedRows.filter((row) => !row['Data consegna']).length],
+      ['Senza commerciale', exportedRows.filter((row) => !row.Commerciale).length],
+      ['Senza responsabile', exportedRows.filter((row) => !row['Responsabile interno']).length],
+      ['Senza link documenti', exportedRows.filter((row) => !row['Link documenti']).length],
+      ['Senza link foto', exportedRows.filter((row) => !row['Link foto']).length],
+      [''],
+      ['Stato', 'Totale', 'In ritardo'],
+      ...allowedStatuses.map((status) => [status, statusCounts.get(status)?.total ?? 0, statusCounts.get(status)?.late ?? 0]),
+      [''],
+      ['Top clienti', 'Ordini'],
+      ...Array.from(clientCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([cliente, total]) => [cliente, total]),
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    const ordersSheet = XLSX.utils.json_to_sheet(exportedRows)
+    const orderHeaders = Object.keys(exportedRows[0] ?? {})
+    ordersSheet['!cols'] = [
+      { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
+      { wch: 22 }, { wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 18 }, { wch: 18 }, { wch: 24 }, { wch: 24 }, { wch: 22 }, { wch: 18 }, { wch: 12 },
+      { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 24 },
+      { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+    ]
+    ordersSheet['!freeze'] = {
+      xSplit: '0',
+      ySplit: '1',
+      topLeftCell: 'A2',
+      activePane: 'bottomLeft',
+      state: 'frozen',
+    }
+    ordersSheet['!autofilter'] = {
+      ref: XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: Math.max(0, exportedRows.length), c: Math.max(0, Object.keys(exportedRows[0] ?? {}).length - 1) },
+      }),
+    }
+    ordersSheet['!rows'] = [{ hpt: 22 }]
+    for (const [index, header] of orderHeaders.entries()) {
+      const cellRef = `${XLSX.utils.encode_col(index)}1`
+      if (ordersSheet[cellRef]) {
+        ordersSheet[cellRef].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { patternType: 'solid', fgColor: { rgb: '1D4ED8' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          border: {
+            top: { style: 'thin', color: { rgb: 'D1D5DB' } },
+            bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
+          },
+        }
+      }
+      if (header === 'In ritardo' || header === 'Giorni ritardo') {
+        styleCell(ordersSheet, cellRef, {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { patternType: 'solid', fgColor: { rgb: 'DC2626' } },
+        })
+      }
+    }
+    const booleanColumns = ['Trasporto', 'Scarico/Carico', 'Acconto pagato', 'CAM', 'DDT pronti', 'Bancale', 'Carico verificato']
+    const booleanColumnIndices = new Map(booleanColumns.map((header) => [header, orderHeaders.indexOf(header)]))
+    exportedRows.forEach((row, rowIndex) => {
+      const excelRow = rowIndex + 2
+      for (const [header, columnIndex] of booleanColumnIndices.entries()) {
+        if (columnIndex < 0) continue
+        const ref = `${XLSX.utils.encode_col(columnIndex)}${excelRow}`
+        const isYes = row[header as keyof typeof row] === 'Si'
+        styleCell(ordersSheet, ref, {
+          font: { bold: true, color: { rgb: isYes ? '065F46' : '6B7280' } },
+          fill: {
+            patternType: 'solid',
+            fgColor: { rgb: isYes ? 'D1FAE5' : 'F3F4F6' },
+          },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        })
+      }
+      const lateIndex = booleanColumnIndices.get('Acconto pagato')
+      void lateIndex
+      if (row['In ritardo'] === 'Si') {
+        const lateRef = `${XLSX.utils.encode_col(orderHeaders.indexOf('In ritardo'))}${excelRow}`
+        const delayRef = `${XLSX.utils.encode_col(orderHeaders.indexOf('Giorni ritardo'))}${excelRow}`
+        styleCell(ordersSheet, lateRef, {
+          font: { bold: true, color: { rgb: '991B1B' } },
+          fill: { patternType: 'solid', fgColor: { rgb: 'FEE2E2' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        })
+        styleCell(ordersSheet, delayRef, {
+          font: { bold: true, color: { rgb: '991B1B' } },
+          fill: { patternType: 'solid', fgColor: { rgb: 'FEE2E2' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        })
+      }
+    })
+    XLSX.utils.book_append_sheet(workbook, ordersSheet, 'Ordini')
+
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows)
+    summarySheet['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }]
+    summarySheet['!freeze'] = {
+      xSplit: '0',
+      ySplit: '1',
+      topLeftCell: 'A2',
+      activePane: 'bottomLeft',
+      state: 'frozen',
+    }
+    summarySheet['!autofilter'] = {
+      ref: XLSX.utils.encode_range({
+        s: { r: 10, c: 0 },
+        e: { r: 10 + allowedStatuses.length, c: 2 },
+      }),
+    }
+    for (const cellRef of ['A11', 'B11', 'C11', 'A22', 'B22']) {
+      if (summarySheet[cellRef]) {
+        summarySheet[cellRef].s = {
+          font: { bold: true, color: { rgb: '1F2937' } },
+          fill: { patternType: 'solid', fgColor: { rgb: 'E5E7EB' } },
+        }
+      }
+    }
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Riepilogo')
+
+    const workbookBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer', cellStyles: true })
+
+    req.auditMeta = {
+      action: 'CONSEGNE_EXPORT_XLSX',
+      entity: 'consegna',
+      details: { exportedRows: exportedRows.length },
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="consegne_export_${new Date().toISOString().slice(0, 10)}.xlsx"`)
+    return res.status(200).send(workbookBuffer)
   } catch (error) {
     return next(error)
   }

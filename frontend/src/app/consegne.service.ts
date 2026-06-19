@@ -65,6 +65,12 @@ export class ConsegneService {
     });
   }
 
+  exportXlsx(): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/export/xlsx`, {
+      responseType: 'blob',
+    });
+  }
+
   listAttachments(orderId: number): Observable<{ data: AttachmentRecord[] }> {
     return this.http.get<{ data: AttachmentRecord[] }>(`${this.baseUrl}/${orderId}/attachments`);
   }
