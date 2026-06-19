@@ -824,13 +824,14 @@
                     Modifica
                   </button>
                 }
-                <button type="button" class="ghost-danger" (click)="deleteSelected()">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                  Elimina
-                </button>
                 <button type="button" [class.ghost]="!hasPendingChanges()" (click)="saveAll()">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                   Salva
+                </button>
+                <span class="header-actions-sep" aria-hidden="true"></span>
+                <button type="button" class="ghost-danger" (click)="deleteSelected()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  Elimina
                 </button>
               }
               <button type="button" class="ghost modal-close-btn" (click)="closeDetailModal()" aria-label="Chiudi">✕</button>
@@ -1028,9 +1029,10 @@
             } @else {
               @if (canWrite) {
                 <div class="attachment-upload">
-                  <input type="file" (change)="onAttachmentSelected($event)" />
+                  <input type="file" (change)="onAttachmentSelected($event)" accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx" />
                   <button type="button" [disabled]="!selectedUploadFile" (click)="uploadAttachment()">Upload</button>
                 </div>
+                <p class="tab-save-hint" style="margin-top: 6px;">PDF, JPG, PNG, DOCX, XLSX</p>
               }
               @if (!attachments.length) {
                 <p class="detail-empty">Nessun allegato.</p>
@@ -1081,7 +1083,7 @@
                         }
                       </select>
                     } @else {
-                      <span class="kv-value">{{ selectedDetail.disegnoMittenteId ?? '—' }}</span>
+                      <span class="kv-value">{{ nomeMittente(selectedDetail.disegnoMittenteId) }}</span>
                     }
                   </div>
                   <div class="detail-kv detail-kv--full">
@@ -1095,7 +1097,7 @@
                 </div>
                 @if (canWrite) {
                   <div class="modal-actions" style="margin-top:10px">
-                    <button type="button" (click)="saveDisegnoFields()">Salva</button>
+                    <button type="button" (click)="saveDisegnoFields()">Aggiorna sezione</button>
                   </div>
                 }
               </div>
@@ -1160,7 +1162,7 @@
                 </div>
                 @if (canWrite) {
                   <div class="modal-actions" style="margin-top:10px">
-                    <button type="button" (click)="saveLavorazioneFields()">Salva</button>
+                    <button type="button" (click)="saveLavorazioneFields()">Aggiorna sezione</button>
                   </div>
                 }
               </div>
@@ -1210,7 +1212,7 @@
                 </div>
                 @if (canWrite) {
                   <div class="modal-actions" style="margin-top:10px">
-                    <button type="button" (click)="saveConsegnaFields()">Salva</button>
+                    <button type="button" (click)="saveConsegnaFields()">Aggiorna sezione</button>
                   </div>
                 }
               </div>
@@ -1228,19 +1230,26 @@
               @if (operationError) { <div class="error">{{ operationError }}</div> }
               @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
               @if (canWrite) {
-                <div class="transition-grid">
-                  <div class="transition-select-wrap">
-                    <select [(ngModel)]="transitionModel.toStatus">
-                      <option value="">Seleziona stato</option>
-                      @for (status of allowedNextStatuses(selectedDetail.stato); track status) {
-                        <option [value]="status">{{ status }}</option>
-                      }
-                    </select>
-                    <small class="transition-hint">Gli stati disponibili dipendono dal flusso corrente dell'ordine.</small>
-                  </div>
-                  <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
-                  <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
-                </div>
+                <p class="tab-current-state">Stato attuale: <span class="status-chip" [ngClass]="columnClass(selectedDetail.stato)">{{ selectedDetail.stato }}</span></p>
+                @if (allowedNextStatuses(selectedDetail.stato); as nextStatuses) {
+                  @if (!nextStatuses.length) {
+                    <p class="detail-empty">Questo ordine ha raggiunto uno stato terminale — nessun avanzamento ulteriore disponibile.</p>
+                  } @else {
+                    <div class="transition-grid">
+                      <div class="transition-select-wrap">
+                        <select [(ngModel)]="transitionModel.toStatus">
+                          <option value="">Seleziona stato</option>
+                          @for (status of nextStatuses; track status) {
+                            <option [value]="status">{{ status }}</option>
+                          }
+                        </select>
+                        <small class="transition-hint">Gli stati disponibili dipendono dal flusso corrente dell'ordine.</small>
+                      </div>
+                      <input type="text" [(ngModel)]="transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
+                      <button type="button" [disabled]="!transitionModel.toStatus" (click)="applyTransition()">Aggiorna stato</button>
+                    </div>
+                  }
+                }
               } @else {
                 <p class="detail-empty">Accesso in sola lettura — cambio stato non disponibile.</p>
               }
@@ -1274,6 +1283,7 @@
                     </div>
                   }
                 </div>
+                <p class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
               }
             </div>
           }
@@ -1304,6 +1314,7 @@
                     </div>
                   }
                 </div>
+                <p class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
               }
             </div>
           }

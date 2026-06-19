@@ -300,6 +300,33 @@
   line-height: 1;
 }
 
+.header-actions-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-strong);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.tab-save-hint {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.tab-current-state {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .status-chip {
+    font-size: 0.72rem;
+  }
+}
+
 .detail-stato-badge {
   margin-bottom: 8px;
 }
@@ -340,7 +367,7 @@
 // ── Key-value grid ────────────────────────────────────────────
 .detail-kv-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px 24px;
 
   &.detail-kv-grid--2col {
@@ -411,11 +438,11 @@
 .detail-note-box {
   margin: 0;
   padding: 10px 14px;
-  background: #fffbeb;
-  border: 1px solid #d97706;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.9rem;
-  color: #92400e;
+  color: var(--ink);
   line-height: 1.5;
 }
 

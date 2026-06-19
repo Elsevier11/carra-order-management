@@ -1379,6 +1379,11 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.responsabiliRows.find((r) => r.id === id)?.nome ?? '-';
   }
 
+  nomeMittente(id: number | null | undefined): string {
+    if (!id) return '—';
+    return this.mittentiDisegno.find((m) => m.id === id)?.nome ?? `#${id}`;
+  }
+
   // ── Mittenti Disegno CRUD ─────────────────────────────────────────────────
 
   loadMittentiDisegnoAdmin(): void {
