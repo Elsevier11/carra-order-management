@@ -88,6 +88,8 @@ export class AppComponent implements OnInit, OnDestroy {
   operationSuccess = '';
   activeView: ViewMode = 'kanban';
   activeRegistryTab: RegistryTab = 'persone';
+  activePersoneSubTab: string = 'utenti';
+  activeProduzioneSubTab: string = 'vettori';
   showFiltersPanel = false;
 
   private readonly searchSubject = new Subject<void>();
@@ -582,6 +584,30 @@ export class AppComponent implements OnInit, OnDestroy {
     this.generatedPasswordForUser = null;
     this.activeRegistryTab = tab;
     this.loadActiveRegistryTab();
+  }
+
+  setPersoneSubTab(tab: string): void {
+    this.activePersoneSubTab = tab;
+    this.loadPersoneSubTab(tab);
+  }
+
+  setProduzioneSubTab(tab: string): void {
+    this.activeProduzioneSubTab = tab;
+    this.loadProduzioneSubTab(tab);
+  }
+
+  private loadPersoneSubTab(tab: string): void {
+    if (tab === 'utenti') this.loadUsers();
+    else if (tab === 'commerciali') this.loadCommerciali();
+    else if (tab === 'responsabili') this.loadResponsabili();
+    else if (tab === 'mittenti-disegno') this.loadMittentiDisegnoAdmin();
+    else if (tab === 'operai') this.loadOperaiAdmin();
+  }
+
+  private loadProduzioneSubTab(tab: string): void {
+    if (tab === 'vettori') this.loadVettoriAdmin();
+    else if (tab === 'tipi-cemento') this.loadCementiTipiAdmin();
+    else if (tab === 'tipi-accessorio') this.loadAccessoriTipiAdmin();
   }
 
   selectFromBoard(row: ConsegnaRecord): void {
@@ -2339,15 +2365,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private loadActiveRegistryTab(): void {
     if (this.activeRegistryTab === 'persone') {
-      this.loadUsers();
-      this.loadCommerciali();
-      this.loadResponsabili();
-      this.loadMittentiDisegnoAdmin();
-      this.loadOperaiAdmin();
+      this.loadPersoneSubTab(this.activePersoneSubTab);
     } else if (this.activeRegistryTab === 'produzione') {
-      this.loadVettoriAdmin();
-      this.loadCementiTipiAdmin();
-      this.loadAccessoriTipiAdmin();
+      this.loadProduzioneSubTab(this.activeProduzioneSubTab);
     }
   }
 
