@@ -238,6 +238,23 @@
           <button type="button" class="ghost" [class.active]="activeRegistryTab === 'persone'" (click)="setRegistryTab('persone')">Persone</button>
           <button type="button" class="ghost" [class.active]="activeRegistryTab === 'produzione'" (click)="setRegistryTab('produzione')">Produzione</button>
         </div>
+        @if (activeRegistryTab === 'persone') {
+          <div class="registry-tabs registry-subtabs">
+            <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'utenti'" (click)="setPersoneSubTab('utenti')">Utenti</button>
+            <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'commerciali'" (click)="setPersoneSubTab('commerciali')">Commerciali</button>
+            <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'responsabili'" (click)="setPersoneSubTab('responsabili')">Responsabili</button>
+            @if (isAdmin) {
+              <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'mittenti-disegno'" (click)="setPersoneSubTab('mittenti-disegno')">Mittenti Disegno</button>
+              <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'operai'" (click)="setPersoneSubTab('operai')">Operai</button>
+            }
+          </div>
+        } @else if (activeRegistryTab === 'produzione') {
+          <div class="registry-tabs registry-subtabs">
+            <button type="button" class="ghost" [class.active]="activeProduzioneSubTab === 'vettori'" (click)="setProduzioneSubTab('vettori')">Vettori</button>
+            <button type="button" class="ghost" [class.active]="activeProduzioneSubTab === 'tipi-cemento'" (click)="setProduzioneSubTab('tipi-cemento')">Tipi Cemento</button>
+            <button type="button" class="ghost" [class.active]="activeProduzioneSubTab === 'tipi-accessorio'" (click)="setProduzioneSubTab('tipi-accessorio')">Tipi Accessorio</button>
+          </div>
+        }
       </section>
 
       @if (operationError) { <div class="error">{{ operationError }}</div> }
