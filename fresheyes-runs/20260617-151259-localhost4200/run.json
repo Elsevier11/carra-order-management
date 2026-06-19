@@ -1,0 +1,62 @@
+{
+  "config": {
+    "url": "http://localhost:4200/",
+    "goal": "Find an existing order in the list and update its status",
+    "personaId": "skeptical-newcomer",
+    "personaName": "The Skeptical Newcomer",
+    "model": "claude-code",
+    "maxSteps": 40,
+    "maxCostUsd": 0,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "startedAt": "2026-06-17T13:13:02.109Z",
+  "finishedAt": "2026-06-17T13:17:23.338Z",
+  "durationMs": 261229,
+  "milestones": [
+    "App loads and shows a usable main screen (not blank, not login wall)",
+    "Screen shows a list of orders the user can browse",
+    "User has opened or selected a specific order to view its details",
+    "User sees a control (dropdown, button, etc.) to change the order status",
+    "User changes the status and the screen confirms the update"
+  ],
+  "outcome": "completed",
+  "score": 5,
+  "rageQuit": null,
+  "headline": "found orders fast, but no feedback after saving",
+  "frictions": [
+    {
+      "rank": 1,
+      "severity": "MED",
+      "stepIndex": 12,
+      "title": "No success confirmation after status update",
+      "whyItHurts": "After clicking 'Aggiorna stato' the only feedback is the silent badge change. A distracted or anxious user will wonder if the save happened and may click again or navigate away unsure.",
+      "suggestedDirection": "Add a brief toast/snackbar ('Stato aggiornato') that appears for 2-3 seconds after a successful save."
+    },
+    {
+      "rank": 2,
+      "severity": "MED",
+      "stepIndex": 4,
+      "title": "No 'Ordini' entry in sidebar — must guess 'Kanban'",
+      "whyItHurts": "The sidebar has Dashboard, Kanban, Audit — none of these labels obviously means 'order list'. A newcomer with 2 minutes of patience might try Audit or Anagrafiche first and waste time.",
+      "suggestedDirection": "Rename 'Kanban' to 'Ordini' or add a sub-label like 'Kanban (lista ordini)' so the destination is obvious."
+    },
+    {
+      "rank": 3,
+      "severity": "LOW",
+      "stepIndex": 7,
+      "title": "Workflow constraints invisible in status dropdown",
+      "whyItHurts": "Only 2 states appear in the dropdown with no explanation. Users don't know whether it's a bug or intentional. If they expect to jump to CONCLUSI directly they'll be confused.",
+      "suggestedDirection": "Add a small helper text under the dropdown: 'Gli stati disponibili dipendono dal flusso corrente dell'ordine.' or show all states grayed-out with tooltips."
+    }
+  ],
+  "cost": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "usd": 0
+  }
+}

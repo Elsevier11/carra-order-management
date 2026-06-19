@@ -99,7 +99,7 @@ export interface ResponsabileRecord {
   createdAt: string | null;
 }
 
-export type ConsegnaStatus = 'IN CORSO' | 'DISEGNO IN GESTIONE' | 'DISEGNO APPROVATO' | 'IN LAVORAZIONE' | 'CONCLUSI' | 'PRONTI & AVVISATI' | 'CONSEGNA PIANIFICATA' | 'SOSPESO';
+export type ConsegnaStatus = 'IN CORSO' | 'DISEGNO IN GESTIONE' | 'DISEGNO APPROVATO' | 'IN LAVORAZIONE' | 'CONCLUSI' | 'PRONTI & AVVISATI' | 'CONSEGNA PIANIFICATA' | 'CONSEGNA EFFETTUATA' | 'SOSPESO';
 
 export interface ConsegnaFilters {
   q?: string;

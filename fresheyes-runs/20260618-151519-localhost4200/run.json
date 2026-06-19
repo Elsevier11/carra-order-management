@@ -1,0 +1,62 @@
+{
+  "config": {
+    "url": "http://localhost:4200",
+    "goal": "Un utente vuole aprire un ordine esistente, aggiungere nuove informazioni (note, dati di produzione) e portarlo allo stato successivo del workflow",
+    "personaId": "skeptical-newcomer",
+    "personaName": "The Skeptical Newcomer",
+    "model": "claude-code",
+    "maxSteps": 40,
+    "maxCostUsd": 0,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    }
+  },
+  "startedAt": "2026-06-18T13:15:21.940Z",
+  "finishedAt": "2026-06-18T13:19:16.125Z",
+  "durationMs": 234185,
+  "milestones": [
+    "M1: La schermata iniziale è visibile e mostra una lista di ordini o un punto di ingresso riconoscibile",
+    "M2: Un ordine esistente è aperto e i suoi dettagli sono visibili a schermo",
+    "M3: L'utente ha trovato dove inserire nuove informazioni (note o dati di produzione) nell'ordine aperto",
+    "M4: Le nuove informazioni sono state salvate con successo nell'ordine",
+    "M5: L'ordine è stato portato allo stato successivo del workflow con conferma visibile a schermo"
+  ],
+  "outcome": "completed",
+  "score": 5,
+  "rageQuit": null,
+  "headline": "raggiunto il cambio stato, ma il silenzio dopo il salvataggio fa dubitare che abbia funzionato",
+  "frictions": [
+    {
+      "rank": 1,
+      "severity": "HIGH",
+      "stepIndex": 10,
+      "title": "Nessun toast/conferma dopo 'Aggiorna stato'",
+      "whyItHurts": "Il modal torna silenziosamente alla tab Dettagli. L'unico segnale del salvataggio è il badge in cima che cambia colore e testo — facilmente ignorabile. Un utente reale cliccherebbe 'Aggiorna stato' una seconda volta credendo che non abbia funzionato, rischiando di creare stati duplicati o errori.",
+      "suggestedDirection": "Aggiungere un toast di successo ('Stato aggiornato a DISEGNO IN GESTIONE') che rimanga visibile 2-3 secondi dopo il submit."
+    },
+    {
+      "rank": 2,
+      "severity": "MED",
+      "stepIndex": 6,
+      "title": "'Nessun campo di avanzamento' — gergo non intuitivo",
+      "whyItHurts": "Il messaggio 'Nessun campo di avanzamento per lo stato IN CORSO' appare nella tab Gestione ma non spiega cosa ci si aspetta che l'utente faccia (e dove). Un nuovo operativo non sa se deve compilare qualcosa prima di passare allo stato successivo o se il messaggio è puramente informativo.",
+      "suggestedDirection": "Sostituire con un testo orientato all'azione: 'Nessun dato aggiuntivo richiesto per questo stato. Puoi procedere al cambio stato qui sotto.' oppure nascondere la sezione se non ci sono campi."
+    },
+    {
+      "rank": 3,
+      "severity": "LOW",
+      "stepIndex": 5,
+      "title": "Due posti per le note, scopo non chiarito",
+      "whyItHurts": "La tab Dettagli ha una sezione NOTE generica (con testo esistente), mentre la tab Gestione ha un campo nota legato al cambio stato. Non è chiaro se la nota di stato finisce nell'audit log, nella sezione NOTE del dettaglio, o da nessuna parte — un utente che vuole 'aggiungere informazioni' non sa quale dei due usare.",
+      "suggestedDirection": "Aggiungere una etichetta contestuale al campo nota in Gestione ('Nota per audit log') e/o mostrare le note di stato nell'audit trail accessibile da 'Percorso completo'."
+    }
+  ],
+  "cost": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "usd": 0
+  }
+}

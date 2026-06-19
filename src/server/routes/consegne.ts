@@ -15,7 +15,7 @@ const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/
 const dateOrDateTimeRegex = /^\d{4}-\d{2}-\d{2}(?:T.*)?$/
-const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'SOSPESO'] as const
+const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'] as const
 const transitionMap: Record<(typeof allowedStatuses)[number], (typeof allowedStatuses)[number][]> = {
   'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
   'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
@@ -23,8 +23,9 @@ const transitionMap: Record<(typeof allowedStatuses)[number], (typeof allowedSta
   'IN LAVORAZIONE': ['CONCLUSI', 'SOSPESO'],
   CONCLUSI: ['PRONTI & AVVISATI', 'SOSPESO'],
   'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
-  'CONSEGNA PIANIFICATA': [],
-  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
+  'CONSEGNA PIANIFICATA': ['CONSEGNA EFFETTUATA', 'SOSPESO'],
+  'CONSEGNA EFFETTUATA': [],
+  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
 }
 const attachmentsRoot = path.resolve(process.env.ATTACHMENTS_DIR ?? './data/uploads')
 const allowedAttachmentExtensions = (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS ?? 'pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx')
