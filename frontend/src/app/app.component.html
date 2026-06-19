@@ -261,138 +261,148 @@
       @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
 
       @if (activeRegistryTab === 'persone') {
-        <section class="detail-card">
-          <h2>Gestione utenti</h2>
-          <div class="modal-grid">
-            <input type="text" [(ngModel)]="newUserModel.username" placeholder="Username (min 3 caratteri)" />
-            <select [(ngModel)]="newUserModel.role">
-              <option value="admin">admin</option>
-              <option value="operativo">operativo</option>
-              <option value="lettura">lettura</option>
-            </select>
-            <label class="kanban-toggle">
-              <input type="checkbox" [(ngModel)]="newUserModel.isActive" />
-              <span>Attivo</span>
-            </label>
-            <button type="button" [disabled]="newUserModel.username.trim().length < 3" (click)="createUser()">Crea utente</button>
-          </div>
-          @if (generatedPassword) {
-            <div class="generated-password-banner">
-              <div class="generated-password-info">
-                <span class="generated-password-label">Password generata per <strong>{{ generatedPasswordForUser }}</strong> — comunicala all'utente, non verrà più mostrata.</span>
-                <span class="generated-password-value">{{ generatedPassword }}</span>
-              </div>
-              <button type="button" class="ghost" (click)="copyGeneratedPassword()">Copia</button>
-              <button type="button" class="ghost" (click)="generatedPassword = null">✕</button>
-            </div>
-          }
-        </section>
-
-        <section class="table-card">
-          @if (usersLoading) {
-            <p>Caricamento utenti...</p>
-          } @else {
-            <table class="audit-table">
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Ruolo</th>
-                  <th>Stato</th>
-                  <th>Aggiornato</th>
-                  <th>Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (userRow of usersRows; track userRow.id) {
-                  <tr>
-                    <td>{{ userRow.username }}</td>
-                    <td>
-                      <select [ngModel]="userRow.role" (ngModelChange)="updateUserRole(userRow.id, $event)">
-                        <option value="admin">admin</option>
-                        <option value="operativo">operativo</option>
-                        <option value="lettura">lettura</option>
-                      </select>
-                    </td>
-                    <td>{{ userRow.isActive ? 'Attivo' : 'Disattivo' }}</td>
-                    <td>{{ userRow.updatedAt ? (userRow.updatedAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
-                    <td>
-                      <div class="attachment-actions">
-                        <button type="button" [class]="userRow.isActive ? 'ghost-danger' : 'ghost'" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
-                        <button type="button" class="ghost" (click)="openPasswordReset(userRow.id)">Reset password</button>
-                      </div>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          }
-        </section>
-
-        @if (passwordResetModel.userId) {
+        @if (activePersoneSubTab === 'utenti') {
           <section class="detail-card">
-            <h2>Reset password utente</h2>
+            <h2>Gestione utenti</h2>
             <div class="modal-grid">
-              <input type="password" [(ngModel)]="passwordResetModel.password" placeholder="Nuova password (min 8)" />
-              <button type="button" [disabled]="passwordResetModel.password.length < 8" (click)="resetUserPassword()">Conferma reset</button>
-              <button type="button" class="ghost" (click)="passwordResetModel = { userId: null, password: '' }">Annulla</button>
+              <input type="text" [(ngModel)]="newUserModel.username" placeholder="Username (min 3 caratteri)" />
+              <select [(ngModel)]="newUserModel.role">
+                <option value="admin">admin</option>
+                <option value="operativo">operativo</option>
+                <option value="lettura">lettura</option>
+              </select>
+              <label class="kanban-toggle">
+                <input type="checkbox" [(ngModel)]="newUserModel.isActive" />
+                <span>Attivo</span>
+              </label>
+              <button type="button" [disabled]="newUserModel.username.trim().length < 3" (click)="createUser()">Crea utente</button>
             </div>
+            @if (generatedPassword) {
+              <div class="generated-password-banner">
+                <div class="generated-password-info">
+                  <span class="generated-password-label">Password generata per <strong>{{ generatedPasswordForUser }}</strong> — comunicala all'utente, non verrà più mostrata.</span>
+                  <span class="generated-password-value">{{ generatedPassword }}</span>
+                </div>
+                <button type="button" class="ghost" (click)="copyGeneratedPassword()">Copia</button>
+                <button type="button" class="ghost" (click)="generatedPassword = null">✕</button>
+              </div>
+            }
           </section>
+
+          <section class="table-card">
+            @if (usersLoading) {
+              <p>Caricamento utenti...</p>
+            } @else {
+              <table class="audit-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Ruolo</th>
+                    <th>Stato</th>
+                    <th>Aggiornato</th>
+                    <th>Azioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (userRow of usersRows; track userRow.id) {
+                    <tr>
+                      <td>{{ userRow.username }}</td>
+                      <td>
+                        <select [ngModel]="userRow.role" (ngModelChange)="updateUserRole(userRow.id, $event)">
+                          <option value="admin">admin</option>
+                          <option value="operativo">operativo</option>
+                          <option value="lettura">lettura</option>
+                        </select>
+                      </td>
+                      <td>{{ userRow.isActive ? 'Attivo' : 'Disattivo' }}</td>
+                      <td>{{ userRow.updatedAt ? (userRow.updatedAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
+                      <td>
+                        <div class="attachment-actions">
+                          <button type="button" [class]="userRow.isActive ? 'ghost-danger' : 'ghost'" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
+                          <button type="button" class="ghost" (click)="openPasswordReset(userRow.id)">Reset password</button>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </section>
+
+          @if (passwordResetModel.userId) {
+            <section class="detail-card">
+              <h2>Reset password utente</h2>
+              <div class="modal-grid">
+                <input type="password" [(ngModel)]="passwordResetModel.password" placeholder="Nuova password (min 8)" />
+                <button type="button" [disabled]="passwordResetModel.password.length < 8" (click)="resetUserPassword()">Conferma reset</button>
+                <button type="button" class="ghost" (click)="passwordResetModel = { userId: null, password: '' }">Annulla</button>
+              </div>
+            </section>
+          }
         }
 
-        <div class="settings-page">
-          <div class="settings-card">
-            <h2 class="settings-card-title">Commerciali</h2>
-            @if (commercialiLoading) {
-              <p class="settings-loading">Caricamento...</p>
-            } @else {
-              <table class="audit-table">
-                <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-                <tbody>
-                  @for (item of commercialiRows; track item.id) {
-                    <tr>
-                      <td>{{ item.nome }}</td>
-                      <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
-                    </tr>
-                  }
-                  @if (!commercialiRows.length) {
-                    <tr><td colspan="2">Nessun commerciale.</td></tr>
-                  }
-                </tbody>
-              </table>
-              <div class="settings-inline-add">
-                <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
-                <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
-              </div>
-            }
+        @if (activePersoneSubTab === 'commerciali') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Commerciali</h2>
+              @if (commercialiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of commercialiRows; track item.id) {
+                      <tr>
+                        <td>{{ item.nome }}</td>
+                        <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
+                      </tr>
+                    }
+                    @if (!commercialiRows.length) {
+                      <tr><td colspan="2">Nessun commerciale.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
+                  <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
+                </div>
+              }
+            </div>
           </div>
+        }
 
-          <div class="settings-card">
-            <h2 class="settings-card-title">Responsabili</h2>
-            @if (responsabiliLoading) {
-              <p class="settings-loading">Caricamento...</p>
-            } @else {
-              <table class="audit-table">
-                <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-                <tbody>
-                  @for (item of responsabiliRows; track item.id) {
-                    <tr>
-                      <td>{{ item.nome }}</td>
-                      <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
-                    </tr>
-                  }
-                  @if (!responsabiliRows.length) {
-                    <tr><td colspan="2">Nessun responsabile.</td></tr>
-                  }
-                </tbody>
-              </table>
-              <div class="settings-inline-add">
-                <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
-                <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
-              </div>
-            }
+        @if (activePersoneSubTab === 'responsabili') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Responsabili</h2>
+              @if (responsabiliLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of responsabiliRows; track item.id) {
+                      <tr>
+                        <td>{{ item.nome }}</td>
+                        <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
+                      </tr>
+                    }
+                    @if (!responsabiliRows.length) {
+                      <tr><td colspan="2">Nessun responsabile.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
+                  <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
+                </div>
+              }
+            </div>
           </div>
+        }
 
-          @if (isAdmin) {
+        @if (isAdmin && activePersoneSubTab === 'mittenti-disegno') {
+          <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Mittenti Disegno</h2>
               @if (mittentiDisegnoLoading) {
@@ -429,7 +439,11 @@
                 </div>
               }
             </div>
+          </div>
+        }
 
+        @if (isAdmin && activePersoneSubTab === 'operai') {
+          <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Operai</h2>
               @if (operaiLoading) {
@@ -466,127 +480,137 @@
                 </div>
               }
             </div>
-          }
-        </div>
+          </div>
+        }
       } @else if (activeRegistryTab === 'produzione') {
-        <div class="settings-page">
-          <div class="settings-card">
-            <h2 class="settings-card-title">Vettori</h2>
-            @if (vettoriLoading) {
-              <p class="settings-loading">Caricamento...</p>
-            } @else {
-              <table class="audit-table">
-                <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
-                <tbody>
-                  @for (item of vettoriRows; track item.id) {
-                    <tr>
-                      @if (editingVettore?.id === item.id) {
-                        <td><input type="text" [(ngModel)]="editVettoreNome" /></td>
-                        <td>
-                          <button type="button" [disabled]="!editVettoreNome.trim()" (click)="saveVettore()">Salva</button>
-                          <button type="button" class="ghost" (click)="cancelEditVettore()">Annulla</button>
-                        </td>
-                      } @else {
-                        <td>{{ item.nome }}</td>
-                        <td>
-                          <button type="button" class="ghost" (click)="startEditVettore(item)">Modifica</button>
-                          <button type="button" class="danger" (click)="deleteVettore(item)">Elimina</button>
-                        </td>
-                      }
-                    </tr>
-                  }
-                  @if (!vettoriRows.length) {
-                    <tr><td colspan="2">Nessun vettore.</td></tr>
-                  }
-                </tbody>
-              </table>
-              <div class="settings-inline-add">
-                <input type="text" [(ngModel)]="newVettoreNome" placeholder="Nome vettore" />
-                <button type="button" [disabled]="!newVettoreNome.trim()" (click)="createVettore()">Aggiungi</button>
-              </div>
-            }
+        @if (activeProduzioneSubTab === 'vettori') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Vettori</h2>
+              @if (vettoriLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of vettoriRows; track item.id) {
+                      <tr>
+                        @if (editingVettore?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editVettoreNome" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editVettoreNome.trim()" (click)="saveVettore()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditVettore()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditVettore(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteVettore(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!vettoriRows.length) {
+                      <tr><td colspan="2">Nessun vettore.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newVettoreNome" placeholder="Nome vettore" />
+                  <button type="button" [disabled]="!newVettoreNome.trim()" (click)="createVettore()">Aggiungi</button>
+                </div>
+              }
+            </div>
           </div>
+        }
 
-          <div class="settings-card">
-            <h2 class="settings-card-title">Tipi Cemento</h2>
-            @if (cementiTipiLoading) {
-              <p class="settings-loading">Caricamento...</p>
-            } @else {
-              <table class="audit-table">
-                <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
-                <tbody>
-                  @for (item of cementiTipiRows; track item.id) {
-                    <tr>
-                      @if (editingCementoTipo?.id === item.id) {
-                        <td><input type="text" [(ngModel)]="editCementoTipoNome" /></td>
-                        <td><input type="number" [(ngModel)]="editCementoTipoOrdine" style="width:5rem" /></td>
-                        <td>
-                          <button type="button" [disabled]="!editCementoTipoNome.trim()" (click)="saveCementoTipo()">Salva</button>
-                          <button type="button" class="ghost" (click)="cancelEditCementoTipo()">Annulla</button>
-                        </td>
-                      } @else {
-                        <td>{{ item.nome }}</td>
-                        <td>{{ item.ordine }}</td>
-                        <td>
-                          <button type="button" class="ghost" (click)="startEditCementoTipo(item)">Modifica</button>
-                          <button type="button" class="danger" (click)="deleteCementoTipo(item)">Elimina</button>
-                        </td>
-                      }
-                    </tr>
-                  }
-                  @if (!cementiTipiRows.length) {
-                    <tr><td colspan="3">Nessun tipo cemento.</td></tr>
-                  }
-                </tbody>
-              </table>
-              <div class="settings-inline-add">
-                <input type="text" [(ngModel)]="newCementoTipoNome" placeholder="Nome tipo cemento" />
-                <input type="number" [(ngModel)]="newCementoTipoOrdine" placeholder="Ordine" style="width:5rem" />
-                <button type="button" [disabled]="!newCementoTipoNome.trim()" (click)="createCementoTipo()">Aggiungi</button>
-              </div>
-            }
+        @if (activeProduzioneSubTab === 'tipi-cemento') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Tipi Cemento</h2>
+              @if (cementiTipiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of cementiTipiRows; track item.id) {
+                      <tr>
+                        @if (editingCementoTipo?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editCementoTipoNome" /></td>
+                          <td><input type="number" [(ngModel)]="editCementoTipoOrdine" style="width:5rem" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editCementoTipoNome.trim()" (click)="saveCementoTipo()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditCementoTipo()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>{{ item.ordine }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditCementoTipo(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteCementoTipo(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!cementiTipiRows.length) {
+                      <tr><td colspan="3">Nessun tipo cemento.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newCementoTipoNome" placeholder="Nome tipo cemento" />
+                  <input type="number" [(ngModel)]="newCementoTipoOrdine" placeholder="Ordine" style="width:5rem" />
+                  <button type="button" [disabled]="!newCementoTipoNome.trim()" (click)="createCementoTipo()">Aggiungi</button>
+                </div>
+              }
+            </div>
           </div>
+        }
 
-          <div class="settings-card">
-            <h2 class="settings-card-title">Tipi Accessorio</h2>
-            @if (accessoriTipiLoading) {
-              <p class="settings-loading">Caricamento...</p>
-            } @else {
-              <table class="audit-table">
-                <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
-                <tbody>
-                  @for (item of accessoriTipiRows; track item.id) {
-                    <tr>
-                      @if (editingAccessorioTipo?.id === item.id) {
-                        <td><input type="text" [(ngModel)]="editAccessorioTipoNome" /></td>
-                        <td><input type="number" [(ngModel)]="editAccessorioTipoOrdine" style="width:5rem" /></td>
-                        <td>
-                          <button type="button" [disabled]="!editAccessorioTipoNome.trim()" (click)="saveAccessorioTipo()">Salva</button>
-                          <button type="button" class="ghost" (click)="cancelEditAccessorioTipo()">Annulla</button>
-                        </td>
-                      } @else {
-                        <td>{{ item.nome }}</td>
-                        <td>{{ item.ordine }}</td>
-                        <td>
-                          <button type="button" class="ghost" (click)="startEditAccessorioTipo(item)">Modifica</button>
-                          <button type="button" class="danger" (click)="deleteAccessorioTipo(item)">Elimina</button>
-                        </td>
-                      }
-                    </tr>
-                  }
-                  @if (!accessoriTipiRows.length) {
-                    <tr><td colspan="3">Nessun tipo accessorio.</td></tr>
-                  }
-                </tbody>
-              </table>
-              <div class="settings-inline-add">
-                <input type="text" [(ngModel)]="newAccessorioTipoNome" placeholder="Nome tipo accessorio" />
-                <input type="number" [(ngModel)]="newAccessorioTipoOrdine" placeholder="Ordine" style="width:5rem" />
-                <button type="button" [disabled]="!newAccessorioTipoNome.trim()" (click)="createAccessorioTipo()">Aggiungi</button>
-              </div>
-            }
+        @if (activeProduzioneSubTab === 'tipi-accessorio') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Tipi Accessorio</h2>
+              @if (accessoriTipiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of accessoriTipiRows; track item.id) {
+                      <tr>
+                        @if (editingAccessorioTipo?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editAccessorioTipoNome" /></td>
+                          <td><input type="number" [(ngModel)]="editAccessorioTipoOrdine" style="width:5rem" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editAccessorioTipoNome.trim()" (click)="saveAccessorioTipo()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditAccessorioTipo()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>{{ item.ordine }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditAccessorioTipo(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteAccessorioTipo(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!accessoriTipiRows.length) {
+                      <tr><td colspan="3">Nessun tipo accessorio.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newAccessorioTipoNome" placeholder="Nome tipo accessorio" />
+                  <input type="number" [(ngModel)]="newAccessorioTipoOrdine" placeholder="Ordine" style="width:5rem" />
+                  <button type="button" [disabled]="!newAccessorioTipoNome.trim()" (click)="createAccessorioTipo()">Aggiungi</button>
+                </div>
+              }
+            </div>
           </div>
-        </div>
+        }
       }
     } @else {
       @if (operationError) {
