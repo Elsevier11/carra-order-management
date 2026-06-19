@@ -98,6 +98,11 @@
   color: #ea580c;
 }
 
+.status-chip.status-consegna-effettuata {
+  border-color: rgba(5, 150, 105, 0.24);
+  color: #059669;
+}
+
 .status-chip.status-conclusi {
   border-color: rgba(29, 78, 216, 0.2);
   color: #1d4ed8;
@@ -109,37 +114,25 @@
 }
 
 .kanban-grid {
-  margin-top: 20px;
   display: grid;
-  grid-template-columns: repeat(8, minmax(240px, 1fr));
+  grid-template-columns: repeat(9, 260px);
   gap: 16px;
-  align-items: stretch;
-  overflow-x: auto;
-  padding-bottom: 12px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-track) transparent;
-  scroll-snap-type: x proximity;
-}
-
-.kanban-grid::-webkit-scrollbar {
-  height: 6px;
-}
-
-.kanban-grid::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.kanban-grid::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-track);
-  border-radius: 999px;
-}
-
-.kanban-grid::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb);
+  align-items: start;
+  padding: 18px 0 12px;
 }
 
 .kanban-scroll-wrap {
   position: relative;
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.kanban-scroll-wrap::-webkit-scrollbar {
+  display: none;
 }
 
 .kanban-scroll-wrap::after {
@@ -148,15 +141,52 @@
   top: 0;
   right: 0;
   width: 40px;
-  height: calc(100% - 12px);
+  height: 100%;
   background: linear-gradient(to right, transparent, var(--bg) 85%);
   pointer-events: none;
+}
+
+.kanban-bottom-scroll {
+  position: fixed;
+  left: 300px;
+  right: 0;
+  bottom: 0;
+  height: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 35;
+  background: linear-gradient(180deg, rgba(238, 243, 249, 0), rgba(238, 243, 249, 0.88) 30%, rgba(238, 243, 249, 0.98) 100%);
+  border-top: 1px solid var(--border-glass);
+  box-shadow: 0 -8px 16px rgba(15, 23, 42, 0.04);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-track) transparent;
+}
+
+.kanban-bottom-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.kanban-bottom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kanban-bottom-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+.kanban-bottom-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb);
+}
+
+.kanban-bottom-scroll__spacer {
+  height: 1px;
 }
 
 .kanban-column {
   min-width: 240px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
   gap: 12px;
 }
 
@@ -182,6 +212,10 @@
 
 .kanban-column.status-consegna-pianificata {
   --kanban-color: #ea580c;
+}
+
+.kanban-column.status-consegna-effettuata {
+  --kanban-color: #059669;
 }
 
 .kanban-column.status-conclusi {
@@ -233,9 +267,6 @@
   display: grid;
   align-content: start;
   gap: 10px;
-  min-height: clamp(460px, calc(100vh - 270px), 9999px);
-  max-height: none;
-  overflow: visible;
 }
 
 .kanban-card-wrap {
@@ -366,7 +397,7 @@
 
 @media (max-width: 1600px) {
   .kanban-grid {
-    grid-template-columns: repeat(7, minmax(220px, 1fr));
+    grid-template-columns: repeat(9, 240px);
   }
 }
 
@@ -415,24 +446,23 @@
 }
 
 .kanban-filters {
-  display: flex;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: minmax(180px, 1.05fr) minmax(140px, 0.8fr) repeat(2, minmax(120px, 0.58fr)) auto auto;
   gap: 10px;
-  flex: 1;
+  align-items: end;
+  flex: 1 1 680px;
   min-width: 0;
-  flex-wrap: wrap;
 }
 
 .kanban-filters input[type="text"],
 .kanban-filters select {
-  flex: 1;
-  min-width: 160px;
-  max-width: 280px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .kanban-reset-btn {
-  flex-shrink: 0;
-  white-space: nowrap;
+  min-width: 116px;
 }
 
 .date-filter-label {
@@ -450,18 +480,14 @@
   }
 
   input {
-    min-width: 130px;
+    min-width: 0;
   }
 }
 
-.kanban-view-toggles {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-left: 14px;
-  border-left: 1px solid var(--border);
-  flex-shrink: 0;
-  flex-wrap: wrap;
+@media (max-width: 980px) {
+  .kanban-bottom-scroll {
+    left: 0;
+  }
 }
 
 // ── Kanban skeleton ───────────────────────────────────────────
@@ -512,6 +538,50 @@
   font-weight: 500;
   margin-top: 2px;
   user-select: none;
+}
+
+// ── Week separator (CONSEGNA PIANIFICATA) ────────────────────
+.kanban-week-separator {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 10px 4px 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-glass-dashed);
+
+  &:first-child {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 4px;
+  }
+}
+
+// ── Column visibility toggles ─────────────────────────────────
+.kanban-col-toggles-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.kanban-col-chip {
+  cursor: pointer;
+  transition: opacity 0.18s, filter 0.18s;
+
+  &.kanban-col-chip--off {
+    opacity: 0.3;
+    filter: saturate(0);
+  }
+
+  &:hover {
+    opacity: 1;
+    filter: none;
+  }
 }
 
 // ── Motion accessibility ──────────────────────────────────────

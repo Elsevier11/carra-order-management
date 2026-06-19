@@ -40,7 +40,7 @@
       </div>
     </nav>
 
-    <div class="content">
+    <div class="content" [class.content--kanban]="activeView === 'kanban'">
       @if (activeView === 'audit' || activeView === 'anagrafiche') {
         <div class="content-header">
           <h1 class="content-title">
@@ -51,52 +51,62 @@
       }
 
     @if (activeView === 'kanban') {
-      <div class="content-header">
-        <div class="kanban-page-header-left">
-          <h1 class="content-title">Kanban ordini</h1>
-          @if (activeFiltersCount > 0) {
-            <span class="kanban-active-filters-badge">{{ activeFiltersCount }} filtri attivi</span>
-          }
-        </div>
-        <div class="content-header-right">
-          @if (canWrite) {
-            <button type="button" class="ghost" (click)="openSqlImportModal()">Importa da ERP</button>
-          }
-          @if (canWrite) {
-            <button type="button" (click)="openCreate()">Nuovo ordine</button>
-          }
-        </div>
-      </div>
-      <div class="kanban-controls">
-        <div class="kanban-filters">
-          <input type="text" [(ngModel)]="filters.q" (ngModelChange)="onFilterTextChange()" placeholder="Cerca per rif, cliente, impianto..." />
-          <select [(ngModel)]="filters.cliente" (ngModelChange)="onFilterSelectChange()">
-            <option value="">Tutti i clienti</option>
-            @for (cliente of availableFilters.clienti; track cliente) {
-              <option [value]="cliente">{{ cliente }}</option>
+      <div class="kanban-hero">
+        <div class="kanban-hero__top">
+          <div class="kanban-page-header-left">
+            <h1 class="content-title">Ordini</h1>
+            <div class="kanban-col-toggles kanban-col-toggles--inline">
+              @for (status of statusFlow; track status) {
+                <button
+                  type="button"
+                  class="status-chip kanban-col-chip"
+                  [class.kanban-col-chip--off]="!isColumnVisible(status)"
+                  [ngClass]="columnClass(status)"
+                  (click)="toggleColumnVisibility(status)"
+                  [attr.aria-pressed]="isColumnVisible(status)"
+                  [title]="status"
+                >
+                  <span class="kanban-col-chip__flag" [class.kanban-col-chip__flag--on]="isColumnVisible(status)" aria-hidden="true"></span>
+                  <span class="kanban-col-chip__label">{{ columnShortLabel(status) }}</span>
+                </button>
+              }
+            </div>
+          </div>
+          <div class="kanban-header-actions">
+            @if (canWrite) {
+              <button type="button" (click)="openCreate()">Nuovo ordine</button>
             }
-          </select>
-          <label class="date-filter-label">
-            <span>Dal</span>
-            <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
-          </label>
-          <label class="date-filter-label">
-            <span>Al</span>
-            <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
-          </label>
-          @if (activeFiltersCount > 0) {
-            <button type="button" class="ghost kanban-reset-btn" (click)="resetFilters()">Reimposta</button>
-          }
+            @if (canWrite) {
+              <button type="button" class="ghost" (click)="openSqlImportModal()">Importa da ERP</button>
+            }
+          </div>
         </div>
-        <div class="kanban-view-toggles">
-          <label class="kanban-toggle">
-            <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
-            <span>Solo ritardi</span>
-          </label>
-          <label class="kanban-toggle">
-            <input type="checkbox" [(ngModel)]="kanbanCompactMode" />
-            <span>Vista compatta</span>
-          </label>
+
+        <div class="kanban-hero__filters">
+          <div class="kanban-filters">
+            <input type="text" [(ngModel)]="filters.q" (ngModelChange)="onFilterTextChange()" placeholder="Cerca per rif, cliente, impianto..." />
+            <select [(ngModel)]="filters.cliente" (ngModelChange)="onFilterSelectChange()">
+              <option value="">Tutti i clienti</option>
+              @for (cliente of availableFilters.clienti; track cliente) {
+                <option [value]="cliente">{{ cliente }}</option>
+              }
+            </select>
+            <label class="date-filter-label">
+              <span>Dal</span>
+              <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
+            </label>
+            <label class="date-filter-label">
+              <span>Al</span>
+              <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
+            </label>
+            @if (activeFiltersCount > 0) {
+              <button type="button" class="ghost kanban-reset-btn" (click)="resetFilters()">Reimposta</button>
+            }
+            <label class="kanban-toggle kanban-toggle--inline">
+              <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
+              <span>Solo ritardi</span>
+            </label>
+          </div>
         </div>
       </div>
     }
@@ -764,7 +774,7 @@
           </div>
         </section>
 
-        <div class="kanban-scroll-wrap">
+        <div class="kanban-scroll-wrap" #kanbanMainScroll (scroll)="onKanbanMainScroll()">
           <section class="kanban-grid" [class.kanban-grid--compact]="kanbanCompactMode">
             @if (loadingBoard) {
               @for (s of statusFlow; track s) {
@@ -776,6 +786,7 @@
               }
             } @else {
               @for (column of boardColumns; track column.status) {
+                @if (isColumnVisible(column.status)) {
                 <article class="kanban-column" [ngClass]="columnClass(column.status)">
                   <header>
                     <h2>{{ column.status }}</h2>
@@ -800,38 +811,75 @@
                         @if (showOnlyLateInKanban) { Nessun ritardo } @else { Nessun ordine }
                       </div>
                     }
-                    @for (item of filteredKanbanItems(column.items); track item.id) {
-                      <div class="kanban-card-wrap">
-                        <button
-                          type="button"
-                          class="kanban-card"
-                          [class.kanban-card--compact]="kanbanCompactMode"
-                          cdkDrag
-                          [disabled]="!canWrite || showOnlyLateInKanban"
-                          (click)="selectFromBoard(item)"
-                        >
-                          <strong>{{ item.rif }}</strong>
-                          <span class="kanban-card-cliente">{{ item.cliente }}</span>
-                          @if (item.tipoImpianto) {
-                            <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
-                          }
-                          <div class="kanban-card-meta">
-                            <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
+                    @if (column.status === 'CONSEGNA PIANIFICATA' || column.status === 'CONSEGNA EFFETTUATA') {
+                      @for (group of weekGroups(column.items); track group.key) {
+                        <div class="kanban-week-separator">{{ group.label }}</div>
+                        @for (item of group.items; track item.id) {
+                          <div class="kanban-card-wrap">
+                            <button
+                              type="button"
+                              class="kanban-card"
+                              [class.kanban-card--compact]="kanbanCompactMode"
+                              cdkDrag
+                              [disabled]="!canWrite || showOnlyLateInKanban"
+                              (click)="selectFromBoard(item)"
+                            >
+                              <strong>{{ item.rif }}</strong>
+                              <span class="kanban-card-cliente">{{ item.cliente }}</span>
+                              @if (item.tipoImpianto) {
+                                <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
+                              }
+                              <div class="kanban-card-meta">
+                                <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
+                              </div>
+                              @if (isLate(item)) {
+                                <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
+                              }
+                            </button>
+                            <button type="button" class="kanban-history-btn" aria-label="Percorso ordine" title="Percorso ordine" (click)="openHistoryModal(item)">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            </button>
                           </div>
-                          @if (isLate(item)) {
-                            <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
-                          }
-                        </button>
-                        <button type="button" class="kanban-history-btn" aria-label="Percorso ordine" title="Percorso ordine" (click)="openHistoryModal(item)">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        </button>
-                      </div>
+                        }
+                      }
+                    } @else {
+                      @for (item of filteredKanbanItems(column.items); track item.id) {
+                        <div class="kanban-card-wrap">
+                          <button
+                            type="button"
+                            class="kanban-card"
+                            [class.kanban-card--compact]="kanbanCompactMode"
+                            cdkDrag
+                            [disabled]="!canWrite || showOnlyLateInKanban"
+                            (click)="selectFromBoard(item)"
+                          >
+                            <strong>{{ item.rif }}</strong>
+                            <span class="kanban-card-cliente">{{ item.cliente }}</span>
+                            @if (item.tipoImpianto) {
+                              <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
+                            }
+                            <div class="kanban-card-meta">
+                              <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
+                            </div>
+                            @if (isLate(item)) {
+                              <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
+                            }
+                          </button>
+                          <button type="button" class="kanban-history-btn" aria-label="Percorso ordine" title="Percorso ordine" (click)="openHistoryModal(item)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          </button>
+                        </div>
+                      }
                     }
                   </div>
                 </article>
+                }
               }
             }
           </section>
+        </div>
+        <div class="kanban-bottom-scroll" #kanbanBottomScroll (scroll)="onKanbanBottomScroll()" aria-hidden="true">
+          <div class="kanban-bottom-scroll__spacer" [style.width.px]="kanbanScrollContentWidth"></div>
         </div>
       }
 

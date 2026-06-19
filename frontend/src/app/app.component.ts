@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Component, OnDestroy, OnInit, Type, inject } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, Type, ViewChild, inject } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, Observable, Subject } from 'rxjs';
@@ -67,7 +67,7 @@ type RegistryTab = 'persone' | 'produzione';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly consegneService = inject(ConsegneService);
   private readonly authService = inject(AuthService);
   private readonly settingsService = inject(SettingsService);
@@ -104,7 +104,7 @@ export class AppComponent implements OnInit, OnDestroy {
   user: AuthUser | null = null;
   canWrite = false;
 
-  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'SOSPESO'];
+  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'];
   readonly transitionRules: Record<ConsegnaStatus, ConsegnaStatus[]> = {
     'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
     'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
@@ -112,14 +112,17 @@ export class AppComponent implements OnInit, OnDestroy {
     'IN LAVORAZIONE': ['CONCLUSI', 'SOSPESO'],
     'CONCLUSI': ['PRONTI & AVVISATI', 'SOSPESO'],
     'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
-    'CONSEGNA PIANIFICATA': [],
-    'SOSPESO': ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA'],
+    'CONSEGNA PIANIFICATA': ['CONSEGNA EFFETTUATA', 'SOSPESO'],
+    'CONSEGNA EFFETTUATA': [],
+    'SOSPESO': ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
   };
 
   boardColumns: BoardColumn[] = [];
   loadingBoard = false;
   showOnlyLateInKanban = false;
   kanbanCompactMode = false;
+  visibleStatuses: Set<ConsegnaStatus> = new Set(this.statusFlow);
+  kanbanScrollContentWidth = 0;
   history: OrderEvent[] = [];
   loadingHistory = false;
 
@@ -318,6 +321,22 @@ export class AppComponent implements OnInit, OnDestroy {
   editMode = false;
   private dettagliSnapshot = '';
 
+  private kanbanMainScrollEl: HTMLElement | null = null;
+  private kanbanBottomScrollEl: HTMLElement | null = null;
+  private kanbanScrollSyncRaf: number | null = null;
+
+  @ViewChild('kanbanMainScroll')
+  set kanbanMainScrollRef(ref: ElementRef<HTMLElement> | undefined) {
+    this.kanbanMainScrollEl = ref?.nativeElement ?? null;
+    this.scheduleKanbanScrollSync();
+  }
+
+  @ViewChild('kanbanBottomScroll')
+  set kanbanBottomScrollRef(ref: ElementRef<HTMLElement> | undefined) {
+    this.kanbanBottomScrollEl = ref?.nativeElement ?? null;
+    this.scheduleKanbanScrollSync();
+  }
+
 
   readonly columns = [
     { name: 'Rif', prop: 'rif' },
@@ -347,6 +366,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.user = this.authService.user;
     this.canWrite = this.user?.role === 'admin' || this.user?.role === 'operativo';
+    this._restoreVisibleColumns();
 
     this.authService.user$.subscribe((user) => {
       this.user = user;
@@ -374,7 +394,15 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  ngAfterViewInit(): void {
+    this.scheduleKanbanScrollSync();
+  }
+
   ngOnDestroy(): void {
+    if (this.kanbanScrollSyncRaf !== null) {
+      cancelAnimationFrame(this.kanbanScrollSyncRaf);
+      this.kanbanScrollSyncRaf = null;
+    }
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -611,7 +639,9 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get boardDropListIds(): string[] {
-    return this.boardColumns.map((column) => this.dropListId(column.status));
+    return this.boardColumns
+      .filter((col) => this.isColumnVisible(col.status))
+      .map((column) => this.dropListId(column.status));
   }
 
   dropListId(status: string): string {
@@ -626,10 +656,45 @@ export class AppComponent implements OnInit, OnDestroy {
       'IN LAVORAZIONE': 'status-in-lavorazione',
       'PRONTI & AVVISATI': 'status-pronti-avvisati',
       'CONSEGNA PIANIFICATA': 'status-consegna-pianificata',
+      'CONSEGNA EFFETTUATA': 'status-consegna-effettuata',
       CONCLUSI: 'status-conclusi',
       SOSPESO: 'status-sospeso',
     };
     return map[status] ?? '';
+  }
+
+  columnShortLabel(status: ConsegnaStatus): string {
+    const map: Record<ConsegnaStatus, string> = {
+      'IN CORSO': 'In corso',
+      'DISEGNO IN GESTIONE': 'Dis. gestione',
+      'DISEGNO APPROVATO': 'Dis. approvato',
+      'IN LAVORAZIONE': 'Lavorazione',
+      'CONCLUSI': 'Conclusi',
+      'PRONTI & AVVISATI': 'Pronti',
+      'CONSEGNA PIANIFICATA': 'Cons. pianif.',
+      'CONSEGNA EFFETTUATA': 'Cons. eff.',
+      'SOSPESO': 'Sospeso',
+    };
+    return map[status] ?? status;
+  }
+
+  isColumnVisible(status: ConsegnaStatus): boolean {
+    return this.visibleStatuses.has(status);
+  }
+
+  toggleColumnVisibility(status: ConsegnaStatus): void {
+    if (this.visibleStatuses.has(status)) {
+      if (this.visibleStatuses.size > 1) {
+        this.visibleStatuses.delete(status);
+      }
+    } else {
+      this.visibleStatuses.add(status);
+    }
+    localStorage.setItem(
+      this.userScopedStorageKey('carra_kanban_visible_cols'),
+      JSON.stringify([...this.visibleStatuses])
+    );
+    this.scheduleKanbanScrollSync();
   }
 
   lateCount(items: ConsegnaRecord[]): number {
@@ -643,6 +708,51 @@ export class AppComponent implements OnInit, OnDestroy {
 
   visibleKanbanCount(items: ConsegnaRecord[]): number {
     return this.filteredKanbanItems(items).length;
+  }
+
+  weekGroups(items: ConsegnaRecord[]): Array<{ label: string; key: number; items: ConsegnaRecord[] }> {
+    const filtered = this.filteredKanbanItems(items);
+    const map = new Map<number, { label: string; key: number; items: ConsegnaRecord[] }>();
+    const noDate: ConsegnaRecord[] = [];
+    for (const item of filtered) {
+      if (!item.dataConsegna) { noDate.push(item); continue; }
+      const d = new Date(item.dataConsegna);
+      const week = this._isoWeek(d);
+      const year = this._isoWeekYear(d);
+      const key = year * 100 + week;
+      if (!map.has(key)) {
+        const { mon, sun } = this._weekRange(d);
+        map.set(key, { key, label: `Sett. ${String(week).padStart(2, '0')} — dal ${mon} al ${sun}`, items: [] });
+      }
+      map.get(key)!.items.push(item);
+    }
+    const sorted = [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => g);
+    if (noDate.length) sorted.push({ key: 0, label: 'Data non definita', items: noDate });
+    return sorted;
+  }
+
+  private _isoWeek(d: Date): number {
+    const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = dt.getUTCDay() || 7;
+    dt.setUTCDate(dt.getUTCDate() + 4 - day);
+    const y0 = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+    return Math.ceil(((dt.getTime() - y0.getTime()) / 86400000 + 1) / 7);
+  }
+
+  private _isoWeekYear(d: Date): number {
+    const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = dt.getUTCDay() || 7;
+    dt.setUTCDate(dt.getUTCDate() + 4 - day);
+    return dt.getUTCFullYear();
+  }
+
+  private _weekRange(d: Date): { mon: string; sun: string } {
+    const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = dt.getUTCDay() || 7;
+    const mon = new Date(dt); mon.setUTCDate(dt.getUTCDate() - day + 1);
+    const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+    const fmt = (x: Date) => `${String(x.getUTCDate()).padStart(2, '0')}/${String(x.getUTCMonth() + 1).padStart(2, '0')}`;
+    return { mon: fmt(mon), sun: fmt(sun) };
   }
 
   lateCountByStatus(status: ConsegnaStatus): number {
@@ -1767,11 +1877,55 @@ export class AppComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.boardColumns = response.columns;
         this.loadingBoard = false;
+        this.scheduleKanbanScrollSync();
       },
       error: () => {
         this.loadingBoard = false;
       },
     });
+  }
+
+  onKanbanMainScroll(): void {
+    if (!this.kanbanMainScrollEl || !this.kanbanBottomScrollEl) return;
+    const left = this.kanbanMainScrollEl.scrollLeft;
+    if (this.kanbanBottomScrollEl.scrollLeft !== left) {
+      this.kanbanBottomScrollEl.scrollLeft = left;
+    }
+  }
+
+  onKanbanBottomScroll(): void {
+    if (!this.kanbanMainScrollEl || !this.kanbanBottomScrollEl) return;
+    const left = this.kanbanBottomScrollEl.scrollLeft;
+    if (this.kanbanMainScrollEl.scrollLeft !== left) {
+      this.kanbanMainScrollEl.scrollLeft = left;
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.scheduleKanbanScrollSync();
+  }
+
+  private scheduleKanbanScrollSync(): void {
+    if (this.kanbanScrollSyncRaf !== null) {
+      cancelAnimationFrame(this.kanbanScrollSyncRaf);
+    }
+    this.kanbanScrollSyncRaf = requestAnimationFrame(() => {
+      this.kanbanScrollSyncRaf = null;
+      this.syncKanbanScrollbars();
+    });
+  }
+
+  private syncKanbanScrollbars(): void {
+    const main = this.kanbanMainScrollEl;
+    const bottom = this.kanbanBottomScrollEl;
+    if (!main || !bottom) return;
+
+    this.kanbanScrollContentWidth = main.scrollWidth;
+    bottom.scrollLeft = main.scrollLeft;
+    if (Math.abs(main.scrollLeft - bottom.scrollLeft) > 1) {
+      main.scrollLeft = bottom.scrollLeft;
+    }
   }
 
   private loadHistory(id: number): void {
@@ -2333,6 +2487,20 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private userScopedStorageKey(key: string): string {
     return this.user?.username ? `${key}_${this.user.username}` : key;
+  }
+
+  private _restoreVisibleColumns(): void {
+    try {
+      const raw = localStorage.getItem(this.userScopedStorageKey('carra_kanban_visible_cols'));
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as ConsegnaStatus[];
+      const valid = parsed.filter((s) => this.statusFlow.includes(s));
+      if (valid.length > 0) {
+        this.visibleStatuses = new Set(valid);
+      }
+    } catch {
+      // ignore corrupt storage
+    }
   }
 
   private normalizeFiltersAgainstAvailableOptions(): void {
