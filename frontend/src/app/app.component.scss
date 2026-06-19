@@ -229,6 +229,17 @@
   color: #fff;
 }
 
+.registry-subtabs {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, #e2e8f0);
+
+  button {
+    font-size: 0.875rem;
+    padding: 4px 12px;
+  }
+}
+
 .charts {
   margin-top: 20px;
   display: grid;
