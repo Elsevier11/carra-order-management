@@ -30,7 +30,7 @@ const STATUS_ORDER = [
 
       .kpi-row {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 6px;
       }
 
@@ -138,6 +138,13 @@ const STATUS_ORDER = [
         <div class="kpi-card" [class.kpi-card--warn]="stats.kpi.consegneProssimaSettimana > 10">
           <span class="kpi-value">{{ stats.kpi.consegneProssimaSettimana }}</span>
           <span class="kpi-label">Consegne settimana prossima</span>
+        </div>
+        <div class="kpi-card" [class.kpi-card--warn]="stats.kpi.ordiniIncompleti > 0">
+          <span class="kpi-value">{{ stats.kpi.ordiniIncompleti }}</span>
+          <span class="kpi-label">
+            Ordini incompleti
+            <small>resp. o documenti mancanti</small>
+          </span>
         </div>
         <div class="kpi-card" [class.kpi-card--warn]="stats.kpi.accontiDaIncassare > 0">
           <span class="kpi-value">{{ stats.kpi.accontiDaIncassare }}</span>

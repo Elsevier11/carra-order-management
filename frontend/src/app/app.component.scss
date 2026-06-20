@@ -994,6 +994,30 @@
   color: var(--primary);
 }
 
+.kanban-card-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.kanban-card-alert {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.detail-alerts {
+  margin-top: 6px;
+}
+
 .audit-action-badge {
   display: inline-block;
   padding: 2px 7px;

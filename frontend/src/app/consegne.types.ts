@@ -130,6 +130,10 @@ export interface ConsegnaStats {
     ritardi: number;
     totaleAttivi: number;
     accontiDaIncassare: number;
+    ordiniIncompleti: number;
+    senzaResponsabile: number;
+    senzaDocumenti: number;
+    senzaFoto: number;
   };
   byStatus: Array<{ stato: string; count: number }>;
   pipelineConRitardi: Array<{ stato: string; total: number; late: number }>;

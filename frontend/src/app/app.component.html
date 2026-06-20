@@ -835,6 +835,15 @@
                               <div class="kanban-card-meta">
                                 <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
                               </div>
+                              @if (orderWarnings(item); as warnings) {
+                                @if (warnings.length) {
+                                  <div class="kanban-card-alerts">
+                                    @for (warning of warnings; track warning) {
+                                      <span class="kanban-card-alert">{{ warning }}</span>
+                                    }
+                                  </div>
+                                }
+                              }
                               @if (isLate(item)) {
                                 <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
                               }
@@ -864,6 +873,15 @@
                             <div class="kanban-card-meta">
                               <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
                             </div>
+                            @if (orderWarnings(item); as warnings) {
+                              @if (warnings.length) {
+                                <div class="kanban-card-alerts">
+                                  @for (warning of warnings; track warning) {
+                                    <span class="kanban-card-alert">{{ warning }}</span>
+                                  }
+                                </div>
+                              }
+                            }
                             @if (isLate(item)) {
                               <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
                             }
@@ -907,6 +925,15 @@
               </span>
               <h2 class="detail-title">{{ selectedDetail.rif }}</h2>
               <p class="detail-subtitle">{{ selectedDetail.cliente || '—' }}</p>
+              @if (orderWarnings(selectedDetail); as warnings) {
+                @if (warnings.length) {
+                  <div class="kanban-card-alerts detail-alerts">
+                    @for (warning of warnings; track warning) {
+                      <span class="kanban-card-alert">{{ warning }}</span>
+                    }
+                  </div>
+                }
+              }
             </div>
             <div class="detail-header-actions">
               @if (canWrite) {

@@ -173,7 +173,17 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   stats: ConsegnaStats = {
-    kpi: { consegneSettimanaCorrente: 0, consegneProssimaSettimana: 0, ritardi: 0, totaleAttivi: 0, accontiDaIncassare: 0 },
+    kpi: {
+      consegneSettimanaCorrente: 0,
+      consegneProssimaSettimana: 0,
+      ritardi: 0,
+      totaleAttivi: 0,
+      accontiDaIncassare: 0,
+      ordiniIncompleti: 0,
+      senzaResponsabile: 0,
+      senzaDocumenti: 0,
+      senzaFoto: 0,
+    },
     byStatus: [],
     pipelineConRitardi: [],
     weeklyTrend: [],
@@ -782,6 +792,16 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return Math.max(1, Math.floor((today.getTime() - dueDate.getTime()) / 86400000));
+  }
+
+  orderWarnings(item: ConsegnaRecord): string[] {
+    const warnings: string[] = [];
+    if (this.isLate(item)) warnings.push(`Ritardo ${this.lateDays(item)}g`);
+    if (!item.dataConsegna) warnings.push('Data consegna mancante');
+    if (!item.responsabileInternoId) warnings.push('Resp. mancante');
+    if (!item.folderLinkDocumenti) warnings.push('Doc mancanti');
+    if (!item.folderLinkFoto) warnings.push('Foto mancanti');
+    return warnings;
   }
 
   onKanbanDrop(event: CdkDragDrop<ConsegnaRecord[]>, targetStatus: ConsegnaStatus): void {

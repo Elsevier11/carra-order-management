@@ -623,8 +623,6 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
           alignment: { horizontal: 'center', vertical: 'center' },
         })
       }
-      const lateIndex = booleanColumnIndices.get('Acconto pagato')
-      void lateIndex
       if (row['In ritardo'] === 'Si') {
         const lateRef = `${XLSX.utils.encode_col(orderHeaders.indexOf('In ritardo'))}${excelRow}`
         const delayRef = `${XLSX.utils.encode_col(orderHeaders.indexOf('Giorni ritardo'))}${excelRow}`
@@ -736,6 +734,10 @@ router.get('/stats', async (_req, res, next) => {
       totalAttiviRows,
       nextWeekRows,
       accontiRows,
+      incompleteRows,
+      missingResponsabileRows,
+      missingDocumentiRows,
+      missingFotoRows,
       pipelineRows,
       pipelineLateRows,
       upcomingRows,
@@ -781,6 +783,29 @@ router.get('/stats', async (_req, res, next) => {
         .where(and(gte(ordini.dataConsegna, nextMonday), lte(ordini.dataConsegna, nextSunday), activeFilter)),
       // acconti da incassare
       db.select({ count: count() }).from(ordini).where(and(eq(ordini.accontoPagato, false), activeFilter)),
+      // ordini incompleti
+      db
+        .select({ count: count() })
+        .from(ordini)
+        .where(
+          and(
+            activeFilter,
+            or(
+              sql`${ordini.dataConsegna} is null`,
+              sql`${ordini.responsabileInternoId} is null`,
+              sql`${ordini.folderLinkDocumenti} is null`,
+              sql`${ordini.folderLinkDocumenti} = ''`,
+              sql`${ordini.folderLinkFoto} is null`,
+              sql`${ordini.folderLinkFoto} = ''`,
+            ),
+          ),
+        ),
+      // qualità dati: responsabile mancante
+      db.select({ count: count() }).from(ordini).where(and(activeFilter, or(sql`${ordini.responsabileInternoId} is null`, sql`${ordini.responsabileInternoId} = 0`))),
+      // qualità dati: cartella documenti mancante
+      db.select({ count: count() }).from(ordini).where(and(activeFilter, or(sql`${ordini.folderLinkDocumenti} is null`, sql`${ordini.folderLinkDocumenti} = ''`))),
+      // qualità dati: cartella foto mancante
+      db.select({ count: count() }).from(ordini).where(and(activeFilter, or(sql`${ordini.folderLinkFoto} is null`, sql`${ordini.folderLinkFoto} = ''`))),
       // pipeline: totale per stato
       db
         .select({ stato: sql<string>`coalesce(${ordini.stato}, 'IN CORSO')`, total: count() })
@@ -833,6 +858,10 @@ router.get('/stats', async (_req, res, next) => {
         ritardi: Number(lateRows[0]?.count ?? 0),
         totaleAttivi: Number(totalAttiviRows[0]?.count ?? 0),
         accontiDaIncassare: Number(accontiRows[0]?.count ?? 0),
+        ordiniIncompleti: Number(incompleteRows[0]?.count ?? 0),
+        senzaResponsabile: Number(missingResponsabileRows[0]?.count ?? 0),
+        senzaDocumenti: Number(missingDocumentiRows[0]?.count ?? 0),
+        senzaFoto: Number(missingFotoRows[0]?.count ?? 0),
       },
       byStatus: byStatusRows,
       pipelineConRitardi,
