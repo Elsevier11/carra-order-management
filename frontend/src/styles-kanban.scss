@@ -135,17 +135,6 @@
   display: none;
 }
 
-.kanban-scroll-wrap::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 40px;
-  height: 100%;
-  background: linear-gradient(to right, transparent, var(--bg) 85%);
-  pointer-events: none;
-}
-
 .kanban-bottom-scroll {
   position: fixed;
   left: 300px;
@@ -185,9 +174,12 @@
 
 .kanban-column {
   min-width: 240px;
+  width: 260px;
+  max-width: 260px;
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 12px;
+  overflow: hidden;
 }
 
 .kanban-column.status-in-corso {
@@ -267,14 +259,20 @@
   display: grid;
   align-content: start;
   gap: 10px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .kanban-card-wrap {
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .kanban-card {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 132px;
   padding: 14px 42px 14px 14px;
   box-sizing: border-box;
@@ -314,6 +312,7 @@
   gap: 6px;
   color: var(--muted);
   font-size: 0.78rem;
+  min-width: 0;
 }
 
 .kanban-card-meta__date {
@@ -334,6 +333,8 @@
   line-height: 1.35;
   font-weight: 700;
   color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .kanban-card-impianto {

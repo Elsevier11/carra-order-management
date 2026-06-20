@@ -1,11 +1,22 @@
 @if (!user) {
   <div class="login-page">
     <div class="login-card">
-      <h1>Accesso Piattaforma Carra</h1>
-      <p>Utenti demo: admin/admin123, operativo/operativo123, lettura/lettura123</p>
-      <input type="text" [(ngModel)]="loginState.username" placeholder="Username" />
-      <input type="password" [(ngModel)]="loginState.password" placeholder="Password" />
-      <button type="button" (click)="login()">Login</button>
+      <div class="login-card__header">
+        <h1>Accedi a Carra Ordini</h1>
+        <p class="login-card__lead">Gestione ordini, audit e anagrafiche in rete locale.</p>
+      </div>
+      <form class="login-form" (ngSubmit)="login()">
+        <label class="login-field">
+          <span>Username</span>
+          <input type="text" [(ngModel)]="loginState.username" name="username" autocomplete="username" placeholder="Inserisci username" />
+        </label>
+        <label class="login-field">
+          <span>Password</span>
+          <input type="password" [(ngModel)]="loginState.password" name="password" autocomplete="current-password" placeholder="Inserisci password" />
+        </label>
+        <button type="submit">Accedi</button>
+      </form>
+      <p class="login-card__hint">Utenti demo: admin/admin123, operativo/operativo123, lettura/lettura123</p>
       @if (loginState.error) {
         <div class="error">{{ loginState.error }}</div>
       }
@@ -19,12 +30,18 @@
         <small class="sidebar-tagline">Gestione ordini e logistica</small>
       </div>
       <div class="sidebar-nav">
-        <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Ordini</button>
-        <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
+        <div class="sidebar-nav-group">
+          <span class="sidebar-nav-group__label">Operazioni</span>
+          <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Ordini</button>
+          <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
+        </div>
         @if (isAdmin) {
-          <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Audit</button>
-          <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
-          <button type="button" [class.active]="activeView === 'settings'" (click)="changeView('settings')">Impostazioni</button>
+          <div class="sidebar-nav-group">
+            <span class="sidebar-nav-group__label">Amministrazione</span>
+            <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Registro attività</button>
+            <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
+            <button type="button" [class.active]="activeView === 'settings'" (click)="changeView('settings')">Impostazioni</button>
+          </div>
         }
         <div class="sidebar-footer">
           <div class="sidebar-user-card">
@@ -44,7 +61,7 @@
       @if (activeView === 'audit' || activeView === 'anagrafiche') {
         <div class="content-header">
           <h1 class="content-title">
-            @if (activeView === 'audit') { Audit Log }
+            @if (activeView === 'audit') { Registro attività }
             @else if (activeView === 'anagrafiche') { Anagrafiche }
           </h1>
         </div>
@@ -55,6 +72,9 @@
         <div class="kanban-hero__top">
           <div class="kanban-page-header-left">
             <h1 class="content-title">Ordini</h1>
+            @if (activeFiltersCount > 0) {
+              <span class="kanban-active-filters-badge">{{ activeFiltersCount }} filtri attivi</span>
+            }
             <div class="kanban-col-toggles kanban-col-toggles--inline">
               @for (status of statusFlow; track status) {
                 <button
@@ -73,6 +93,9 @@
             </div>
           </div>
           <div class="kanban-header-actions">
+            <button type="button" class="ghost" (click)="toggleFiltersPanel()">
+              {{ showFiltersPanel ? 'Nascondi filtri' : 'Filtri avanzati' }}
+            </button>
             @if (canWrite) {
               <button type="button" (click)="openCreate()">Nuovo ordine</button>
             }
@@ -91,6 +114,10 @@
                 <option [value]="cliente">{{ cliente }}</option>
               }
             </select>
+          </div>
+        </div>
+        @if (showFiltersPanel) {
+          <div class="kanban-hero__advanced-filters">
             <label class="date-filter-label">
               <span>Dal</span>
               <input type="date" [(ngModel)]="filters.fromDate" (ngModelChange)="onFilterSelectChange()" />
@@ -99,15 +126,15 @@
               <span>Al</span>
               <input type="date" [(ngModel)]="filters.toDate" (ngModelChange)="onFilterSelectChange()" />
             </label>
-            @if (activeFiltersCount > 0) {
-              <button type="button" class="ghost kanban-reset-btn" (click)="resetFilters()">Reimposta</button>
-            }
             <label class="kanban-toggle kanban-toggle--inline">
               <input type="checkbox" [(ngModel)]="showOnlyLateInKanban" />
               <span>Solo ritardi</span>
             </label>
+            @if (activeFiltersCount > 0) {
+              <button type="button" class="ghost kanban-reset-btn" (click)="resetFilters()">Azzera filtri</button>
+            }
           </div>
-        </div>
+        }
       </div>
     }
 
@@ -115,7 +142,7 @@
       <section class="filters">
         <input type="text" [(ngModel)]="auditFilters.username" placeholder="Utente" />
         <input type="text" [(ngModel)]="auditFilters.action" placeholder="Azione" />
-        <input type="text" [(ngModel)]="auditFilters.entity" placeholder="Entity" />
+        <input type="text" [(ngModel)]="auditFilters.entity" placeholder="Entità" />
         <select [(ngModel)]="auditFilters.success">
           <option value="">Esito: tutti</option>
           <option value="true">Successo</option>
@@ -124,8 +151,8 @@
         <input type="date" [(ngModel)]="auditFilters.fromDate" />
         <input type="date" [(ngModel)]="auditFilters.toDate" />
         <button type="button" (click)="loadAudit(1)">Filtra</button>
-        <button type="button" class="ghost" (click)="resetAuditFilters()">Reset</button>
-        <button type="button" class="ghost" (click)="exportAuditCsv()">Export Audit CSV</button>
+        <button type="button" class="ghost" (click)="resetAuditFilters()">Azzera</button>
+        <button type="button" class="ghost" (click)="exportAuditCsv()">Esporta CSV</button>
       </section>
 
       <section class="table-card">
@@ -637,6 +664,7 @@
         <div class="settings-page">
           <div class="settings-card">
             <h2 class="settings-card-title">Connessione ERP SQL Server</h2>
+            <p class="settings-desc">Sezione tecnica. Per l'uso quotidiano non è necessario intervenire qui.</p>
 
             @if (settingsLoading) {
               <p class="settings-loading">Caricamento configurazione...</p>
@@ -728,7 +756,7 @@
           </div>
 
           <div class="settings-card">
-            <h2 class="settings-card-title">Apertura cartelle da browser</h2>
+            <h2 class="settings-card-title">Funzione tecnica: apertura cartelle da browser</h2>
             <p class="settings-desc">
               Per aprire le cartelle degli ordini con un click, ogni PC deve installare il protocollo
               <code>carra-folder://</code> una volta sola.
@@ -925,6 +953,16 @@
               </span>
               <h2 class="detail-title">{{ selectedDetail.rif }}</h2>
               <p class="detail-subtitle">{{ selectedDetail.cliente || '—' }}</p>
+              @if (allowedNextStatuses(selectedDetail.stato); as nextStatuses) {
+                <div class="detail-next-step">
+                  <span>Prossimo passo</span>
+                  @if (nextStatuses.length) {
+                    <strong>{{ nextStatuses[0] }}</strong>
+                  } @else {
+                    <strong>Ordine completato</strong>
+                  }
+                </div>
+              }
               @if (orderWarnings(selectedDetail); as warnings) {
                 @if (warnings.length) {
                   <div class="kanban-card-alerts detail-alerts">
@@ -1702,17 +1740,39 @@
   @if (sqlImportModalOpen) {
     <div class="modal-backdrop" (click)="closeSqlImportModal()">
       <div class="modal modal--import" (click)="$event.stopPropagation()">
-        <h2>Importa ordini da ERP SQL Server</h2>
+        <div class="import-header">
+          <div>
+            <h2>Importa ordini da ERP SQL Server</h2>
+            <p class="import-subtitle">Anteprima, selezione e conferma finale prima della creazione degli ordini.</p>
+          </div>
+          <button type="button" class="ghost modal-close-btn" (click)="closeSqlImportModal()" aria-label="Chiudi">&times;</button>
+        </div>
+
+        <div class="import-steps" aria-label="Avanzamento importazione">
+          <span class="import-step" [class.import-step--active]="sqlImportStep === 1" [class.import-step--done]="sqlImportStep > 1">
+            <strong>1</strong> Periodo
+          </span>
+          <span class="import-step" [class.import-step--active]="sqlImportStep === 2" [class.import-step--done]="sqlImportStep > 2">
+            <strong>2</strong> Anteprima
+          </span>
+          <span class="import-step" [class.import-step--active]="sqlImportStep === 3">
+            <strong>3</strong> Esito
+          </span>
+        </div>
 
         <div class="import-config-row">
-          <label>Importa ordini con data creazione dal:</label>
-          <input type="date" [(ngModel)]="sqlImportDateEdit" />
-          <button type="button" class="ghost" (click)="saveSqlImportDate()" [disabled]="sqlImportLoading">
-            Aggiorna e ricarica
-          </button>
-          @if (sqlImportLastDate) {
-            <small>Data memorizzata: {{ sqlImportLastDate }}</small>
-          }
+          <label class="import-date-field">
+            <span>Ordini creati dal</span>
+            <input type="date" [(ngModel)]="sqlImportDateEdit" />
+          </label>
+          <div class="import-config-actions">
+            <button type="button" class="ghost" (click)="saveSqlImportDate()" [disabled]="sqlImportLoading">
+              Aggiorna anteprima
+            </button>
+            @if (sqlImportLastDate) {
+              <small>Ultima data salvata: {{ sqlImportLastDate }}</small>
+            }
+          </div>
         </div>
 
         @if (sqlImportError) {
@@ -1758,10 +1818,15 @@
           @if (!sqlImportPreview.length) {
             <p class="import-info">Nessun nuovo ordine disponibile dalla data selezionata.</p>
           } @else {
-            <div class="import-select-actions">
-              <button type="button" class="ghost" (click)="selectAllSqlImport()">Seleziona tutti</button>
-              <button type="button" class="ghost" (click)="deselectAllSqlImport()">Deseleziona tutti</button>
-              <span>{{ sqlImportSelectedCount }} / {{ sqlImportPreview.length }} selezionati</span>
+            <div class="import-preview-header">
+              <div>
+                <h3>Ordini disponibili</h3>
+                <p>{{ sqlImportSelectedCount }} di {{ sqlImportPreview.length }} selezionati per l'importazione.</p>
+              </div>
+              <div class="import-select-actions">
+                <button type="button" class="ghost" (click)="selectAllSqlImport()">Seleziona tutti</button>
+                <button type="button" class="ghost" (click)="deselectAllSqlImport()">Deseleziona tutti</button>
+              </div>
             </div>
             <div class="import-table-wrap">
               <table class="audit-table">
@@ -1779,7 +1844,14 @@
                 <tbody>
                   @for (order of sqlImportPreview; track order.externalRef) {
                     <tr [class.selected-row]="sqlImportSelected.has(order.externalRef)">
-                      <td><input type="checkbox" [checked]="sqlImportSelected.has(order.externalRef)" (click)="toggleSqlImportSelection(order.externalRef)" /></td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          [attr.aria-label]="'Seleziona ordine ' + order.rifto"
+                          [checked]="sqlImportSelected.has(order.externalRef)"
+                          (click)="toggleSqlImportSelection(order.externalRef)"
+                        />
+                      </td>
                       <td>{{ order.rifto }}</td>
                       <td>{{ order.cliente || '—' }}</td>
                       <td>{{ order.dataOrdine || '—' }}</td>
@@ -1800,7 +1872,7 @@
             >
               {{ sqlImportExecuting ? 'Importazione in corso...' : 'Importa selezionati (' + sqlImportSelectedCount + ')' }}
             </button>
-            <button type="button" class="ghost" (click)="closeSqlImportModal()">Annulla</button>
+            <button type="button" class="ghost" (click)="closeSqlImportModal()">Chiudi</button>
           </div>
         }
 
@@ -1820,7 +1892,7 @@
         @if (sqlImportConfirmOpen) {
           <div class="import-confirm-overlay" (click)="cancelSqlImportConfirm()">
             <div class="import-confirm-card" (click)="$event.stopPropagation()">
-              <div class="import-confirm-icon">📥</div>
+              <div class="import-confirm-icon">Import</div>
               <h3>Conferma importazione</h3>
               <p>
                 Stai per importare <strong>{{ sqlImportSelectedCount }}</strong>

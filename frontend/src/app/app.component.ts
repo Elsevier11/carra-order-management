@@ -311,6 +311,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.sqlImportSelected.size;
   }
 
+  get sqlImportStep(): 1 | 2 | 3 {
+    if (this.sqlImportResult) return 3;
+    if (this.sqlImportPreview.length > 0) return 2;
+    return 1;
+  }
+
   // ── Detail modal tab switcher ─────────────────────────────────────────────
   activeDetailTab: 'dettagli' | 'cementi' | 'accessori' | 'cam' | 'gestione' = 'dettagli';
 
@@ -361,7 +367,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get activeFiltersCount(): number {
-    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.fromDate, this.filters.toDate]
+    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.fromDate, this.filters.toDate, this.showOnlyLateInKanban]
       .filter((v) => !!v).length;
   }
 
@@ -889,6 +895,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       fromDate: '',
       toDate: '',
     };
+    this.showOnlyLateInKanban = false;
     localStorage.removeItem(this.userScopedStorageKey('carra_filters_preset'));
     this.refreshData(1, false);
   }
