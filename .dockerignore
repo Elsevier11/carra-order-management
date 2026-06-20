@@ -1,0 +1,15 @@
+.git
+.vscode
+.claude
+.continue
+.impeccable
+.env
+.env.*
+node_modules
+frontend/node_modules
+dist
+frontend/dist
+data/uploads
+data/postgres
+fresheyes-runs
+*.log

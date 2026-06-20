@@ -82,51 +82,23 @@ Puoi anche passare un file custom:
 
 ## Deploy
 
-### Backend su Railway
+### Deploy Linux con Docker Compose
 
-- File usato: `railway.json`
-- Start command: `npm run start`
-- Healthcheck: `/health`
-- Env richieste:
-  - `DATABASE_URL`
-  - `PORT` (Railway la imposta automaticamente)
-  - `NODE_ENV=production`
-  - `JWT_SECRET`
-  - `ATTACHMENTS_DIR`
-- `ATTACHMENTS_ALLOWED_EXTENSIONS`
-- `ATTACHMENTS_ALLOWED_MIME`
-  - `ATTACHMENTS_ALLOWED_EXTENSIONS_ADMIN`
-  - `ATTACHMENTS_ALLOWED_EXTENSIONS_OPERATIVO`
-  - `ATTACHMENTS_MAX_SIZE_ADMIN`
-  - `ATTACHMENTS_MAX_SIZE_OPERATIVO`
-  - `ATTACHMENTS_ANTIVIRUS_MODE=mock|''`
-  - `ATTACHMENTS_ANTIVIRUS_COMMAND` (esempio: `clamscan --no-summary {file}`)
-  - `ATTACHMENTS_RETENTION_DAYS`
+- Procedura consigliata per installazione on-prem: [docs/deploy-linux-docker.md](./docs/deploy-linux-docker.md)
+- Stack incluso nel repository:
+  - backend Node
+  - frontend Angular servito da Nginx
+  - PostgreSQL
+  - importer one-shot per il JSON iniziale
 
-### Frontend su Netlify
+### URL API Frontend
 
-- Directory: `frontend`
-- File usato: `frontend/netlify.toml`
-- Build command: `npm run build`
-- Publish directory: `dist/carra-consegne-frontend/browser`
-
-### Frontend su Vercel
-
-- Root project: `frontend`
-- Build command: `npm run build`
-- Output directory: `dist/carra-consegne-frontend/browser`
-- Rewrites SPA: `frontend/vercel.json`
-
-### URL API Frontend produzione
-
-Aggiorna `frontend/src/environments/environment.production.ts`:
-- `apiUrl: 'https://<tuo-backend>/api'`
+- Per il pacchetto Docker/on-prem il frontend usa `apiUrl: '/api'`
+- Se in futuro separi frontend e backend su domini diversi, serve una config dedicata o un reverse proxy che esponga comunque `/api` sullo stesso origin del browser
 
 ### Checklist Go-Live
 
 - Vedi [docs/go-live-checklist.md](./docs/go-live-checklist.md)
-- Deploy guidato: [docs/deploy-production.md](./docs/deploy-production.md)
-- Runbook produzione (URL e interventi rapidi): [docs/production-runbook.md](./docs/production-runbook.md)
 
 ## Operativita Produzione
 

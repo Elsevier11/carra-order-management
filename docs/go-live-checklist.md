@@ -56,5 +56,5 @@
   - HTTP 5xx
   - DB connection failures
   - Disk usage for attachments storage
-- Scheduler (cron Railway/esterno):
+- Scheduler (cron o equivalente esterno):
   - `npm run attachments:cleanup -- --days=365`
