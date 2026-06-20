@@ -92,6 +92,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   activeProduzioneSubTab: string = 'vettori';
   showFiltersPanel = false;
 
+  private operationMessageTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly searchSubject = new Subject<void>();
   private readonly destroy$ = new Subject<void>();
 
@@ -284,6 +285,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   settingsSuccess = '';
   settingsTestResult: SqlServerTestResult | null = null;
   settingsShowPassword = false;
+  settingsEditMode = false;
   settingsForm = {
     host: '',
     port: '1433',
@@ -315,6 +317,15 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.sqlImportResult) return 3;
     if (this.sqlImportPreview.length > 0) return 2;
     return 1;
+  }
+
+  get sqlImportSelectedCustomersCount(): number {
+    return new Set(
+      this.sqlImportPreview
+        .filter((order) => this.sqlImportSelected.has(order.externalRef))
+        .map((order) => (order.cliente || '').trim())
+        .filter(Boolean),
+    ).size;
   }
 
   // ── Detail modal tab switcher ─────────────────────────────────────────────
@@ -364,6 +375,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get isAdmin(): boolean {
     return this.user?.role === 'admin';
+  }
+
+  get isReadOnly(): boolean {
+    return this.user?.role === 'lettura';
   }
 
   get activeFiltersCount(): number {
@@ -419,8 +434,33 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cancelAnimationFrame(this.kanbanScrollSyncRaf);
       this.kanbanScrollSyncRaf = null;
     }
+    if (this.operationMessageTimer) {
+      clearTimeout(this.operationMessageTimer);
+      this.operationMessageTimer = null;
+    }
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  notifySuccess(message: string, timeoutMs = 3500): void {
+    this.operationError = '';
+    this.operationSuccess = message;
+    this.scheduleOperationMessageClear(timeoutMs);
+  }
+
+  notifyError(message: string, timeoutMs = 5000): void {
+    this.operationSuccess = '';
+    this.operationError = message;
+    this.scheduleOperationMessageClear(timeoutMs);
+  }
+
+  private scheduleOperationMessageClear(timeoutMs: number): void {
+    if (this.operationMessageTimer) clearTimeout(this.operationMessageTimer);
+    this.operationMessageTimer = setTimeout(() => {
+      this.operationSuccess = '';
+      this.operationError = '';
+      this.operationMessageTimer = null;
+    }, timeoutMs);
   }
 
   toggleFiltersPanel(): void {
@@ -810,6 +850,42 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return warnings;
   }
 
+  detailMissingItems(item: ConsegnaRecord): string[] {
+    const missing: string[] = [];
+    if (!item.dataConsegna) missing.push('Data consegna');
+    if (!item.responsabileInternoId) missing.push('Responsabile');
+    if (!item.folderLinkDocumenti) missing.push('Cartella documenti');
+    if (!item.folderLinkFoto) missing.push('Cartella foto');
+    if (item.stato === 'CONSEGNA PIANIFICATA') {
+      if (!item.consegnaDataEffettiva) missing.push('Data consegna effettiva');
+      if (!item.vettoreId) missing.push('Vettore');
+      if (!item.ddtPronti) missing.push('DDT pronti');
+    }
+    return missing;
+  }
+
+  nextStatusLabel(status: string): string {
+    return this.allowedNextStatuses(status)[0] ?? 'Ordine completato';
+  }
+
+  goToTransitionPanel(): void {
+    this.activeDetailTab = 'gestione';
+  }
+
+  openNextStatusConfirm(): void {
+    if (!this.canWrite || !this.selectedDetail || this.pendingTransitionId) return;
+    const nextStatus = this.allowedNextStatuses(this.selectedDetail.stato)[0];
+    if (!nextStatus) return;
+    this.dropTransitionModal = {
+      open: true,
+      order: this.selectedDetail,
+      fromStatus: this.selectedDetail.stato as ConsegnaStatus,
+      toStatus: nextStatus,
+      note: '',
+      error: '',
+    };
+  }
+
   onKanbanDrop(event: CdkDragDrop<ConsegnaRecord[]>, targetStatus: ConsegnaStatus): void {
     if (!this.canWrite || this.pendingTransitionId || this.dropTransitionModal.open) {
       return;
@@ -828,7 +904,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const fromStatus = moved.stato as ConsegnaStatus;
     if (!this.canTransition(fromStatus, targetStatus)) {
-      this.operationError = `Transizione non consentita: ${fromStatus} -> ${targetStatus}`;
+      this.notifyError(`Transizione non consentita: ${fromStatus} -> ${targetStatus}`);
       return;
     }
 
@@ -866,7 +942,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pendingTransitionId = orderId;
     this.consegneService.transition(orderId, modal.toStatus, modal.note.trim() || undefined).subscribe({
       next: () => {
-        this.operationSuccess = `Stato aggiornato a ${modal.toStatus}`;
+        this.notifySuccess(`Stato aggiornato a ${modal.toStatus}`);
         this.pendingTransitionId = null;
         this.closeDropTransitionModal();
         this.refreshData(this.page, false);
@@ -875,7 +951,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       },
       error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore transizione stato';
+        this.notifyError(error?.error?.message ?? 'Errore transizione stato');
         this.pendingTransitionId = null;
         this.dropTransitionModal.error = this.operationError;
       },
@@ -1009,7 +1085,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     req.subscribe({
       next: (result) => {
         this.formVisible = false;
-        this.operationSuccess = this.editingId ? 'Consegna aggiornata' : 'Consegna creata';
+        this.notifySuccess(this.editingId ? 'Consegna aggiornata' : 'Consegna creata');
         this.refreshData(1);
         const createdOrUpdated = result as ConsegnaRecord;
         if (createdOrUpdated?.id) {
@@ -1017,7 +1093,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       },
       error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore salvataggio';
+        this.notifyError(error?.error?.message ?? 'Errore salvataggio');
       },
     });
   }
@@ -1045,7 +1121,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.deleteConfirmOpen = false;
     this.consegneService.delete(this.selectedDetail.id).subscribe({
       next: () => {
-        this.operationSuccess = 'Consegna eliminata';
+        this.notifySuccess('Consegna eliminata');
         this.selectedRow = null;
         this.selectedDetail = null;
         this.detailModalOpen = false;
@@ -1054,7 +1130,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         this.refreshData(1);
       },
       error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore eliminazione';
+        this.notifyError(error?.error?.message ?? 'Errore eliminazione');
       },
     });
   }
@@ -1063,25 +1139,24 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.selectedDetail || !this.transitionModel.toStatus) return;
     const currentStatus = this.selectedDetail.stato as ConsegnaStatus;
     if (!this.canTransition(currentStatus, this.transitionModel.toStatus)) {
-      this.operationError = `Transizione non consentita: ${currentStatus} -> ${this.transitionModel.toStatus}`;
+      this.notifyError(`Transizione non consentita: ${currentStatus} -> ${this.transitionModel.toStatus}`);
       return;
     }
     if (this.transitionModel.toStatus === 'SOSPESO' && !this.transitionModel.note.trim()) {
-      this.operationError = 'Sospensione richiede un motivo';
+      this.notifyError('Sospensione richiede un motivo');
       return;
     }
     this.consegneService
       .transition(this.selectedDetail.id, this.transitionModel.toStatus, this.transitionModel.note || undefined)
       .subscribe({
         next: () => {
-          this.operationSuccess = `Stato aggiornato a ${this.transitionModel.toStatus}`;
-          setTimeout(() => { this.operationSuccess = ''; }, 3000);
+          this.notifySuccess(`Stato aggiornato a ${this.transitionModel.toStatus}`);
           this.transitionModel = { toStatus: '', note: '' };
           this.loadDetail(this.selectedDetail!.id);
           this.refreshData(this.page);
         },
         error: (error) => {
-          this.operationError = error?.error?.message ?? 'Errore transizione stato';
+          this.notifyError(error?.error?.message ?? 'Errore transizione stato');
         },
       });
   }
@@ -1100,13 +1175,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.selectedDetail || !this.selectedUploadFile) return;
     this.consegneService.uploadAttachment(this.selectedDetail.id, this.selectedUploadFile).subscribe({
       next: () => {
-        this.operationSuccess = 'Allegato caricato';
+        this.notifySuccess('Allegato caricato');
         this.selectedUploadFile = null;
         this.loadAttachments(this.selectedDetail!.id);
         this.loadHistory(this.selectedDetail!.id);
       },
       error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore upload allegato';
+        this.notifyError(error?.error?.message ?? 'Errore upload allegato');
       },
     });
   }
@@ -1120,7 +1195,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
       },
       error: () => {
-        this.operationError = 'Impossibile aprire l\'allegato.';
+        this.notifyError('Impossibile aprire l\'allegato.');
       },
     });
   }
@@ -1137,7 +1212,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         URL.revokeObjectURL(url);
       },
       error: (error) => {
-        this.operationError = error?.error?.message ?? 'Errore download allegato';
+        this.notifyError(error?.error?.message ?? 'Errore download allegato');
       },
     });
   }
@@ -1148,12 +1223,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.openConfirm(`Eliminare allegato "${item.fileName}"?`, () => {
       this.consegneService.deleteAttachment(id, item.id).subscribe({
         next: () => {
-          this.operationSuccess = 'Allegato eliminato';
+          this.notifySuccess('Allegato eliminato');
           this.loadAttachments(this.selectedDetail!.id);
           this.loadHistory(this.selectedDetail!.id);
         },
         error: (error) => {
-          this.operationError = error?.error?.message ?? 'Errore eliminazione allegato';
+          this.notifyError(error?.error?.message ?? 'Errore eliminazione allegato');
         },
       });
     });
@@ -2586,6 +2661,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.settingsError = '';
     this.settingsSuccess = '';
     this.settingsTestResult = null;
+    this.settingsEditMode = false;
     this.settingsService.getSqlServerConfig().subscribe({
       next: (config) => {
         this.settingsConfig = config;
@@ -2606,8 +2682,21 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  saveSettings(): void {
+  enableSettingsEdit(): void {
     if (!this.isAdmin) return;
+    this.settingsError = '';
+    this.settingsSuccess = '';
+    this.settingsTestResult = null;
+    this.settingsEditMode = true;
+  }
+
+  cancelSettingsEdit(): void {
+    if (!this.isAdmin) return;
+    this.loadSettings();
+  }
+
+  saveSettings(): void {
+    if (!this.isAdmin || !this.settingsEditMode) return;
     this.settingsSaving = true;
     this.settingsError = '';
     this.settingsSuccess = '';
@@ -2622,8 +2711,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.settingsService.saveSqlServerConfig(payload).subscribe({
       next: () => {
         this.settingsSaving = false;
+        this.settingsEditMode = false;
         this.settingsSuccess = 'Configurazione salvata.';
-        this.loadSettings();
       },
       error: (err: { error?: { message?: string } }) => {
         this.settingsSaving = false;

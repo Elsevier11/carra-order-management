@@ -72,6 +72,9 @@
         <div class="kanban-hero__top">
           <div class="kanban-page-header-left">
             <h1 class="content-title">Ordini</h1>
+            @if (isReadOnly) {
+              <span class="read-only-badge">Sola lettura</span>
+            }
             @if (activeFiltersCount > 0) {
               <span class="kanban-active-filters-badge">{{ activeFiltersCount }} filtri attivi</span>
             }
@@ -665,6 +668,9 @@
           <div class="settings-card">
             <h2 class="settings-card-title">Connessione ERP SQL Server</h2>
             <p class="settings-desc">Sezione tecnica. Per l'uso quotidiano non è necessario intervenire qui.</p>
+            @if (!settingsEditMode) {
+              <p class="settings-readonly-note">Configurazione protetta: premi <strong>Modifica configurazione</strong> per cambiare i parametri.</p>
+            }
 
             @if (settingsLoading) {
               <p class="settings-loading">Caricamento configurazione...</p>
@@ -673,26 +679,26 @@
                 <div class="settings-row settings-row--two">
                   <label class="settings-field">
                     <span>Server (host)</span>
-                    <input type="text" [(ngModel)]="settingsForm.host" placeholder="es. srvsql" />
+                    <input type="text" [(ngModel)]="settingsForm.host" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="es. srvsql" />
                     @if (settingsConfig) {
                       <small class="settings-source">{{ settingsConfig.host.source === 'db' ? 'Da database' : 'Da .env' }}</small>
                     }
                   </label>
                   <label class="settings-field">
                     <span>Porta</span>
-                    <input type="text" [(ngModel)]="settingsForm.port" placeholder="1433" />
+                    <input type="text" [(ngModel)]="settingsForm.port" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="1433" />
                   </label>
                 </div>
                 <label class="settings-field">
                   <span>Database</span>
-                  <input type="text" [(ngModel)]="settingsForm.database" placeholder="es. ADB_GESTIONALE" />
+                  <input type="text" [(ngModel)]="settingsForm.database" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="es. ADB_GESTIONALE" />
                   @if (settingsConfig) {
                     <small class="settings-source">{{ settingsConfig.database.source === 'db' ? 'Da database' : 'Da .env' }}</small>
                   }
                 </label>
                 <label class="settings-field">
                   <span>Utente</span>
-                  <input type="text" [(ngModel)]="settingsForm.user" placeholder="es. sa" autocomplete="off" />
+                  <input type="text" [(ngModel)]="settingsForm.user" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="es. sa" autocomplete="off" />
                 </label>
                 <label class="settings-field">
                   <span>Password</span>
@@ -700,9 +706,10 @@
                     <input
                       [type]="settingsShowPassword ? 'text' : 'password'"
                       [(ngModel)]="settingsForm.password"
+                      [disabled]="!settingsEditMode || settingsSaving || settingsTesting"
                       autocomplete="new-password"
                     />
-                    <button type="button" class="ghost settings-eye" (click)="settingsShowPassword = !settingsShowPassword">
+                    <button type="button" class="ghost settings-eye" [disabled]="!settingsEditMode" (click)="settingsShowPassword = !settingsShowPassword">
                       {{ settingsShowPassword ? 'Nascondi' : 'Mostra' }}
                     </button>
                   </div>
@@ -712,7 +719,7 @@
                 </label>
                 <label class="settings-field settings-field--narrow">
                   <span>Timeout (ms)</span>
-                  <input type="text" [(ngModel)]="settingsForm.timeoutMs" placeholder="15000" />
+                  <input type="text" [(ngModel)]="settingsForm.timeoutMs" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="15000" />
                 </label>
 
                 @if (settingsConfig) {
@@ -744,13 +751,18 @@
                 >
                   {{ settingsTesting ? 'Test in corso...' : 'Test connessione' }}
                 </button>
-                <button
-                  type="button"
-                  [disabled]="settingsSaving || settingsTesting"
-                  (click)="saveSettings()"
-                >
-                  {{ settingsSaving ? 'Salvataggio...' : 'Salva' }}
-                </button>
+                @if (!settingsEditMode) {
+                  <button type="button" (click)="enableSettingsEdit()">Modifica configurazione</button>
+                } @else {
+                  <button
+                    type="button"
+                    [disabled]="settingsSaving || settingsTesting"
+                    (click)="saveSettings()"
+                  >
+                    {{ settingsSaving ? 'Salvataggio...' : 'Salva configurazione' }}
+                  </button>
+                  <button type="button" class="ghost" [disabled]="settingsSaving || settingsTesting" (click)="cancelSettingsEdit()">Annulla modifiche</button>
+                }
               </div>
             }
           </div>
@@ -963,6 +975,9 @@
                   }
                 </div>
               }
+              @if (detailMissingItems(selectedDetail).length) {
+                <p class="detail-missing-summary">{{ detailMissingItems(selectedDetail).length }} dati principali da completare</p>
+              }
               @if (orderWarnings(selectedDetail); as warnings) {
                 @if (warnings.length) {
                   <div class="kanban-card-alerts detail-alerts">
@@ -975,6 +990,11 @@
             </div>
             <div class="detail-header-actions">
               @if (canWrite) {
+                @if (allowedNextStatuses(selectedDetail.stato).length) {
+                  <button type="button" class="detail-advance-btn" (click)="openNextStatusConfirm()">
+                    Passa a {{ allowedNextStatuses(selectedDetail.stato)[0] }}
+                  </button>
+                }
                 @if (!editMode) {
                   <button type="button" (click)="openEdit()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1719,6 +1739,9 @@
           Ordine <strong>{{ dropTransitionModal.order.rif }}</strong>:
           <strong>{{ dropTransitionModal.fromStatus }}</strong> -> <strong>{{ dropTransitionModal.toStatus }}</strong>
         </p>
+        <p class="transition-confirm-note">
+          Il cambio stato aggiorna il Kanban e viene registrato nello storico dell'ordine.
+        </p>
         <div class="modal-grid">
           <input
             type="text"
@@ -1899,6 +1922,11 @@
                 {{ sqlImportSelectedCount === 1 ? 'ordine' : 'ordini' }} dall'ERP.<br />
                 Verranno creati come nuovi ordini in stato <strong>IN CORSO</strong>.
               </p>
+              <div class="import-confirm-summary">
+                <span><strong>Periodo dal:</strong> {{ sqlImportLastDate || sqlImportDateEdit || 'non impostato' }}</span>
+                <span><strong>Clienti coinvolti:</strong> {{ sqlImportSelectedCustomersCount }}</span>
+                <span><strong>Ordini esclusi perché già importati:</strong> {{ sqlImportAlreadyImportedCount }}</span>
+              </div>
               <p class="import-confirm-note">
                 L'operazione è reversibile: potrai modificare o eliminare ogni ordine dopo l'import.
               </p>
