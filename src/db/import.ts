@@ -3,7 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
-import { db, pgClient } from '../server/db'
+import { db, ensureDatabaseObjects, pgClient } from '../server/db'
 import { ordini } from './schema'
 
 export const rawRowSchema = z
@@ -103,6 +103,7 @@ export function normalizeRow(raw: z.infer<typeof rawRowSchema>): typeof ordini.$
 }
 
 export async function importFromJson(sourcePath: string, shouldTruncate: boolean) {
+  await ensureDatabaseObjects()
   const absolutePath = path.resolve(sourcePath)
   const rawFile = await fs.readFile(absolutePath, 'utf8')
   const parsed = z.array(rawRowSchema).parse(JSON.parse(rawFile))
