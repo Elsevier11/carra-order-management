@@ -77,6 +77,45 @@ export async function testErpConnection(config: ErpConfig): Promise<void> {
   }
 }
 
+type SqlServerConnectionErrorLike = {
+  code?: string
+  message?: string
+  number?: number
+  originalError?: {
+    code?: string
+    message?: string
+  }
+}
+
+export function describeErpConnectionError(error: unknown, config?: ErpConfig): string {
+  const err = error as SqlServerConnectionErrorLike
+  const code = (err?.code ?? err?.originalError?.code ?? '').toUpperCase()
+  const message = err?.message ?? 'Errore connessione'
+  const target = config ? `${config.server}:${config.port}` : 'server ERP'
+
+  if (code === 'ENOTFOUND') {
+    return `Host SQL non risolto: ${message}. Verifica il nome server, il DNS o usa l'indirizzo IP di ${target}.`
+  }
+
+  if (code === 'ECONNREFUSED') {
+    return `Connessione rifiutata su ${target}. Verifica che SQL Server sia avviato, in ascolto sulla porta corretta e raggiungibile dal backend.`
+  }
+
+  if (code === 'ETIMEDOUT' || code === 'ETIMEOUT' || code === 'ESOCKET' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH') {
+    return `Connessione a ${target} non raggiungibile: controlla rete, firewall e porta SQL Server.`
+  }
+
+  if (code === 'ELOGIN' || err?.number === 18456) {
+    return `Credenziali SQL non valide per ${target}. Controlla utente e password.`
+  }
+
+  if (err?.number === 4060) {
+    return `Database SQL non accessibile su ${target}. Controlla il nome database "${config?.database ?? ''}" e i permessi dell'utente.`
+  }
+
+  return message
+}
+
 function toIsoDate(value: unknown): string | null {
   if (!value) return null
   if (value instanceof Date) {

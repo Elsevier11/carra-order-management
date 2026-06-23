@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { pgClient } from '../db'
 import { requireAuth, requireRole } from '../middleware/auth'
-import { resolveErpConfig, testErpConnection } from '../sqlserver'
+import { describeErpConnectionError, resolveErpConfig, testErpConnection } from '../sqlserver'
 
 const router = Router()
 
@@ -90,19 +90,13 @@ router.put('/sqlserver', requireAuth, requireRole(['admin']), async (req, res, n
 // ── POST /api/settings/sqlserver/test ────────────────────────────────────────
 
 router.post('/sqlserver/test', requireAuth, requireRole(['admin']), async (_req, res, next) => {
+  let config: Awaited<ReturnType<typeof resolveErpConfig>> | null = null
   try {
-    const config = await resolveErpConfig(pgClient)
+    config = await resolveErpConfig(pgClient)
     await testErpConnection(config)
     return res.json({ ok: true })
   } catch (err) {
-    const error = err as { message?: string; code?: string; syscall?: string }
-    if (error?.code === 'ENOTFOUND') {
-      return res.json({
-        ok: false,
-        message: `Host SQL non risolto: ${error.message ?? "controlla il nome server, DNS o usa l'IP"}.`,
-      })
-    }
-    const message = err instanceof Error ? err.message : 'Errore connessione'
+    const message = describeErpConnectionError(err, config ?? undefined)
     return res.json({ ok: false, message })
   }
 })
