@@ -84,7 +84,7 @@
   }
 </div>
 
-<div class="kanban-scroll-wrap" #kanbanMainScroll (scroll)="app.onKanbanMainScroll()">
+<div class="kanban-scroll-wrap" #kanbanMainScroll (scroll)="onMainScroll()">
   <section class="kanban-grid" [class.kanban-grid--compact]="app.kanbanCompactMode">
     @if (app.loadingBoard) {
       @for (s of app.statusFlow; track s) {
@@ -232,6 +232,6 @@
     }
   </section>
 </div>
-<div class="kanban-bottom-scroll" #kanbanBottomScroll (scroll)="app.onKanbanBottomScroll()" aria-hidden="true">
+<div class="kanban-bottom-scroll" #kanbanBottomScroll (scroll)="onBottomScroll()" aria-hidden="true">
   <div class="kanban-bottom-scroll__spacer" [style.width.px]="app.kanbanScrollContentWidth"></div>
 </div>

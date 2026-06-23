@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
-import { Component, Input } from '@angular/core';
+import { AfterViewChecked, AfterViewInit, Component, ElementRef, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BoardColumn, ConsegnaFilters, ConsegnaRecord } from './consegne.types';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
@@ -58,4 +58,66 @@ export interface KanbanBoardHost {
 })
 export class KanbanBoardComponent {
   @Input({ required: true }) app!: KanbanBoardHost;
+
+  @ViewChild('kanbanMainScroll') private mainScrollRef?: ElementRef<HTMLElement>;
+  @ViewChild('kanbanBottomScroll') private bottomScrollRef?: ElementRef<HTMLElement>;
+
+  private syncRaf: number | null = null;
+
+  ngAfterViewInit(): void {
+    this.scheduleScrollSync();
+  }
+
+  ngAfterViewChecked(): void {
+    this.scheduleScrollSync();
+  }
+
+  ngOnDestroy(): void {
+    if (this.syncRaf !== null) {
+      cancelAnimationFrame(this.syncRaf);
+      this.syncRaf = null;
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.scheduleScrollSync();
+  }
+
+  onMainScroll(): void {
+    const main = this.mainScrollRef?.nativeElement;
+    const bottom = this.bottomScrollRef?.nativeElement;
+    if (!main || !bottom) return;
+    const left = main.scrollLeft;
+    if (bottom.scrollLeft !== left) bottom.scrollLeft = left;
+  }
+
+  onBottomScroll(): void {
+    const main = this.mainScrollRef?.nativeElement;
+    const bottom = this.bottomScrollRef?.nativeElement;
+    if (!main || !bottom) return;
+    const left = bottom.scrollLeft;
+    if (main.scrollLeft !== left) main.scrollLeft = left;
+  }
+
+  requestScrollSync(): void {
+    this.scheduleScrollSync();
+  }
+
+  private scheduleScrollSync(): void {
+    if (this.syncRaf !== null) return;
+    this.syncRaf = requestAnimationFrame(() => {
+      this.syncRaf = null;
+      this.syncScrollbars();
+    });
+  }
+
+  private syncScrollbars(): void {
+    const main = this.mainScrollRef?.nativeElement;
+    const bottom = this.bottomScrollRef?.nativeElement;
+    if (!main || !bottom) return;
+    const width = main.scrollWidth;
+    this.app.kanbanScrollContentWidth = width;
+    bottom.scrollLeft = main.scrollLeft;
+  }
 }

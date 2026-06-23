@@ -1728,7 +1728,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Mittenti Disegno CRUD ─────────────────────────────────────────────────
 
   nomeVettore(id: number | null | undefined): string {
-    if (!id) return 'â€”';
+    if (!id) return '—';
     return this.vettoriList.find((v) => v.id === id)?.nome ?? `#${id}`;
   }
 

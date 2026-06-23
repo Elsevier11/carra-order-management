@@ -145,8 +145,8 @@
   left: 300px;
   right: 0;
   bottom: 0;
-  height: 44px;
-  padding: 1px 0 0;
+  height: 52px;
+  padding: 2px 0 0;
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
@@ -159,7 +159,7 @@
 }
 
 .kanban-bottom-scroll::-webkit-scrollbar {
-  height: 28px;
+  height: 34px;
 }
 
 .kanban-bottom-scroll::-webkit-scrollbar-track {
@@ -275,6 +275,7 @@
 }
 
 .kanban-card-wrap {
+  position: relative;
   width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -404,6 +405,97 @@
   filter: none;
   background: rgba(255, 255, 255, 1);
   box-shadow: 0 6px 20px rgba(15, 23, 42, 0.09);
+}
+
+.kanban-history-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  min-height: unset;
+  border-radius: 10px;
+  padding: 0;
+  font-size: 0.75rem;
+  background: var(--surface-glass);
+  border-color: var(--border-glass-md);
+  color: var(--muted);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.kanban-history-btn:hover:not(:disabled) {
+  filter: none;
+  background: var(--surface);
+  border-color: var(--border-glass-lg);
+  color: var(--primary);
+}
+
+.kanban-card-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.kanban-card-alert {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-card-alerts--cementi {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.kanban-card-alerts--cementi .kanban-card-alert {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.kanban-card-alert.cemento-badge--rosso {
+  background: rgba(248, 113, 113, 0.12);
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, 0.22);
+}
+
+.kanban-card-alert.cemento-badge--arancione {
+  background: rgba(251, 146, 60, 0.14);
+  color: #c2410c;
+  border-color: rgba(251, 146, 60, 0.24);
+}
+
+.kanban-card-alert.cemento-badge--verde {
+  background: rgba(74, 222, 128, 0.14);
+  color: #15803d;
+  border-color: rgba(74, 222, 128, 0.24);
+}
+
+.kanban-card-alert--conclusi {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.22);
 }
 
 .cdk-drag-placeholder {

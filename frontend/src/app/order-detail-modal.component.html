@@ -27,17 +27,15 @@
               <button *ngIf="app.canWrite && app.allowedNextStatuses(detail.stato).length" type="button" class="detail-advance-btn" (click)="app.openNextStatusConfirm()">
                 Passa a {{ app.allowedNextStatuses(detail.stato)[0] }}
               </button>
-              <button *ngIf="app.canWrite && !app.editMode" type="button" (click)="app.openEdit()">
-                Modifica
-              </button>
+              <button *ngIf="app.canWrite && !app.editMode" type="button" (click)="app.openEdit()">Modifica</button>
               <button *ngIf="app.canWrite && app.editMode" type="button" class="ghost" (click)="app.cancelEdit()">Annulla</button>
               <button *ngIf="app.canWrite" type="button" [class.ghost]="!app.hasPendingChanges()" (click)="app.saveAll()">Salva</button>
               <button *ngIf="app.canWrite" type="button" class="ghost-danger" (click)="app.deleteSelected()">Elimina</button>
-              <button type="button" class="ghost modal-close-btn" (click)="app.closeDetailModal()" aria-label="Chiudi">✕</button>
+              <button type="button" class="ghost modal-close-btn" (click)="app.closeDetailModal()" aria-label="Chiudi">×</button>
             </div>
           </div>
 
-          <div class="detail-toast detail-toast--success" *ngIf="app.operationSuccess">✓ {{ app.operationSuccess }}</div>
+          <div class="detail-toast detail-toast--success" *ngIf="app.operationSuccess">OK {{ app.operationSuccess }}</div>
           <div class="detail-toast detail-toast--error" *ngIf="app.operationError">{{ app.operationError }}</div>
 
           <div class="detail-tabs">
@@ -62,7 +60,7 @@
 
           <div class="import-confirm-overlay" *ngIf="app.closeConfirmOpen" (click)="app.closeConfirmOpen = false">
             <div class="import-confirm-card" (click)="$event.stopPropagation()">
-              <div class="import-confirm-icon">⚠️</div>
+              <div class="import-confirm-icon">!</div>
               <h3>Modifiche non salvate</h3>
               <p>Ci sono modifiche non ancora salvate. Chiudendo andranno perse.</p>
               <div class="import-confirm-actions">
@@ -74,7 +72,7 @@
 
           <div class="import-confirm-overlay" *ngIf="app.deleteConfirmOpen" (click)="app.deleteConfirmOpen = false">
             <div class="import-confirm-card" (click)="$event.stopPropagation()">
-              <div class="import-confirm-icon">🗑️</div>
+              <div class="import-confirm-icon">!</div>
               <h3>Elimina ordine</h3>
               <p>Stai per eliminare l'ordine <strong>{{ detail.rif }}</strong>.<br />L'operazione è irreversibile.</p>
               <div class="import-confirm-actions">

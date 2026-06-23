@@ -38,7 +38,7 @@
         @if (isAdmin) {
           <div class="sidebar-nav-group">
             <span class="sidebar-nav-group__label">Amministrazione</span>
-            <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Registro attivitÃ </button>
+            <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Registro attività</button>
             <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
             <button type="button" [class.active]="activeView === 'settings'" (click)="changeView('settings')">Impostazioni</button>
           </div>
@@ -61,7 +61,7 @@
       @if (activeView === 'audit' || activeView === 'anagrafiche') {
         <div class="content-header">
           <h1 class="content-title">
-            @if (activeView === 'audit') { Registro attivitÃ  }
+            @if (activeView === 'audit') { Registro attività }
             @else if (activeView === 'anagrafiche') { Anagrafiche }
           </h1>
         </div>
@@ -80,6 +80,657 @@
       } @else if (activeView === 'kanban') {
         <app-kanban-board [app]="kanbanHost"></app-kanban-board>
       }
+
+    @if (activeView === 'audit') {
+      <section class="filters">
+        <input type="text" [(ngModel)]="auditFilters.username" placeholder="Utente" />
+        <input type="text" [(ngModel)]="auditFilters.action" placeholder="Azione" />
+        <input type="text" [(ngModel)]="auditFilters.entity" placeholder="Entità" />
+        <select [(ngModel)]="auditFilters.success">
+          <option value="">Esito: tutti</option>
+          <option value="true">Successo</option>
+          <option value="false">Errore</option>
+        </select>
+        <input type="date" [(ngModel)]="auditFilters.fromDate" />
+        <input type="date" [(ngModel)]="auditFilters.toDate" />
+        <button type="button" (click)="loadAudit(1)">Filtra</button>
+        <button type="button" class="ghost" (click)="resetAuditFilters()">Azzera</button>
+        <button type="button" class="ghost" (click)="exportAuditCsv()">Esporta CSV</button>
+      </section>
+
+      <section class="table-card">
+        @if (auditLoading) {
+          <p>Caricamento audit...</p>
+        } @else {
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Data</th>
+                <th>Utente</th>
+                <th>Azione</th>
+                <th>Entità</th>
+                <th>Esito</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of auditRows; track item.id) {
+                <tr (click)="selectAuditRow(item)" [class.active]="selectedAuditRow?.id === item.id">
+                  <td>{{ item.id }}</td>
+                  <td>{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ item.username || '-' }}</td>
+                  <td><span class="audit-action-badge" [ngClass]="auditActionClass(item.action)">{{ auditActionLabel(item.action) }}</span></td>
+                  <td>
+                    @if (item.entityId && item.entity === 'consegna') {
+                      <button type="button" class="link-btn" (click)="$event.stopPropagation(); openOrderFromAudit(item.entityId!)">{{ item.entity }} #{{ item.entityId }}</button>
+                    } @else {
+                      {{ item.entity || '-' }}{{ item.entityId ? ' #' + item.entityId : '' }}
+                    }
+                  </td>
+                  <td [class.cell-ok]="item.success" [class.cell-ko]="!item.success">{{ item.success ? 'OK' : 'KO' }} ({{ item.statusCode }})</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="audit-footer">
+            <span>{{ auditTotal }} record</span>
+            <button type="button" class="ghost" [disabled]="auditPage <= 1" (click)="loadAudit(auditPage - 1)">Prev</button>
+            <span>Pag {{ auditPage }}</span>
+            <button type="button" class="ghost" [disabled]="auditPage * auditPageSize >= auditTotal" (click)="loadAudit(auditPage + 1)">Next</button>
+          </div>
+        }
+      </section>
+
+      <section class="detail-card">
+        <h2>Dettaglio audit</h2>
+        @if (!selectedAuditRow) {
+          <p>Seleziona una riga audit per vedere il dettaglio completo.</p>
+        } @else {
+          <div class="audit-detail-header">
+            <span class="audit-action-badge" [ngClass]="auditActionClass(selectedAuditRow.action)">
+              {{ auditActionLabel(selectedAuditRow.action) }}
+            </span>
+            <span [class.cell-ok]="selectedAuditRow.success" [class.cell-ko]="!selectedAuditRow.success">
+              {{ selectedAuditRow.success ? '✓ Riuscita' : '✗ Errore' }} ({{ selectedAuditRow.statusCode }})
+            </span>
+            <span class="audit-detail-ts">{{ selectedAuditRow.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+          </div>
+
+          @if (auditReadableSummary(selectedAuditRow)) {
+            <p class="audit-detail-summary">{{ auditReadableSummary(selectedAuditRow) }}</p>
+          }
+
+          <div class="audit-detail-grid">
+            <div class="audit-detail-field">
+              <span class="audit-field-label">Utente</span>
+              <span class="audit-field-value">
+                {{ selectedAuditRow.username || 'Sistema (automatico)' }}
+                @if (selectedAuditRow.role) {
+                  <span class="audit-role-chip">{{ selectedAuditRow.role }}</span>
+                }
+              </span>
+            </div>
+            @if (selectedAuditRow.entity) {
+              <div class="audit-detail-field">
+                <span class="audit-field-label">Oggetto</span>
+                <span class="audit-field-value">
+                  @if (selectedAuditRow.entityId && selectedAuditRow.entity === 'consegna') {
+                    <button type="button" class="link-btn" (click)="openOrderFromAudit(selectedAuditRow.entityId!)">
+                      {{ selectedAuditRow.entity }} #{{ selectedAuditRow.entityId }}
+                    </button>
+                  } @else {
+                    {{ selectedAuditRow.entity }}{{ selectedAuditRow.entityId ? ' #' + selectedAuditRow.entityId : '' }}
+                  }
+                </span>
+              </div>
+            }
+            <div class="audit-detail-field">
+              <span class="audit-field-label">IP</span>
+              <span class="audit-field-value">{{ selectedAuditRow.ipAddress || '-' }}</span>
+            </div>
+          </div>
+
+          @if (selectedAuditRow.details) {
+            <div class="audit-detail-json">
+              <span class="audit-field-label">Dati aggiuntivi</span>
+              <pre>{{ auditDetailsAsJson(selectedAuditRow) }}</pre>
+            </div>
+          }
+
+          <details class="audit-technical">
+            <summary>Informazioni tecniche</summary>
+            <div class="audit-technical-grid">
+              <span class="audit-field-label">ID</span><span>{{ selectedAuditRow.id }}</span>
+              <span class="audit-field-label">Metodo</span><span>{{ selectedAuditRow.method }}</span>
+              <span class="audit-field-label">Path</span><span class="audit-technical-path">{{ selectedAuditRow.path }}</span>
+              <span class="audit-field-label">Browser</span><span class="audit-technical-ua">{{ selectedAuditRow.userAgent || '-' }}</span>
+            </div>
+          </details>
+
+          <div class="modal-actions">
+            <button type="button" class="ghost" (click)="closeAuditDetail()">Chiudi dettaglio</button>
+          </div>
+        }
+      </section>
+    } @else if (activeView === 'anagrafiche') {
+      <section class="detail-card">
+        <div class="registry-tabs">
+          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'persone'" (click)="setRegistryTab('persone')">Persone</button>
+          <button type="button" class="ghost" [class.active]="activeRegistryTab === 'produzione'" (click)="setRegistryTab('produzione')">Produzione</button>
+        </div>
+        @if (activeRegistryTab === 'persone') {
+          <div class="registry-tabs registry-subtabs">
+            <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'utenti'" (click)="setPersoneSubTab('utenti')">Utenti</button>
+            <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'commerciali'" (click)="setPersoneSubTab('commerciali')">Commerciali</button>
+            <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'responsabili'" (click)="setPersoneSubTab('responsabili')">Responsabili</button>
+            @if (isAdmin) {
+              <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'mittenti-disegno'" (click)="setPersoneSubTab('mittenti-disegno')">Mittenti Disegno</button>
+              <button type="button" class="ghost" [class.active]="activePersoneSubTab === 'operai'" (click)="setPersoneSubTab('operai')">Operai</button>
+            }
+          </div>
+        } @else if (activeRegistryTab === 'produzione') {
+          <div class="registry-tabs registry-subtabs">
+            <button type="button" class="ghost" [class.active]="activeProduzioneSubTab === 'vettori'" (click)="setProduzioneSubTab('vettori')">Vettori</button>
+            <button type="button" class="ghost" [class.active]="activeProduzioneSubTab === 'tipi-cemento'" (click)="setProduzioneSubTab('tipi-cemento')">Tipi Cemento</button>
+            <button type="button" class="ghost" [class.active]="activeProduzioneSubTab === 'tipi-accessorio'" (click)="setProduzioneSubTab('tipi-accessorio')">Tipi Accessorio</button>
+          </div>
+        }
+      </section>
+
+      @if (operationError) { <div class="error">{{ operationError }}</div> }
+      @if (operationSuccess) { <div class="success">{{ operationSuccess }}</div> }
+
+      @if (activeRegistryTab === 'persone') {
+        @if (generatedPassword) {
+          <div class="generated-password-banner">
+            <div class="generated-password-info">
+              <span class="generated-password-label">Password generata per <strong>{{ generatedPasswordForUser }}</strong> — comunicala all'utente, non verrà più mostrata.</span>
+              <span class="generated-password-value">{{ generatedPassword }}</span>
+            </div>
+            <button type="button" class="ghost" (click)="copyGeneratedPassword()">Copia</button>
+            <button type="button" class="ghost" (click)="generatedPassword = null">✕</button>
+          </div>
+        }
+        @if (activePersoneSubTab === 'utenti') {
+          <section class="detail-card">
+            <h2>Gestione utenti</h2>
+            <div class="modal-grid">
+              <input type="text" [(ngModel)]="newUserModel.username" placeholder="Username (min 3 caratteri)" />
+              <select [(ngModel)]="newUserModel.role">
+                <option value="admin">admin</option>
+                <option value="operativo">operativo</option>
+                <option value="lettura">lettura</option>
+              </select>
+              <label class="kanban-toggle">
+                <input type="checkbox" [(ngModel)]="newUserModel.isActive" />
+                <span>Attivo</span>
+              </label>
+              <button type="button" [disabled]="newUserModel.username.trim().length < 3" (click)="createUser()">Crea utente</button>
+            </div>
+          </section>
+
+          <section class="table-card">
+            @if (usersLoading) {
+              <p>Caricamento utenti...</p>
+            } @else {
+              <table class="audit-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Ruolo</th>
+                    <th>Stato</th>
+                    <th>Aggiornato</th>
+                    <th>Azioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (userRow of usersRows; track userRow.id) {
+                    <tr>
+                      <td>{{ userRow.username }}</td>
+                      <td>
+                        <select [ngModel]="userRow.role" (ngModelChange)="updateUserRole(userRow.id, $event)">
+                          <option value="admin">admin</option>
+                          <option value="operativo">operativo</option>
+                          <option value="lettura">lettura</option>
+                        </select>
+                      </td>
+                      <td>{{ userRow.isActive ? 'Attivo' : 'Disattivo' }}</td>
+                      <td>{{ userRow.updatedAt ? (userRow.updatedAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
+                      <td>
+                        <div class="attachment-actions">
+                          <button type="button" [class]="userRow.isActive ? 'ghost-danger' : 'ghost'" (click)="toggleUserActive(userRow)">{{ userRow.isActive ? 'Disattiva' : 'Attiva' }}</button>
+                          <button type="button" class="ghost" (click)="openPasswordReset(userRow.id)">Reset password</button>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </section>
+
+          @if (passwordResetModel.userId) {
+            <section class="detail-card">
+              <h2>Reset password utente</h2>
+              <div class="modal-grid">
+                <input type="password" [(ngModel)]="passwordResetModel.password" placeholder="Nuova password (min 8)" />
+                <button type="button" [disabled]="passwordResetModel.password.length < 8" (click)="resetUserPassword()">Conferma reset</button>
+                <button type="button" class="ghost" (click)="passwordResetModel = { userId: null, password: '' }">Annulla</button>
+              </div>
+            </section>
+          }
+        }
+
+        @if (activePersoneSubTab === 'commerciali') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Commerciali</h2>
+              @if (commercialiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of commercialiRows; track item.id) {
+                      <tr>
+                        <td>{{ item.nome }}</td>
+                        <td><button type="button" class="danger" (click)="deleteCommerciale(item.id)">Elimina</button></td>
+                      </tr>
+                    }
+                    @if (!commercialiRows.length) {
+                      <tr><td colspan="2">Nessun commerciale.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newComercialeModel.nome" placeholder="Nome commerciale" />
+                  <button type="button" [disabled]="!newComercialeModel.nome.trim()" (click)="createCommerciale()">Aggiungi</button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (activePersoneSubTab === 'responsabili') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Responsabili</h2>
+              @if (responsabiliLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of responsabiliRows; track item.id) {
+                      <tr>
+                        <td>{{ item.nome }}</td>
+                        <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
+                      </tr>
+                    }
+                    @if (!responsabiliRows.length) {
+                      <tr><td colspan="2">Nessun responsabile.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
+                  <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (isAdmin && activePersoneSubTab === 'mittenti-disegno') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Mittenti Disegno</h2>
+              @if (mittentiDisegnoLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of mittentiDisegnoRows; track item.id) {
+                      <tr>
+                        @if (editingMittenteDisegno?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editMittenteDisegnoNome" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editMittenteDisegnoNome.trim()" (click)="saveMittenteDisegno()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditMittenteDisegno()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditMittenteDisegno(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteMittenteDisegno(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!mittentiDisegnoRows.length) {
+                      <tr><td colspan="2">Nessun mittente disegno.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newMittenteDisegnoNome" placeholder="Nome mittente" />
+                  <button type="button" [disabled]="!newMittenteDisegnoNome.trim()" (click)="createMittenteDisegno()">Aggiungi</button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (isAdmin && activePersoneSubTab === 'operai') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Operai</h2>
+              @if (operaiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of operaiRows; track item.id) {
+                      <tr>
+                        @if (editingOperaio?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editOperaioNome" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editOperaioNome.trim()" (click)="saveOperaio()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditOperaio()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditOperaio(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteOperaio(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!operaiRows.length) {
+                      <tr><td colspan="2">Nessun operaio.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newOperaioNome" placeholder="Nome operaio" />
+                  <button type="button" [disabled]="!newOperaioNome.trim()" (click)="createOperaio()">Aggiungi</button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      } @else if (activeRegistryTab === 'produzione') {
+        @if (activeProduzioneSubTab === 'vettori') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Vettori</h2>
+              @if (vettoriLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of vettoriRows; track item.id) {
+                      <tr>
+                        @if (editingVettore?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editVettoreNome" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editVettoreNome.trim()" (click)="saveVettore()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditVettore()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditVettore(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteVettore(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!vettoriRows.length) {
+                      <tr><td colspan="2">Nessun vettore.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newVettoreNome" placeholder="Nome vettore" />
+                  <button type="button" [disabled]="!newVettoreNome.trim()" (click)="createVettore()">Aggiungi</button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (activeProduzioneSubTab === 'tipi-cemento') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Tipi Cemento</h2>
+              @if (cementiTipiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of cementiTipiRows; track item.id) {
+                      <tr>
+                        @if (editingCementoTipo?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editCementoTipoNome" /></td>
+                          <td><input type="number" [(ngModel)]="editCementoTipoOrdine" style="width:5rem" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editCementoTipoNome.trim()" (click)="saveCementoTipo()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditCementoTipo()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>{{ item.ordine }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditCementoTipo(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteCementoTipo(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!cementiTipiRows.length) {
+                      <tr><td colspan="3">Nessun tipo cemento.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newCementoTipoNome" placeholder="Nome tipo cemento" />
+                  <input type="number" [(ngModel)]="newCementoTipoOrdine" placeholder="Ordine" style="width:5rem" />
+                  <button type="button" [disabled]="!newCementoTipoNome.trim()" (click)="createCementoTipo()">Aggiungi</button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (activeProduzioneSubTab === 'tipi-accessorio') {
+          <div class="settings-page">
+            <div class="settings-card">
+              <h2 class="settings-card-title">Tipi Accessorio</h2>
+              @if (accessoriTipiLoading) {
+                <p class="settings-loading">Caricamento...</p>
+              } @else {
+                <table class="audit-table">
+                  <thead><tr><th>Nome</th><th>Ordine</th><th>Azioni</th></tr></thead>
+                  <tbody>
+                    @for (item of accessoriTipiRows; track item.id) {
+                      <tr>
+                        @if (editingAccessorioTipo?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editAccessorioTipoNome" /></td>
+                          <td><input type="number" [(ngModel)]="editAccessorioTipoOrdine" style="width:5rem" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editAccessorioTipoNome.trim()" (click)="saveAccessorioTipo()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditAccessorioTipo()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>{{ item.ordine }}</td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditAccessorioTipo(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteAccessorioTipo(item)">Elimina</button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                    @if (!accessoriTipiRows.length) {
+                      <tr><td colspan="3">Nessun tipo accessorio.</td></tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="settings-inline-add">
+                  <input type="text" [(ngModel)]="newAccessorioTipoNome" placeholder="Nome tipo accessorio" />
+                  <input type="number" [(ngModel)]="newAccessorioTipoOrdine" placeholder="Ordine" style="width:5rem" />
+                  <button type="button" [disabled]="!newAccessorioTipoNome.trim()" (click)="createAccessorioTipo()">Aggiungi</button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
+    }
+      @if (operationError) {
+        <div class="error">{{ operationError }}</div>
+      }
+      @if (operationSuccess) {
+        <div class="success">{{ operationSuccess }}</div>
+      }
+
+    @if (activeView === 'settings' && isAdmin) {
+        <div class="content-header">
+          <h1 class="content-title">Impostazioni</h1>
+        </div>
+        <div class="settings-page">
+          <div class="settings-card">
+            <h2 class="settings-card-title">Connessione ERP SQL Server</h2>
+            <p class="settings-desc">Sezione tecnica. Per l'uso quotidiano non è necessario intervenire qui.</p>
+            @if (!settingsEditMode) {
+              <p class="settings-readonly-note">Configurazione protetta: premi <strong>Modifica configurazione</strong> per cambiare i parametri.</p>
+            }
+
+            @if (settingsLoading) {
+              <p class="settings-loading">Caricamento configurazione...</p>
+            } @else {
+              <div class="settings-form">
+                <div class="settings-row settings-row--two">
+                  <label class="settings-field">
+                    <span>Server (host)</span>
+                    <input type="text" [(ngModel)]="settingsForm.host" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="es. srvsql" />
+                    @if (settingsConfig) {
+                      <small class="settings-source">{{ settingsConfig.host.source === 'db' ? 'Da database' : 'Da .env' }}</small>
+                    }
+                  </label>
+                  <label class="settings-field">
+                    <span>Porta</span>
+                    <input type="text" [(ngModel)]="settingsForm.port" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="1433" />
+                  </label>
+                </div>
+                <label class="settings-field">
+                  <span>Database</span>
+                  <input type="text" [(ngModel)]="settingsForm.database" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="es. ADB_GESTIONALE" />
+                  @if (settingsConfig) {
+                    <small class="settings-source">{{ settingsConfig.database.source === 'db' ? 'Da database' : 'Da .env' }}</small>
+                  }
+                </label>
+                <label class="settings-field">
+                  <span>Utente</span>
+                  <input type="text" [(ngModel)]="settingsForm.user" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="es. sa" autocomplete="off" />
+                </label>
+                <label class="settings-field">
+                  <span>Password</span>
+                  <div class="settings-password-wrap">
+                    <input
+                      [type]="settingsShowPassword ? 'text' : 'password'"
+                      [(ngModel)]="settingsForm.password"
+                      [disabled]="!settingsEditMode || settingsSaving || settingsTesting"
+                      autocomplete="new-password"
+                    />
+                    <button type="button" class="ghost settings-eye" [disabled]="!settingsEditMode" (click)="settingsShowPassword = !settingsShowPassword">
+                      {{ settingsShowPassword ? 'Nascondi' : 'Mostra' }}
+                    </button>
+                  </div>
+                  @if (settingsConfig) {
+                    <small class="settings-source">{{ settingsConfig.password.source === 'db' ? 'Da database' : 'Da .env' }}</small>
+                  }
+                </label>
+                <label class="settings-field settings-field--narrow">
+                  <span>Timeout (ms)</span>
+                  <input type="text" [(ngModel)]="settingsForm.timeoutMs" [disabled]="!settingsEditMode || settingsSaving || settingsTesting" placeholder="15000" />
+                </label>
+
+                @if (settingsConfig) {
+                  <p class="settings-origin">
+                    Origine configurazione: <strong>{{ settingsOriginLabel }}</strong>
+                  </p>
+                }
+
+                @if (settingsError) {
+                  <div class="error">{{ settingsError }}</div>
+                }
+                @if (settingsSuccess) {
+                  <div class="success-box">{{ settingsSuccess }}</div>
+                }
+                @if (settingsTestResult) {
+                  <div [class]="settingsTestResult.ok ? 'success-box' : 'error'">
+                    @if (settingsTestResult.ok) { Connessione riuscita. }
+                    @else { Connessione fallita: {{ settingsTestResult.message }} }
+                  </div>
+                }
+              </div>
+
+              <div class="settings-actions">
+                <button
+                  type="button"
+                  class="ghost"
+                  [disabled]="settingsTesting || settingsSaving"
+                  (click)="testSettings()"
+                >
+                  {{ settingsTesting ? 'Test in corso...' : 'Test connessione' }}
+                </button>
+                @if (!settingsEditMode) {
+                  <button type="button" (click)="enableSettingsEdit()">Modifica configurazione</button>
+                } @else {
+                  <button
+                    type="button"
+                    [disabled]="settingsSaving || settingsTesting"
+                    (click)="saveSettings()"
+                  >
+                    {{ settingsSaving ? 'Salvataggio...' : 'Salva configurazione' }}
+                  </button>
+                  <button type="button" class="ghost" [disabled]="settingsSaving || settingsTesting" (click)="cancelSettingsEdit()">Annulla modifiche</button>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="settings-card">
+            <h2 class="settings-card-title">Funzione tecnica: apertura cartelle da browser</h2>
+            <p class="settings-desc">
+              Per aprire le cartelle degli ordini con un click, ogni PC deve installare il protocollo
+              <code>carra-folder://</code> una volta sola.
+            </p>
+            <ol class="settings-install-steps">
+              <li>Scarica lo script qui sotto</li>
+              <li>Clicca con il tasto destro sul file scaricato → <strong>Esegui con PowerShell</strong></li>
+              <li>Conferma la richiesta di amministratore</li>
+              <li>Al termine, il bottone "Apri cartella" funzionerà su questo PC</li>
+            </ol>
+            <div class="settings-actions">
+              <a class="btn" href="/installa-carra-folder.ps1" download="installa-carra-folder.ps1">
+                Scarica script installazione
+              </a>
+            </div>
+            <p class="settings-note">
+              Lo script crea <code>C:\carra-tools\carra-folder-open.ps1</code> e registra il protocollo
+              nel Registry di Windows. Nessuna modifica al sistema al di fuori di questo.
+            </p>
+          </div>
+        </div>
+    }
     </div>
   </div>
 
@@ -98,7 +749,7 @@
         </div>
         <div class="form-field">
           <label class="form-field__label">Tipo impianto</label>
-          <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="es. NÂ°1 METEOTANK MP/SD 1200" />
+          <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="es. N°1 METEOTANK MP/SD 1200" />
         </div>
         <div class="form-field">
           <label class="form-field__label">Data consegna</label>
@@ -179,7 +830,7 @@
   @if (historyModalTitle) {
     <div class="modal-backdrop">
       <div class="modal modal--history">
-        <h2>Percorso ordine â€” {{ historyModalTitle }}</h2>
+        <h2>Percorso ordine — {{ historyModalTitle }}</h2>
         @if (loadingHistoryModal) {
           <p>Caricamento...</p>
         } @else if (!historyModalEvents.length) {
@@ -192,13 +843,13 @@
                 <div class="timeline-content">
                   <div class="timeline-header">
                     <span class="event-badge" [ngClass]="eventTypeClass(event.eventType)">{{ eventTypeLabel(event.eventType) }}</span>
-                    <span class="timeline-meta">{{ event.createdAt | date:'dd/MM/yyyy HH:mm':'UTC' }} â€” {{ event.actor || 'sistema' }}</span>
+                    <span class="timeline-meta">{{ event.createdAt | date:'dd/MM/yyyy HH:mm':'UTC' }} — {{ event.actor || 'sistema' }}</span>
                   </div>
                   @if (diffSummary(event)) {
                     <div class="timeline-diff-summary">{{ diffSummary(event) }}</div>
                   }
                   @if (event.fromStatus || event.toStatus) {
-                    <div class="timeline-transition">{{ event.fromStatus || 'â€”' }} <span class="arrow">â†’</span> {{ event.toStatus || 'â€”' }}</div>
+                    <div class="timeline-transition">{{ event.fromStatus || '—' }} <span class="arrow">→</span> {{ event.toStatus || '—' }}</div>
                   }
                   @if (event.note) {
                     <div class="timeline-note">{{ event.note }}</div>
@@ -225,6 +876,10 @@
     </div>
   }
 
+  @if (detailModalOpen && selectedDetail) {
+    <app-order-detail-modal [app]="detailHost"></app-order-detail-modal>
+  }
+
   <app-transition-modal
     [modal]="dropTransitionModal"
     [operaiList]="operaiList"
@@ -233,10 +888,6 @@
     (decideLater)="confirmDropTransition(true)"
     (cancel)="closeDropTransitionModal()"
   />
-
-  @if (detailModalOpen && selectedDetail) {
-    <app-order-detail-modal [app]="detailHost"></app-order-detail-modal>
-  }
 
   @if (sqlImportModalOpen) {
     <div class="modal-backdrop" (click)="closeSqlImportModal()">
@@ -289,7 +940,7 @@
             <strong>Importazione completata!</strong><br />
             Importati: <strong>{{ sqlImportResult.imported }}</strong> ordini
             @if (sqlImportResult.skippedDuplicates > 0) {
-              â€” Duplicati saltati: {{ sqlImportResult.skippedDuplicates }}
+              — Duplicati saltati: {{ sqlImportResult.skippedDuplicates }}
             }
             <br />
             Nuova data di riferimento: {{ sqlImportResult.newLastImportDate }}
@@ -308,12 +959,12 @@
         } @else if (!sqlImportError) {
           @if (sqlImportAlreadyImportedCount > 0) {
             <p class="import-info">
-              {{ sqlImportAlreadyImportedCount }} ordini giÃ  importati in precedenza esclusi dalla lista.
+              {{ sqlImportAlreadyImportedCount }} ordini già importati in precedenza esclusi dalla lista.
             </p>
           }
           @if (sqlImportTruncated) {
             <p class="import-warning">
-              âš  Risultato limitato a 1000 ordini. Restringere il periodo di ricerca per vedere tutti gli ordini.
+              ! Risultato limitato a 1000 ordini. Restringere il periodo di ricerca per vedere tutti gli ordini.
             </p>
           }
           @if (!sqlImportPreview.length) {
@@ -334,7 +985,7 @@
                 <thead>
                   <tr>
                     <th></th>
-                    <th>NÂ° Doc</th>
+                    <th>N° Doc</th>
                     <th>Cliente</th>
                     <th>Data Ordine</th>
                     <th>Data Consegna</th>
@@ -354,11 +1005,11 @@
                         />
                       </td>
                       <td>{{ order.rifto }}</td>
-                      <td>{{ order.cliente || 'â€”' }}</td>
-                      <td>{{ order.dataOrdine || 'â€”' }}</td>
-                      <td>{{ order.dataConsegna || 'â€”' }}</td>
-                      <td>{{ order.cantiere || 'â€”' }}</td>
-                      <td>{{ order.agenteNome || 'â€”' }}</td>
+                      <td>{{ order.cliente || '—' }}</td>
+                      <td>{{ order.dataOrdine || '—' }}</td>
+                      <td>{{ order.dataConsegna || '—' }}</td>
+                      <td>{{ order.cantiere || '—' }}</td>
+                      <td>{{ order.agenteNome || '—' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -380,7 +1031,7 @@
         @if (confirmModal) {
           <div class="import-confirm-overlay" (click)="closeConfirm()">
             <div class="import-confirm-card" (click)="$event.stopPropagation()">
-              <div class="import-confirm-icon">âš ï¸</div>
+              <div class="import-confirm-icon">!</div>
               <p>{{ confirmModal.message }}</p>
               <div class="import-confirm-actions">
                 <button type="button" class="danger" (click)="doConfirm()">Conferma</button>
@@ -403,10 +1054,10 @@
               <div class="import-confirm-summary">
                 <span><strong>Periodo dal:</strong> {{ sqlImportLastDate || sqlImportDateEdit || 'non impostato' }}</span>
                 <span><strong>Clienti coinvolti:</strong> {{ sqlImportSelectedCustomersCount }}</span>
-                <span><strong>Ordini esclusi perchÃ© giÃ  importati:</strong> {{ sqlImportAlreadyImportedCount }}</span>
+                <span><strong>Ordini esclusi perché già importati:</strong> {{ sqlImportAlreadyImportedCount }}</span>
               </div>
               <p class="import-confirm-note">
-                L'operazione Ã¨ reversibile: potrai modificare o eliminare ogni ordine dopo l'import.
+                L'operazione è reversibile: potrai modificare o eliminare ogni ordine dopo l'import.
               </p>
               <div class="import-confirm-actions">
                 <button type="button" (click)="confirmSqlImport()">

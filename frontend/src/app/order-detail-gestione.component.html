@@ -1,107 +1,200 @@
 <div class="detail-section" *ngIf="app.activeDetailTab === 'gestione'">
   <ng-container [ngSwitch]="detail.stato">
     <ng-container *ngSwitchCase="'DISEGNO IN GESTIONE'">
-      <div class="detail-section-title">Disegno in gestione</div>
-      <div class="detail-kv-grid detail-kv-grid--2col">
+      <div class="detail-section-title">Gestione Disegno</div>
+      <div class="detail-kv-grid">
         <div class="detail-kv">
-          <span class="kv-label">Mittente disegno</span>
-          <span class="kv-value">{{ app.nomeMittente(detail.disegnoMittenteId) }}</span>
+          <label class="kv-label">Data spedizione disegno</label>
+          <input *ngIf="app.canWrite; else disegnoSpeditoRead" type="date" [(ngModel)]="detail.disegnoSpeditoAt" />
+          <ng-template #disegnoSpeditoRead>
+            <span class="kv-value">{{ detail.disegnoSpeditoAt ? (detail.disegnoSpeditoAt | date:'dd/MM/yyyy') : '—' }}</span>
+          </ng-template>
         </div>
         <div class="detail-kv">
-          <span class="kv-label">Data invio disegno</span>
-          <span class="kv-value">{{ detail.disegnoSpeditoAt ? (detail.disegnoSpeditoAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+          <label class="kv-label">Mittente</label>
+          <select *ngIf="app.canWrite; else mittenteRead" [(ngModel)]="detail.disegnoMittenteId">
+            <option [ngValue]="null">— seleziona —</option>
+            <option *ngFor="let mittente of app.mittentiDisegno" [ngValue]="mittente.id">{{ mittente.nome }}</option>
+          </select>
+          <ng-template #mittenteRead>
+            <span class="kv-value">{{ app.nomeMittente(detail.disegnoMittenteId) }}</span>
+          </ng-template>
+        </div>
+        <div class="detail-kv detail-kv--full">
+          <label class="kv-label">Note disegno</label>
+          <textarea *ngIf="app.canWrite; else disegnoNoteRead" [(ngModel)]="detail.disegnoNote" rows="3" style="width:100%;resize:vertical"></textarea>
+          <ng-template #disegnoNoteRead>
+            <span class="kv-value">{{ detail.disegnoNote || '—' }}</span>
+          </ng-template>
         </div>
       </div>
-      <div class="detail-kv-grid detail-kv-grid--2col" style="margin-top: 10px">
-        <div class="detail-kv">
-          <span class="kv-label">Rientro disegno previsto</span>
-          <span class="kv-value">{{ detail.disegnoNote || 'â€”' }}</span>
-        </div>
-        <div class="detail-kv">
-          <span class="kv-label">Rientro disegno effettivo</span>
-          <span class="kv-value">{{ detail.lavorazioneAssegnataAt ? (detail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
-        </div>
-      </div>
+      <p *ngIf="app.canWrite" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
     </ng-container>
 
     <ng-container *ngSwitchCase="'DISEGNO APPROVATO'">
-      <div class="detail-section-title">Disegno approvato</div>
-      <div class="detail-kv-grid detail-kv-grid--2col">
-        <div class="detail-kv">
-          <span class="kv-label">Data invio disegno</span>
-          <span class="kv-value">{{ detail.disegnoSpeditoAt ? (detail.disegnoSpeditoAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+      <div class="detail-section-title">Disegno Approvato</div>
+      <div class="detail-kv-grid">
+        <div class="detail-kv detail-kv--full">
+          <label class="kv-label">Massicciata</label>
+          <textarea *ngIf="app.canWrite; else massicciataRead" [(ngModel)]="detail.massicciataNota" rows="3" style="width:100%;resize:vertical"></textarea>
+          <ng-template #massicciataRead>
+            <span class="kv-value">{{ detail.massicciataNota || '—' }}</span>
+          </ng-template>
         </div>
-        <div class="detail-kv">
-          <span class="kv-label">Mittente disegno</span>
-          <span class="kv-value">{{ app.nomeMittente(detail.disegnoMittenteId) }}</span>
+        <div class="detail-kv detail-kv--full">
+          <label class="kv-label">Tipologia carichi</label>
+          <textarea *ngIf="app.canWrite; else tipoCarichiRead" [(ngModel)]="detail.tipoCariciNota" rows="3" style="width:100%;resize:vertical"></textarea>
+          <ng-template #tipoCarichiRead>
+            <span class="kv-value">{{ detail.tipoCariciNota || '—' }}</span>
+          </ng-template>
+        </div>
+        <div class="detail-kv detail-kv--full" *ngIf="app.selectedCementiSummary().length">
+          <label class="kv-label">Cementi flaggati</label>
+          <div class="cementi-summary">
+            <div class="cementi-summary__item" *ngFor="let sel of app.selectedCementiSummary()" [ngClass]="app.cementoBadgeClass(sel)">
+              <span class="cementi-summary__name">{{ sel.nome }}</span>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="detail-kv-grid detail-kv-grid--2col" style="margin-top: 10px">
-        <div class="detail-kv">
-          <span class="kv-label">Note</span>
-          <span class="kv-value">{{ detail.disegnoNote || 'â€”' }}</span>
-        </div>
-        <div class="detail-kv">
-          <span class="kv-label">Lavorazione assegnata</span>
-          <span class="kv-value">{{ detail.lavorazioneAssegnataAt ? (detail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
-        </div>
-      </div>
+      <p *ngIf="app.canWrite" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
     </ng-container>
 
     <ng-container *ngSwitchCase="'ASSEGNATO'">
-      <div class="detail-section-title">Assegnato</div>
-      <div class="detail-kv-grid detail-kv-grid--2col">
+      <div class="detail-section-title">Assegnazione</div>
+      <div class="detail-kv-grid">
         <div class="detail-kv">
-          <span class="kv-label">Data assegnazione</span>
-          <span class="kv-value">{{ detail.lavorazioneAssegnataAt ? (detail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+          <label class="kv-label">Data assegnazione</label>
+          <input *ngIf="app.canWrite; else assegnazioneRead" type="date" [(ngModel)]="detail.lavorazioneAssegnataAt" />
+          <ng-template #assegnazioneRead>
+            <span class="kv-value">{{ detail.lavorazioneAssegnataAt ? (detail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : '—' }}</span>
+          </ng-template>
         </div>
-        <div class="detail-kv">
-          <span class="kv-label">Operai assegnati</span>
-          <span class="kv-value">{{ app.operaiNomiLabel(detail.operaiAssegnati) }}</span>
+        <div class="detail-kv detail-kv--full">
+          <label class="kv-label">Operai assegnati</label>
+          <div *ngIf="app.canWrite; else operaiRead" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+            <label *ngFor="let operaio of app.operaiList" style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
+              <input type="checkbox" [checked]="app.isOperaioSelected(operaio.id)" (change)="app.toggleOperaio(operaio.id)" />
+              {{ operaio.nome }}
+            </label>
+          </div>
+          <ng-template #operaiRead>
+            <span class="kv-value">{{ app.operaiNomiLabel(detail.operaiAssegnati) }}</span>
+          </ng-template>
         </div>
       </div>
+      <p *ngIf="app.canWrite" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
     </ng-container>
 
     <ng-container *ngSwitchCase="'CONSEGNA PIANIFICATA'">
-      <div class="detail-section-title">Consegna pianificata</div>
-      <div class="detail-kv-grid detail-kv-grid--2col">
+      <div class="detail-section-title">Consegna Pianificata</div>
+      <div class="detail-kv-grid">
         <div class="detail-kv">
-          <span class="kv-label">Data consegna effettiva</span>
-          <span class="kv-value">{{ detail.consegnaDataEffettiva ? (detail.consegnaDataEffettiva | date:'dd/MM/yyyy') : 'â€”' }}</span>
+          <label class="kv-label">Data consegna effettiva</label>
+          <input *ngIf="app.canWrite; else consegnaEffettivaRead" type="date" [(ngModel)]="detail.consegnaDataEffettiva" />
+          <ng-template #consegnaEffettivaRead>
+            <span class="kv-value">{{ detail.consegnaDataEffettiva ? (detail.consegnaDataEffettiva | date:'dd/MM/yyyy') : '—' }}</span>
+          </ng-template>
         </div>
         <div class="detail-kv">
-          <span class="kv-label">Vettore</span>
-          <span class="kv-value">{{ app.nomeVettore(detail.vettoreId) }}</span>
+          <label class="kv-label">N° bilici</label>
+          <input *ngIf="app.canWrite; else biliciRead" type="number" min="0" step="1" [(ngModel)]="detail.bilici" />
+          <ng-template #biliciRead>
+            <span class="kv-value">{{ detail.bilici ?? '—' }}</span>
+          </ng-template>
         </div>
         <div class="detail-kv">
-          <span class="kv-label">N° bilici</span>
-          <span class="kv-value">{{ detail.bilici ?? 'â€”' }}</span>
+          <label class="kv-label">Vettore</label>
+          <select *ngIf="app.canWrite; else vettoreRead" [(ngModel)]="detail.vettoreId">
+            <option [ngValue]="null">— seleziona —</option>
+            <option *ngFor="let vettore of app.vettoriList" [ngValue]="vettore.id">{{ vettore.nome }}</option>
+          </select>
+          <ng-template #vettoreRead>
+            <span class="kv-value">{{ app.nomeVettore(detail.vettoreId) }}</span>
+          </ng-template>
+        </div>
+        <div class="detail-kv detail-kv--full">
+          <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.ddtPronti" [disabled]="!app.canWrite" />
+              DDT pronti
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.bancale" [disabled]="!app.canWrite" />
+              Bancale
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.chiusini" [disabled]="!app.canWrite" />
+              Chiusini
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.caricoVerificato" [disabled]="!app.canWrite" />
+              Carico verificato
+            </label>
+          </div>
         </div>
       </div>
-      <div class="detail-pills-row" style="margin-top: 12px">
-        <div class="detail-pill-item"><span class="kv-label">DDT pronti</span><span [class]="detail.ddtPronti ? 'badge-ok' : 'badge-neutral'">{{ detail.ddtPronti ? 'SI' : 'NO' }}</span></div>
-        <div class="detail-pill-item"><span class="kv-label">Bancale</span><span [class]="detail.bancale ? 'badge-ok' : 'badge-neutral'">{{ detail.bancale ? 'SI' : 'NO' }}</span></div>
-        <div class="detail-pill-item"><span class="kv-label">Chiusini</span><span [class]="detail.chiusini ? 'badge-ok' : 'badge-neutral'">{{ detail.chiusini ? 'SI' : 'NO' }}</span></div>
-        <div class="detail-pill-item"><span class="kv-label">Carico verificato</span><span [class]="detail.caricoVerificato ? 'badge-ok' : 'badge-neutral'">{{ detail.caricoVerificato ? 'SI' : 'NO' }}</span></div>
-      </div>
+      <p *ngIf="app.canWrite" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
     </ng-container>
 
     <ng-container *ngSwitchCase="'CONCLUSI'">
-      <div class="detail-section-title">Conclusi</div>
-      <div class="detail-kv-grid detail-kv-grid--2col">
+      <div class="detail-section-title">A.M.P.</div>
+      <div class="detail-kv-grid">
         <div class="detail-kv">
-          <span class="kv-label">Chiusura</span>
-          <span class="kv-value">{{ detail.conclusiMode === 'week' ? app.conclusiWeekLabel(detail.conclusiWeek) : (detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : 'â€”') }}</span>
+          <label class="kv-label">Settimana</label>
+          <span class="kv-value">{{ app.conclusiWeekLabel(detail.conclusiWeek) }}</span>
         </div>
         <div class="detail-kv">
-          <span class="kv-label">Note chiusura</span>
-          <span class="kv-value">{{ detail.note || 'â€”' }}</span>
+          <label class="kv-label">Data</label>
+          <span class="kv-value">{{ detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : '—' }}</span>
         </div>
       </div>
+      <p class="tab-save-hint">Questo dato viene impostato nel passaggio da <strong>ASSEGNATO</strong> a <strong>CONCLUSI</strong>.</p>
     </ng-container>
 
     <ng-container *ngSwitchDefault>
       <p class="detail-empty">Nessun dato aggiuntivo richiesto per questo stato. Usa il pannello qui sotto per passare allo stato successivo.</p>
     </ng-container>
   </ng-container>
+
+  <div class="detail-section" *ngIf="detail.stato !== 'CONCLUSI' && detail.conclusiMode">
+    <div class="detail-section-title">A.M.P.</div>
+    <div class="detail-kv-grid">
+      <div class="detail-kv">
+        <label class="kv-label">Settimana</label>
+        <span class="kv-value">{{ detail.conclusiMode === 'week' ? app.conclusiWeekLabel(detail.conclusiWeek) : '—' }}</span>
+      </div>
+      <div class="detail-kv">
+        <label class="kv-label">Data</label>
+        <span class="kv-value">{{ detail.conclusiMode === 'date' && detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : '—' }}</span>
+      </div>
+    </div>
+    <p class="tab-save-hint">Questo dato viene impostato nel passaggio da <strong>ASSEGNATO</strong> a <strong>CONCLUSI</strong> e resta visibile negli stati successivi.</p>
+  </div>
+
+  <div class="detail-section">
+    <div class="detail-section-title">Cambio stato</div>
+    <p *ngIf="app.operationError" class="error">{{ app.operationError }}</p>
+    <p *ngIf="app.operationSuccess" class="success">{{ app.operationSuccess }}</p>
+    <ng-container *ngIf="app.canWrite; else readOnlyTransition">
+      <p class="tab-current-state">Stato attuale: <span class="status-chip" [ngClass]="app.columnClass(detail.stato)">{{ detail.stato }}</span></p>
+      <ng-container *ngIf="app.allowedNextStatuses(detail.stato) as nextStatuses">
+        <p *ngIf="!nextStatuses.length" class="detail-empty">Questo ordine ha raggiunto uno stato terminale — nessun avanzamento ulteriore disponibile.</p>
+        <div *ngIf="nextStatuses.length" class="transition-grid">
+          <div class="transition-select-wrap">
+            <select [(ngModel)]="app.transitionModel.toStatus">
+              <option value="">Seleziona stato</option>
+              <option *ngFor="let status of nextStatuses" [value]="status">{{ status }}</option>
+            </select>
+            <small class="transition-hint">Gli stati disponibili dipendono dal flusso corrente dell'ordine.</small>
+          </div>
+          <input type="text" [(ngModel)]="app.transitionModel.note" placeholder="Nota (obbligatoria per SOSPESO)" />
+          <button type="button" [disabled]="!app.transitionModel.toStatus" (click)="app.applyTransition()">Aggiorna stato</button>
+        </div>
+      </ng-container>
+    </ng-container>
+    <ng-template #readOnlyTransition>
+      <p class="detail-empty">Accesso in sola lettura — cambio stato non disponibile.</p>
+    </ng-template>
+  </div>
 </div>
