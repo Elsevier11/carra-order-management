@@ -18,6 +18,10 @@ export type ExtractedRow = {
   stato: string
 }
 
+const STATUS_NORMALIZATION: Record<string, string> = {
+  'IN LAVORAZIONE': 'DA ASSEGNARE',
+}
+
 export type SheetReport = {
   sheet: string
   headerRow: number
@@ -44,6 +48,11 @@ function normalize(value: string): string {
 function cell(row: unknown[], index: number): string {
   if (index < 0) return ''
   return String(row[index] ?? '').replace(/\r?\n/g, ' ').trim()
+}
+
+function normalizeStatus(value: string): string {
+  const trimmed = value.trim()
+  return STATUS_NORMALIZATION[trimmed] ?? trimmed
 }
 
 function findHeaderRow(aoa: unknown[][]): number {
@@ -143,7 +152,7 @@ export function extractWorkbook(workbook: WorkBook, sheetsCount = 4) {
         accessori: cell(row, column.accessori),
         operai: cell(row, column.operai),
         note: cell(row, column.note),
-        stato: sheetName,
+        stato: normalizeStatus(sheetName),
       })
       extractedRows += 1
     }

@@ -71,7 +71,7 @@
   overflow-y: auto !important;
   display: flex;
   flex-direction: column;
-  padding-bottom: 84px;
+  padding-bottom: 98px;
 }
 
 .sidebar {
@@ -642,6 +642,10 @@
   &.detail-kv-grid--2col {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  &.detail-kv-grid--contact {
+    grid-template-columns: minmax(240px, 1.7fr) minmax(120px, 0.65fr);
+  }
 }
 
 .detail-kv {
@@ -656,6 +660,10 @@
 
 .detail-kv--full {
   grid-column: 1 / -1;
+}
+
+.detail-kv--contact-phone .kv-value {
+  white-space: nowrap;
 }
 
 .kv-value--prominent {
@@ -822,6 +830,43 @@
   grid-column: 1 / -1;
   min-height: 120px;
   resize: vertical;
+}
+
+.transition-workers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 10px 0 0;
+}
+
+.transition-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0 10px;
+}
+
+.transition-mode-switch .ghost.active {
+  background: var(--primary-tint);
+  border-color: var(--primary-border);
+  color: var(--primary-deep);
+}
+
+.transition-worker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.transition-worker input {
+  margin: 0;
 }
 
 .form-field {
@@ -1122,6 +1167,42 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.kanban-card-alerts--cementi {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.kanban-card-alerts--cementi .kanban-card-alert {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.kanban-card-alert.cemento-badge--rosso {
+  background: rgba(248, 113, 113, 0.12);
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, 0.22);
+}
+
+.kanban-card-alert.cemento-badge--arancione {
+  background: rgba(251, 146, 60, 0.14);
+  color: #c2410c;
+  border-color: rgba(251, 146, 60, 0.24);
+}
+
+.kanban-card-alert.cemento-badge--verde {
+  background: rgba(74, 222, 128, 0.14);
+  color: #15803d;
+  border-color: rgba(74, 222, 128, 0.24);
+}
+
+.kanban-card-alert--conclusi {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.22);
 }
 
 .detail-alerts {
@@ -1919,6 +2000,27 @@ tr.selected-row:hover {
   grid-column: span 2;
 }
 
+.form-field--referente {
+  grid-column: span 2;
+}
+
+.form-field--telefono {
+  grid-column: span 1;
+  max-width: 190px;
+  justify-self: start;
+}
+
+.form-field--telefono input {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .form-field--referente,
+  .form-field--telefono {
+    grid-column: 1 / -1;
+  }
+}
+
 .detail-form-checks {
   grid-column: 1 / -1;
   display: flex;
@@ -2008,6 +2110,53 @@ tr.selected-row:hover {
   font-size: 0.85rem;
   cursor: pointer;
   color: var(--ink-secondary, #64748b);
+}
+
+.cementi-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cementi-summary__item {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cementi-summary__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cemento-badge--rosso {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.22);
+}
+
+.cemento-badge--arancione {
+  color: #c2410c;
+  background: rgba(251, 146, 60, 0.14);
+  border-color: rgba(251, 146, 60, 0.24);
+}
+
+.cemento-badge--verde {
+  color: #15803d;
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.24);
 }
 
 // ── C.A.M. toggle ─────────────────────────────────────────────────────────────

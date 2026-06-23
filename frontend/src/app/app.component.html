@@ -873,6 +873,7 @@
                                 <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
                               }
                               <div class="kanban-card-meta">
+                                <span class="kanban-card-meta__order">Ordine {{ item.dataOrdine ? (item.dataOrdine | date:'dd/MM/yy') : '—' }}</span>
                                 <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
                               </div>
                               @if (orderWarnings(item); as warnings) {
@@ -883,6 +884,18 @@
                                     }
                                   </div>
                                 }
+                              }
+                              @if (boardConclusiBadge(item); as conclusiBadge) {
+                                <div class="kanban-card-alerts kanban-card-alerts--conclusi">
+                                  <span class="kanban-card-alert kanban-card-alert--conclusi">{{ conclusiBadge }}</span>
+                                </div>
+                              }
+                              @if (boardCementiSummary(item).length) {
+                                <div class="kanban-card-alerts kanban-card-alerts--cementi">
+                                  @for (cemento of boardCementiSummary(item); track cemento.nome) {
+                                    <span class="kanban-card-alert" [ngClass]="cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
+                                  }
+                                </div>
                               }
                               @if (isLate(item)) {
                                 <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
@@ -911,6 +924,7 @@
                               <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
                             }
                             <div class="kanban-card-meta">
+                              <span class="kanban-card-meta__order">Ordine {{ item.dataOrdine ? (item.dataOrdine | date:'dd/MM/yy') : '—' }}</span>
                               <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
                             </div>
                             @if (orderWarnings(item); as warnings) {
@@ -921,6 +935,18 @@
                                   }
                                 </div>
                               }
+                            }
+                            @if (boardConclusiBadge(item); as conclusiBadge) {
+                              <div class="kanban-card-alerts kanban-card-alerts--conclusi">
+                                <span class="kanban-card-alert kanban-card-alert--conclusi">{{ conclusiBadge }}</span>
+                              </div>
+                            }
+                            @if (boardCementiSummary(item).length) {
+                              <div class="kanban-card-alerts kanban-card-alerts--cementi">
+                                @for (cemento of boardCementiSummary(item); track cemento.nome) {
+                                  <span class="kanban-card-alert" [ngClass]="cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
+                                }
+                              </div>
                             }
                             @if (isLate(item)) {
                               <span class="sla-badge late">Ritardo {{ lateDays(item) }}g</span>
@@ -1070,6 +1096,14 @@
                 <label class="form-field__label">Data ordine</label>
                 <input type="date" [(ngModel)]="formModel.dataOrdine" />
               </div>
+              <div class="form-field form-field--span2 form-field--referente">
+                <label class="form-field__label">Referente</label>
+                <input type="text" [(ngModel)]="formModel.referente" maxlength="80" placeholder="Nome e cognome" />
+              </div>
+              <div class="form-field form-field--telefono">
+                <label class="form-field__label">Telefono</label>
+                <input type="text" [(ngModel)]="formModel.telefono" maxlength="30" placeholder="es. 333 1234567" />
+              </div>
               <!-- Riga 3: Stato | Commerciale | Responsabile (span 2) -->
               <div class="form-field">
                 <label class="form-field__label">Stato</label>
@@ -1137,7 +1171,7 @@
               </div>
             </div>
             <!-- Riga 2: Commerciale | Responsabile -->
-            <div class="detail-kv-grid detail-kv-grid--2col" style="margin-top: 10px">
+            <div class="detail-kv-grid detail-kv-grid--2col detail-kv-grid--contact" style="margin-top: 10px">
               <div class="detail-kv">
                 <span class="kv-label">Commerciale</span>
                 <span class="kv-value">{{ nomeCommerciale(selectedDetail.commercialeId) }}</span>
@@ -1145,6 +1179,14 @@
               <div class="detail-kv">
                 <span class="kv-label">Responsabile</span>
                 <span class="kv-value">{{ nomeResponsabile(selectedDetail.responsabileInternoId) }}</span>
+              </div>
+              <div class="detail-kv detail-kv--contact-name">
+                <span class="kv-label">Referente</span>
+                <span class="kv-value">{{ selectedDetail.referente || '—' }}</span>
+              </div>
+              <div class="detail-kv detail-kv--contact-phone">
+                <span class="kv-label">Telefono</span>
+                <span class="kv-value">{{ selectedDetail.telefono || '—' }}</span>
               </div>
             </div>
           </div>
@@ -1221,6 +1263,9 @@
                 }
               </div>
             </div>
+            @if (canWrite) {
+              <p class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
+            }
           </div>
 
           <!-- ── Allegati (sempre visibili) ────────────────────────── -->
@@ -1321,9 +1366,7 @@
                   </div>
                 </div>
                 @if (canWrite) {
-                  <div class="modal-actions" style="margin-top:10px">
-                    <button type="button" (click)="saveDisegnoFields()">Aggiorna sezione</button>
-                  </div>
+                  <p class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
                 }
               </div>
             }
@@ -1348,18 +1391,28 @@
                       <span class="kv-value">{{ selectedDetail.tipoCariciNota || '—' }}</span>
                     }
                   </div>
+                  @if (selectedCementiSummary().length) {
+                    <div class="detail-kv detail-kv--full">
+                      <label class="kv-label">Cementi flaggati</label>
+                      <div class="cementi-summary">
+                        @for (sel of selectedCementiSummary(); track sel.tipoId) {
+                          <div class="cementi-summary__item" [ngClass]="cementoBadgeClass(sel)">
+                            <span class="cementi-summary__name">{{ sel.nome }}</span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
                 @if (canWrite) {
-                  <div class="modal-actions" style="margin-top:10px">
-                    <button type="button" (click)="saveDisegnoApprovatoFields()">Salva</button>
-                  </div>
+                  <p class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
                 }
               </div>
             }
 
-            @if (selectedDetail.stato === 'IN LAVORAZIONE') {
+            @if (selectedDetail.stato === 'ASSEGNATO') {
               <div class="detail-section">
-                <div class="detail-section-title">Lavorazione</div>
+                <div class="detail-section-title">Assegnazione</div>
                 <div class="detail-kv-grid">
                   <div class="detail-kv">
                     <label class="kv-label">Data assegnazione</label>
@@ -1386,9 +1439,7 @@
                   </div>
                 </div>
                 @if (canWrite) {
-                  <div class="modal-actions" style="margin-top:10px">
-                    <button type="button" (click)="saveLavorazioneFields()">Aggiorna sezione</button>
-                  </div>
+                  <p class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
                 }
               </div>
             }
@@ -1403,6 +1454,14 @@
                       <input type="date" [(ngModel)]="selectedDetail.consegnaDataEffettiva" />
                     } @else {
                       <span class="kv-value">{{ selectedDetail.consegnaDataEffettiva ? (selectedDetail.consegnaDataEffettiva | date:'dd/MM/yyyy') : '—' }}</span>
+                    }
+                  </div>
+                  <div class="detail-kv">
+                    <label class="kv-label">N° bilici</label>
+                    @if (canWrite) {
+                      <input type="number" min="0" step="1" [(ngModel)]="selectedDetail.bilici" />
+                    } @else {
+                      <span class="kv-value">{{ selectedDetail.bilici }}</span>
                     }
                   </div>
                   <div class="detail-kv">
@@ -1429,6 +1488,10 @@
                         Bancale
                       </label>
                       <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="canWrite ? 'pointer' : 'default'">
+                        <input type="checkbox" [(ngModel)]="selectedDetail.chiusini" [disabled]="!canWrite" />
+                        Chiusini
+                      </label>
+                      <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="canWrite ? 'pointer' : 'default'">
                         <input type="checkbox" [(ngModel)]="selectedDetail.caricoVerificato" [disabled]="!canWrite" />
                         Carico verificato
                       </label>
@@ -1436,14 +1499,28 @@
                   </div>
                 </div>
                 @if (canWrite) {
-                  <div class="modal-actions" style="margin-top:10px">
-                    <button type="button" (click)="saveConsegnaFields()">Aggiorna sezione</button>
-                  </div>
+                  <p class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
                 }
               </div>
             }
 
-            @if (!['DISEGNO IN GESTIONE','DISEGNO APPROVATO','IN LAVORAZIONE','CONSEGNA PIANIFICATA'].includes(selectedDetail.stato)) {
+            @if (selectedDetail.stato === 'CONCLUSI') {
+              <div class="detail-section">
+                <div class="detail-section-title">Chiusura ordine</div>
+                <div class="detail-kv-grid">
+                  <div class="detail-kv">
+                    <label class="kv-label">Settimana</label>
+                    <span class="kv-value">{{ conclusiWeekLabel(selectedDetail.conclusiWeek) }}</span>
+                  </div>
+                  <div class="detail-kv">
+                    <label class="kv-label">Data</label>
+                    <span class="kv-value">{{ selectedDetail.conclusiDate ? (selectedDetail.conclusiDate | date:'dd/MM/yyyy') : '—' }}</span>
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (!['DISEGNO IN GESTIONE','DISEGNO APPROVATO','DA ASSEGNARE','ASSEGNATO','CONSEGNA PIANIFICATA','CONCLUSI'].includes(selectedDetail.stato)) {
               <div class="detail-section">
                 <p class="detail-empty">Nessun dato aggiuntivo richiesto per questo stato. Usa il pannello qui sotto per passare allo stato successivo.</p>
               </div>
@@ -1497,11 +1574,11 @@
                       </label>
                       @if (sel.selezionato) {
                         <label class="checklist-flag">
-                          <input type="checkbox" [(ngModel)]="sel.ordinata" />
+                          <input type="checkbox" [ngModel]="sel.ordinata" (ngModelChange)="sel.ordinata = $event; onCementoOrdinataChange(sel)" />
                           <span>Ordinata</span>
                         </label>
                         <label class="checklist-flag">
-                          <input type="checkbox" [(ngModel)]="sel.fatta" />
+                          <input type="checkbox" [ngModel]="sel.fatta" (ngModelChange)="onCementoFattaChange(sel, $event)" [disabled]="!sel.ordinata" />
                           <span>Fatta</span>
                         </label>
                       }
@@ -1528,11 +1605,11 @@
                       </label>
                       @if (sel.selezionato) {
                         <label class="checklist-flag">
-                          <input type="checkbox" [(ngModel)]="sel.ordinata" />
+                          <input type="checkbox" [ngModel]="sel.ordinata" (ngModelChange)="sel.ordinata = $event; onCementoOrdinataChange(sel)" />
                           <span>Ordinata</span>
                         </label>
                         <label class="checklist-flag">
-                          <input type="checkbox" [(ngModel)]="sel.fatta" />
+                          <input type="checkbox" [ngModel]="sel.fatta" (ngModelChange)="onCementoFattaChange(sel, $event)" [disabled]="!sel.ordinata" />
                           <span>Fatta</span>
                         </label>
                       }
@@ -1625,6 +1702,14 @@
         <div class="form-field">
           <label class="form-field__label">Data ordine</label>
           <input type="date" [(ngModel)]="formModel.dataOrdine" />
+        </div>
+        <div class="form-field form-field--referente">
+          <label class="form-field__label">Referente</label>
+          <input type="text" [(ngModel)]="formModel.referente" maxlength="80" placeholder="Nome e cognome" />
+        </div>
+        <div class="form-field form-field--telefono">
+          <label class="form-field__label">Telefono</label>
+          <input type="text" [(ngModel)]="formModel.telefono" maxlength="30" placeholder="es. 333 1234567" />
         </div>
         <div class="form-field">
           <label class="form-field__label">Stato</label>
@@ -1743,6 +1828,58 @@
           Il cambio stato aggiorna il Kanban e viene registrato nello storico dell'ordine.
         </p>
         <div class="modal-grid">
+          @if (dropTransitionModal.toStatus === 'ASSEGNATO') {
+            <label class="form-field">
+              <span>Data assegnazione</span>
+              <input type="date" [(ngModel)]="dropTransitionModal.lavorazioneAssegnataAt" />
+            </label>
+            <div class="form-field" style="grid-column: 1 / -1;">
+              <span>Operai da assegnare</span>
+              <div class="transition-workers">
+                @if (!operaiList.length) {
+                  <small>Nessun operaio disponibile.</small>
+                } @else {
+                  @for (op of operaiList; track op.id) {
+                    <label class="transition-worker">
+                      <input
+                        type="checkbox"
+                        [checked]="isTransitionOperaioSelected(op.id)"
+                        (change)="toggleTransitionOperaio(op.id)"
+                      />
+                      <span>{{ op.nome }}</span>
+                    </label>
+                  }
+                }
+              </div>
+            </div>
+          } @else if (dropTransitionModal.toStatus === 'CONCLUSI') {
+            <div class="form-field" style="grid-column: 1 / -1;">
+              <span>Chiusura ordine</span>
+              <div class="transition-mode-switch">
+                <button
+                  type="button"
+                  class="ghost"
+                  [class.active]="dropTransitionModal.conclusiMode === 'week'"
+                  (click)="toggleConclusiMode('week')"
+                >
+                  Settimana
+                </button>
+                <button
+                  type="button"
+                  class="ghost"
+                  [class.active]="dropTransitionModal.conclusiMode === 'date'"
+                  (click)="toggleConclusiMode('date')"
+                >
+                  DATA
+                </button>
+              </div>
+              @if (dropTransitionModal.conclusiMode === 'week') {
+                <input type="week" [(ngModel)]="dropTransitionModal.conclusiWeek" />
+              } @else {
+                <input type="date" [(ngModel)]="dropTransitionModal.conclusiDate" />
+              }
+            </div>
+          }
           <input
             type="text"
             [(ngModel)]="dropTransitionModal.note"
@@ -1753,7 +1890,18 @@
           <div class="error">{{ dropTransitionModal.error }}</div>
         }
         <div class="modal-actions">
-          <button type="button" [disabled]="pendingTransitionId === dropTransitionModal.order.id" (click)="confirmDropTransition()">Conferma</button>
+          @if (dropTransitionModal.toStatus === 'ASSEGNATO') {
+            <button type="button" class="ghost" [disabled]="pendingTransitionId === dropTransitionModal.order.id" (click)="decideLaterTransition()">
+              Decido dopo
+            </button>
+          }
+          <button
+            type="button"
+            [disabled]="pendingTransitionId === dropTransitionModal.order.id || (dropTransitionModal.toStatus === 'ASSEGNATO' && (!dropTransitionModal.lavorazioneAssegnataAt || !dropTransitionModal.operaiIds.length)) || (dropTransitionModal.toStatus === 'CONCLUSI' && ((dropTransitionModal.conclusiMode === 'week' && !dropTransitionModal.conclusiWeek) || (dropTransitionModal.conclusiMode === 'date' && !dropTransitionModal.conclusiDate)))"
+            (click)="confirmDropTransition()"
+          >
+            Conferma
+          </button>
           <button type="button" class="ghost" [disabled]="pendingTransitionId === dropTransitionModal.order.id" (click)="closeDropTransitionModal()">Annulla</button>
         </div>
       </div>

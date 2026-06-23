@@ -4,7 +4,7 @@ import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, 
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, Observable, Subject } from 'rxjs';
-import { concatMap, debounceTime, takeUntil } from 'rxjs/operators';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { AuthService } from './auth.service';
 import { ConsegneService } from './consegne.service';
@@ -43,6 +43,8 @@ type EditableConsegna = {
   dataConsegna: string;
   cantiere: string;
   dataOrdine: string;
+  referente: string;
+  telefono: string;
   scarico: string;
   vascheCav: string;
   accessori: string;
@@ -105,17 +107,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   user: AuthUser | null = null;
   canWrite = false;
 
-  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'];
+  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'];
   readonly transitionRules: Record<ConsegnaStatus, ConsegnaStatus[]> = {
     'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
     'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
-    'DISEGNO APPROVATO': ['IN LAVORAZIONE', 'SOSPESO'],
-    'IN LAVORAZIONE': ['CONCLUSI', 'SOSPESO'],
+    'DISEGNO APPROVATO': ['DA ASSEGNARE', 'SOSPESO'],
+    'DA ASSEGNARE': ['ASSEGNATO', 'SOSPESO'],
+    'ASSEGNATO': ['CONCLUSI', 'SOSPESO'],
     'CONCLUSI': ['PRONTI & AVVISATI', 'SOSPESO'],
     'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
     'CONSEGNA PIANIFICATA': ['CONSEGNA EFFETTUATA', 'SOSPESO'],
     'CONSEGNA EFFETTUATA': [],
-    'SOSPESO': ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
+    'SOSPESO': ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
   };
 
   boardColumns: BoardColumn[] = [];
@@ -145,6 +148,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     order: ConsegnaRecord | null;
     fromStatus: ConsegnaStatus | '';
     toStatus: ConsegnaStatus | '';
+    lavorazioneAssegnataAt: string;
+    operaiIds: number[];
+    skipAssegnazione: boolean;
+    conclusiMode: 'week' | 'date';
+    conclusiWeek: string;
+    conclusiDate: string;
     note: string;
     error: string;
   } = {
@@ -152,6 +161,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     order: null,
     fromStatus: '',
     toStatus: '',
+    lavorazioneAssegnataAt: '',
+    operaiIds: [],
+    skipAssegnazione: false,
+    conclusiMode: 'week',
+    conclusiWeek: '',
+    conclusiDate: '',
     note: '',
     error: '',
   };
@@ -341,6 +356,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // Snapshots for dirty-state detection (updated after load and after successful save)
   private cementiSnapshot = '';
   private accessoriSnapshot = '';
+  private detailSectionsSnapshot = '';
+  private operaiSnapshot = '';
   private camSnapshot: boolean | null = null;
   closeConfirmOpen = false;
 
@@ -566,6 +583,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         this.detailModalOpen = true;
         if (!wasAlreadyOpen) this.activeDetailTab = 'dettagli';
         this.camSnapshot = (detail as ConsegnaRecord).camSiNo ?? false;
+        this.detailSectionsSnapshot = this.serializeDetailSections();
+        this.operaiSnapshot = this.serializeOperaiSelection();
         this.loadHistory(id);
         this.loadAttachments(id);
         this.loadLookupLists();
@@ -585,6 +604,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataConsegna: this.formModel.dataConsegna,
       cantiere: this.formModel.cantiere,
       dataOrdine: this.formModel.dataOrdine,
+      referente: this.formModel.referente,
+      telefono: this.formModel.telefono,
       stato: this.formModel.stato,
       note: this.formModel.note,
       trasporto: this.formModel.trasporto,
@@ -605,12 +626,38 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return JSON.stringify(this.accessoriSelections.map(s => ({ tipoId: s.tipoId, selezionato: s.selezionato, ordinata: s.ordinata, fatta: s.fatta })));
   }
 
+  private serializeDetailSections(): string {
+    return JSON.stringify({
+      folderLinkDocumenti: this.selectedDetail?.folderLinkDocumenti ?? '',
+      folderLinkFoto: this.selectedDetail?.folderLinkFoto ?? '',
+      disegnoSpeditoAt: this.selectedDetail?.disegnoSpeditoAt ?? '',
+      disegnoMittenteId: this.selectedDetail?.disegnoMittenteId ?? null,
+      disegnoNote: this.selectedDetail?.disegnoNote ?? '',
+      massicciataNota: this.selectedDetail?.massicciataNota ?? '',
+      tipoCariciNota: this.selectedDetail?.tipoCariciNota ?? '',
+      lavorazioneAssegnataAt: this.selectedDetail?.lavorazioneAssegnataAt ?? '',
+      consegnaDataEffettiva: this.selectedDetail?.consegnaDataEffettiva ?? '',
+      vettoreId: this.selectedDetail?.vettoreId ?? null,
+      bilici: this.selectedDetail?.bilici ?? 0,
+      ddtPronti: !!this.selectedDetail?.ddtPronti,
+      bancale: !!this.selectedDetail?.bancale,
+      chiusini: !!this.selectedDetail?.chiusini,
+      caricoVerificato: !!this.selectedDetail?.caricoVerificato,
+      camSiNo: !!this.selectedDetail?.camSiNo,
+    });
+  }
+
+  private serializeOperaiSelection(): string {
+    return JSON.stringify((this.selectedDetail?.operaiAssegnati ?? []).map((o) => o.id));
+  }
+
   hasPendingChanges(): boolean {
     const dettagliDirty = this.editMode && this.serializeDettagli() !== this.dettagliSnapshot;
+    const detailSectionsDirty = this.selectedDetail !== null && this.serializeDetailSections() !== this.detailSectionsSnapshot;
+    const operaiDirty = this.selectedDetail !== null && this.serializeOperaiSelection() !== this.operaiSnapshot;
     const cementiDirty = this.cementiSelections.length > 0 && this.serializeCementi() !== this.cementiSnapshot;
     const accessoriDirty = this.accessoriSelections.length > 0 && this.serializeAccessori() !== this.accessoriSnapshot;
-    const camDirty = this.camSnapshot !== null && this.selectedDetail?.camSiNo !== this.camSnapshot;
-    return dettagliDirty || cementiDirty || accessoriDirty || camDirty;
+    return dettagliDirty || detailSectionsDirty || operaiDirty || cementiDirty || accessoriDirty;
   }
 
   closeDetailModal(): void {
@@ -629,6 +676,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.attachments = [];
     this.cementiSnapshot = '';
     this.accessoriSnapshot = '';
+    this.detailSectionsSnapshot = '';
+    this.operaiSnapshot = '';
     this.camSnapshot = null;
     this.editMode = false;
     this.dettagliSnapshot = '';
@@ -709,7 +758,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       'IN CORSO': 'status-in-corso',
       'DISEGNO IN GESTIONE': 'status-disegno-gestione',
       'DISEGNO APPROVATO': 'status-disegno-approvato',
-      'IN LAVORAZIONE': 'status-in-lavorazione',
+      'DA ASSEGNARE': 'status-da-assegnare',
+      'ASSEGNATO': 'status-assegnato',
       'PRONTI & AVVISATI': 'status-pronti-avvisati',
       'CONSEGNA PIANIFICATA': 'status-consegna-pianificata',
       'CONSEGNA EFFETTUATA': 'status-consegna-effettuata',
@@ -724,7 +774,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       'IN CORSO': 'In corso',
       'DISEGNO IN GESTIONE': 'Dis. gestione',
       'DISEGNO APPROVATO': 'Dis. approvato',
-      'IN LAVORAZIONE': 'Lavorazione',
+      'DA ASSEGNARE': 'Da assegnare',
+      'ASSEGNATO': 'Assegnato',
       'CONCLUSI': 'Conclusi',
       'PRONTI & AVVISATI': 'Pronti',
       'CONSEGNA PIANIFICATA': 'Cons. pianif.',
@@ -770,6 +821,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const filtered = this.filteredKanbanItems(items);
     const map = new Map<number, { label: string; key: number; items: ConsegnaRecord[] }>();
     const noDate: ConsegnaRecord[] = [];
+    const compareDateDesc = (a: string | null | undefined, b: string | null | undefined): number => {
+      const aTime = a ? new Date(a).getTime() : Number.NEGATIVE_INFINITY;
+      const bTime = b ? new Date(b).getTime() : Number.NEGATIVE_INFINITY;
+      return bTime - aTime;
+    };
     for (const item of filtered) {
       if (!item.dataConsegna) { noDate.push(item); continue; }
       const d = new Date(item.dataConsegna);
@@ -782,7 +838,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       map.get(key)!.items.push(item);
     }
-    const sorted = [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => g);
+    const sorted = [...map.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, g]) => ({
+        ...g,
+        items: [...g.items].sort((a, b) => compareDateDesc(a.dataConsegna, b.dataConsegna)),
+      }));
     if (noDate.length) sorted.push({ key: 0, label: 'Data non definita', items: noDate });
     return sorted;
   }
@@ -845,17 +906,35 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.isLate(item)) warnings.push(`Ritardo ${this.lateDays(item)}g`);
     if (!item.dataConsegna) warnings.push('Data consegna mancante');
     if (!item.responsabileInternoId) warnings.push('Resp. mancante');
-    if (!item.folderLinkDocumenti) warnings.push('Doc mancanti');
-    if (!item.folderLinkFoto) warnings.push('Foto mancanti');
     return warnings;
+  }
+
+  boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }> {
+    if (item.stato !== 'DISEGNO APPROVATO' || !item.cementi?.length) return [];
+    return item.cementi
+      .filter((cemento) => cemento !== null && cemento !== undefined)
+      .map((cemento) => ({
+        nome: (cemento as { nome?: string; tipo?: string }).nome ?? cemento.tipo,
+        ordinata: !!cemento.ordinata,
+        fatta: !!cemento.fatta,
+      }));
+  }
+
+  boardConclusiBadge(item: ConsegnaRecord): string | null {
+    if (!item.conclusiMode || item.stato === 'CONCLUSI') return null;
+    if (item.conclusiMode === 'week') {
+      return `A.M.P.: ${this.conclusiWeekLabel(item.conclusiWeek)}`;
+    }
+    if (!item.conclusiDate) return null;
+    const parsed = new Date(item.conclusiDate);
+    if (Number.isNaN(parsed.getTime())) return `A.M.P.: ${item.conclusiDate}`;
+    return `A.M.P.: ${parsed.toLocaleDateString('it-IT')}`;
   }
 
   detailMissingItems(item: ConsegnaRecord): string[] {
     const missing: string[] = [];
     if (!item.dataConsegna) missing.push('Data consegna');
     if (!item.responsabileInternoId) missing.push('Responsabile');
-    if (!item.folderLinkDocumenti) missing.push('Cartella documenti');
-    if (!item.folderLinkFoto) missing.push('Cartella foto');
     if (item.stato === 'CONSEGNA PIANIFICATA') {
       if (!item.consegnaDataEffettiva) missing.push('Data consegna effettiva');
       if (!item.vettoreId) missing.push('Vettore');
@@ -868,6 +947,32 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.allowedNextStatuses(status)[0] ?? 'Ordine completato';
   }
 
+  selectedCementiSummary(): { tipoId: number; nome: string; selezionato: boolean; ordinata: boolean; fatta: boolean }[] {
+    return this.cementiSelections.filter((sel) => sel.selezionato);
+  }
+
+  cementoBadgeClass(sel: { selezionato: boolean; ordinata: boolean; fatta: boolean }): string {
+    if (sel.fatta && sel.ordinata) return 'cemento-badge cemento-badge--verde';
+    if (sel.ordinata) return 'cemento-badge cemento-badge--arancione';
+    return 'cemento-badge cemento-badge--rosso';
+  }
+
+  cementoBadgeClassFromFlags(sel: { ordinata: boolean; fatta: boolean }): string {
+    if (sel.fatta && sel.ordinata) return 'cemento-badge cemento-badge--verde';
+    if (sel.ordinata) return 'cemento-badge cemento-badge--arancione';
+    return 'cemento-badge cemento-badge--rosso';
+  }
+
+  onCementoOrdinataChange(sel: { ordinata: boolean; fatta: boolean }): void {
+    if (!sel.ordinata) {
+      sel.fatta = false;
+    }
+  }
+
+  onCementoFattaChange(sel: { ordinata: boolean; fatta: boolean }, checked: boolean): void {
+    sel.fatta = checked && sel.ordinata;
+  }
+
   goToTransitionPanel(): void {
     this.activeDetailTab = 'gestione';
   }
@@ -876,14 +981,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.canWrite || !this.selectedDetail || this.pendingTransitionId) return;
     const nextStatus = this.allowedNextStatuses(this.selectedDetail.stato)[0];
     if (!nextStatus) return;
-    this.dropTransitionModal = {
-      open: true,
-      order: this.selectedDetail,
-      fromStatus: this.selectedDetail.stato as ConsegnaStatus,
-      toStatus: nextStatus,
-      note: '',
-      error: '',
-    };
+    this.openTransitionModal(this.selectedDetail, this.selectedDetail.stato as ConsegnaStatus, nextStatus);
   }
 
   onKanbanDrop(event: CdkDragDrop<ConsegnaRecord[]>, targetStatus: ConsegnaStatus): void {
@@ -908,14 +1006,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.dropTransitionModal = {
-      open: true,
-      order: moved,
-      fromStatus,
-      toStatus: targetStatus,
-      note: '',
-      error: '',
-    };
+    this.openTransitionModal(moved, fromStatus, targetStatus);
   }
 
   closeDropTransitionModal(): void {
@@ -924,12 +1015,38 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       order: null,
       fromStatus: '',
       toStatus: '',
+      lavorazioneAssegnataAt: '',
+      operaiIds: [],
+      skipAssegnazione: false,
+      conclusiMode: 'week',
+      conclusiWeek: '',
+      conclusiDate: '',
       note: '',
       error: '',
     };
   }
 
-  confirmDropTransition(): void {
+  private openTransitionModal(order: ConsegnaRecord, fromStatus: ConsegnaStatus, toStatus: ConsegnaStatus, note = ''): void {
+    this.dropTransitionModal = {
+      open: true,
+      order,
+      fromStatus,
+      toStatus,
+      lavorazioneAssegnataAt: toStatus === 'ASSEGNATO' ? (order.lavorazioneAssegnataAt ?? this.todayIsoDate()) : '',
+      operaiIds: toStatus === 'ASSEGNATO' ? (order.operaiAssegnati ?? []).map((op) => op.id) : [],
+      skipAssegnazione: false,
+      conclusiMode: toStatus === 'CONCLUSI' ? 'week' : 'week',
+      conclusiWeek: toStatus === 'CONCLUSI' ? this.todayIsoWeek() : '',
+      conclusiDate: toStatus === 'CONCLUSI' ? this.todayIsoDate() : '',
+      note,
+      error: '',
+    };
+    if (toStatus === 'ASSEGNATO' || toStatus === 'CONCLUSI') {
+      this.loadLookupLists();
+    }
+  }
+
+  confirmDropTransition(skipAssegnazione = false): void {
     const modal = this.dropTransitionModal;
     if (!modal.open || !modal.order || !modal.fromStatus || !modal.toStatus) return;
     const orderId = modal.order.id;
@@ -939,8 +1056,38 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    const isAssignmentFlow = modal.toStatus === 'ASSEGNATO' && !skipAssegnazione;
+    const isConclusiFlow = modal.toStatus === 'CONCLUSI';
+    if (isAssignmentFlow) {
+      if (!modal.lavorazioneAssegnataAt) {
+        this.dropTransitionModal.error = 'Inserisci la data assegnazione.';
+        return;
+      }
+      if (!modal.operaiIds.length) {
+        this.dropTransitionModal.error = 'Seleziona almeno un operaio.';
+        return;
+      }
+    }
+    if (isConclusiFlow) {
+      if (modal.conclusiMode === 'week' && !modal.conclusiWeek) {
+        this.dropTransitionModal.error = 'Seleziona la settimana.';
+        return;
+      }
+      if (modal.conclusiMode === 'date' && !modal.conclusiDate) {
+        this.dropTransitionModal.error = 'Seleziona la data.';
+        return;
+      }
+    }
+
     this.pendingTransitionId = orderId;
-    this.consegneService.transition(orderId, modal.toStatus, modal.note.trim() || undefined).subscribe({
+    this.consegneService.transition(orderId, modal.toStatus, modal.note.trim() || undefined, {
+      lavorazioneAssegnataAt: isAssignmentFlow ? modal.lavorazioneAssegnataAt : undefined,
+      operaiIds: isAssignmentFlow ? modal.operaiIds : undefined,
+      skipAssegnazione,
+      conclusiMode: isConclusiFlow ? modal.conclusiMode : undefined,
+      conclusiWeek: isConclusiFlow && modal.conclusiMode === 'week' ? modal.conclusiWeek : undefined,
+      conclusiDate: isConclusiFlow && modal.conclusiMode === 'date' ? modal.conclusiDate : undefined,
+    }).subscribe({
       next: () => {
         this.notifySuccess(`Stato aggiornato a ${modal.toStatus}`);
         this.pendingTransitionId = null;
@@ -1030,6 +1177,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataConsegna: this.selectedDetail.dataConsegna ?? '',
       cantiere: this.selectedDetail.cantiere ?? '',
       dataOrdine: this.selectedDetail.dataOrdine ?? '',
+      referente: this.selectedDetail.referente ?? '',
+      telefono: this.selectedDetail.telefono ?? '',
       scarico: this.selectedDetail.scarico ?? '',
       vascheCav: this.selectedDetail.vascheCav ?? '',
       accessori: '',
@@ -1066,6 +1215,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataConsegna: this.formModel.dataConsegna || null,
       cantiere: this.formModel.cantiere || null,
       dataOrdine: this.formModel.dataOrdine || null,
+      referente: this.formModel.referente || null,
+      telefono: this.formModel.telefono || null,
       scarico: this.formModel.scarico || null,
       vascheCav: this.formModel.vascheCav || null,
       accessori: this.formModel.accessori || null,
@@ -1136,7 +1287,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   applyTransition(): void {
-    if (!this.selectedDetail || !this.transitionModel.toStatus) return;
+    if (!this.selectedDetail || !this.transitionModel.toStatus || this.pendingTransitionId) return;
     const currentStatus = this.selectedDetail.stato as ConsegnaStatus;
     if (!this.canTransition(currentStatus, this.transitionModel.toStatus)) {
       this.notifyError(`Transizione non consentita: ${currentStatus} -> ${this.transitionModel.toStatus}`);
@@ -1146,24 +1297,54 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       this.notifyError('Sospensione richiede un motivo');
       return;
     }
-    this.consegneService
-      .transition(this.selectedDetail.id, this.transitionModel.toStatus, this.transitionModel.note || undefined)
-      .subscribe({
-        next: () => {
-          this.notifySuccess(`Stato aggiornato a ${this.transitionModel.toStatus}`);
-          this.transitionModel = { toStatus: '', note: '' };
-          this.loadDetail(this.selectedDetail!.id);
-          this.refreshData(this.page);
-        },
-        error: (error) => {
-          this.notifyError(error?.error?.message ?? 'Errore transizione stato');
-        },
-      });
+
+    this.openTransitionModal(this.selectedDetail, currentStatus, this.transitionModel.toStatus, this.transitionModel.note || '');
   }
 
   allowedNextStatuses(currentStatus: string): ConsegnaStatus[] {
     const casted = currentStatus as ConsegnaStatus;
     return this.transitionRules[casted] ?? [];
+  }
+
+  isTransitionOperaioSelected(id: number): boolean {
+    return this.dropTransitionModal.operaiIds.includes(id);
+  }
+
+  toggleTransitionOperaio(id: number): void {
+    if (!this.dropTransitionModal.open || this.dropTransitionModal.toStatus !== 'ASSEGNATO') return;
+    const current = this.dropTransitionModal.operaiIds;
+    this.dropTransitionModal.operaiIds = current.includes(id)
+      ? current.filter((value) => value !== id)
+      : [...current, id];
+  }
+
+  decideLaterTransition(): void {
+    if (!this.dropTransitionModal.open || this.dropTransitionModal.toStatus !== 'ASSEGNATO') return;
+    this.confirmDropTransition(true);
+  }
+
+  toggleConclusiMode(mode: 'week' | 'date'): void {
+    if (!this.dropTransitionModal.open || this.dropTransitionModal.toStatus !== 'CONCLUSI') return;
+    this.dropTransitionModal.conclusiMode = mode;
+    if (mode === 'week' && !this.dropTransitionModal.conclusiWeek) {
+      this.dropTransitionModal.conclusiWeek = this.todayIsoWeek();
+    }
+    if (mode === 'date' && !this.dropTransitionModal.conclusiDate) {
+      this.dropTransitionModal.conclusiDate = this.todayIsoDate();
+    }
+  }
+
+  todayIsoDate(): string {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+  }
+
+  todayIsoWeek(): string {
+    const now = new Date();
+    const week = this._isoWeek(now);
+    const year = this._isoWeekYear(now);
+    return `${year}-W${String(week).padStart(2, '0')}`;
   }
 
   onAttachmentSelected(event: Event): void {
@@ -2237,6 +2418,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataConsegna: '',
       cantiere: '',
       dataOrdine: '',
+      referente: '',
+      telefono: '',
       scarico: '',
       vascheCav: '',
       accessori: '',
@@ -2263,6 +2446,17 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return operai?.length ? operai.map((o) => o.nome).join(', ') : '—';
   }
 
+  conclusiWeekLabel(value: string | null | undefined): string {
+    if (!value) return '—';
+    const match = /^(\d{4})-W(\d{2})$/.exec(value);
+    if (!match) return value;
+    return `Settimana ${match[2]} / ${match[1]}`;
+  }
+
+  conclusiDateLabel(value: string | null | undefined): string {
+    return value ? value : '—';
+  }
+
   toggleOperaio(id: number): void {
     if (!this.selectedDetail) return;
     const existing = this.selectedDetail.operaiAssegnati ?? [];
@@ -2274,79 +2468,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         this.selectedDetail = { ...this.selectedDetail, operaiAssegnati: [...existing, { id: operaio.id, nome: operaio.nome }] };
       }
     }
-  }
-
-  // ── Stato-specific save methods ───────────────────────────────────────────
-
-  saveDisegnoFields(): void {
-    if (!this.selectedDetail) return;
-    this.consegneService.update(this.selectedDetail.id, {
-      disegnoSpeditoAt: this.selectedDetail.disegnoSpeditoAt || null,
-      disegnoMittenteId: this.selectedDetail.disegnoMittenteId || null,
-      disegnoNote: this.selectedDetail.disegnoNote || null,
-    }).subscribe({
-      next: () => {
-        this.operationSuccess = 'Dati disegno salvati';
-        setTimeout(() => { this.operationSuccess = ''; }, 3000);
-      },
-      error: (err: { error?: { message?: string } }) => {
-        this.operationError = err?.error?.message ?? 'Errore salvataggio';
-      },
-    });
-  }
-
-  saveDisegnoApprovatoFields(): void {
-    if (!this.selectedDetail) return;
-    this.consegneService.update(this.selectedDetail.id, {
-      massicciataNota: this.selectedDetail.massicciataNota || null,
-      tipoCariciNota: this.selectedDetail.tipoCariciNota || null,
-    }).subscribe({
-      next: () => {
-        this.operationSuccess = 'Dati disegno approvato salvati';
-        setTimeout(() => { this.operationSuccess = ''; }, 3000);
-      },
-      error: (err: { error?: { message?: string } }) => {
-        this.operationError = err?.error?.message ?? 'Errore salvataggio';
-      },
-    });
-  }
-
-  saveLavorazioneFields(): void {
-    if (!this.selectedDetail) return;
-    const id = this.selectedDetail.id;
-    const operaiIds = this.selectedDetail.operaiAssegnati?.map((o) => o.id) ?? [];
-    this.consegneService.update(id, {
-      lavorazioneAssegnataAt: this.selectedDetail.lavorazioneAssegnataAt || null,
-    }).pipe(
-      concatMap(() => this.consegneService.updateOperai(id, operaiIds))
-    ).subscribe({
-      next: () => {
-        this.operationSuccess = 'Lavorazione salvata.';
-        this.loadDetail(id);
-      },
-      error: () => {
-        this.operationError = 'Errore nel salvataggio della lavorazione.';
-      },
-    });
-  }
-
-  saveConsegnaFields(): void {
-    if (!this.selectedDetail) return;
-    this.consegneService.update(this.selectedDetail.id, {
-      consegnaDataEffettiva: this.selectedDetail.consegnaDataEffettiva || null,
-      vettoreId: this.selectedDetail.vettoreId || null,
-      ddtPronti: this.selectedDetail.ddtPronti,
-      bancale: this.selectedDetail.bancale,
-      caricoVerificato: this.selectedDetail.caricoVerificato,
-    }).subscribe({
-      next: () => {
-        this.operationSuccess = 'Dati consegna salvati';
-        setTimeout(() => { this.operationSuccess = ''; }, 3000);
-      },
-      error: (err: { error?: { message?: string } }) => {
-        this.operationError = err?.error?.message ?? 'Errore salvataggio';
-      },
-    });
   }
 
   // ── Detail tab methods ────────────────────────────────────────────────────
@@ -2445,22 +2566,26 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const id = this.selectedDetail.id;
 
     const dettagliDirty = this.editMode && this.serializeDettagli() !== this.dettagliSnapshot;
+    const detailSectionsDirty = this.serializeDetailSections() !== this.detailSectionsSnapshot;
+    const operaiDirty = this.serializeOperaiSelection() !== this.operaiSnapshot;
     const cementiDirty = this.cementiSelections.length > 0 && this.serializeCementi() !== this.cementiSnapshot;
     const accessoriDirty = this.accessoriSelections.length > 0 && this.serializeAccessori() !== this.accessoriSnapshot;
-    const camDirty = this.camSnapshot !== null && this.selectedDetail.camSiNo !== this.camSnapshot;
 
-    if (!dettagliDirty && !cementiDirty && !accessoriDirty && !camDirty) return;
+    if (!dettagliDirty && !detailSectionsDirty && !operaiDirty && !cementiDirty && !accessoriDirty) return;
 
     const taskObs: Observable<unknown>[] = [];
+    const payload: Partial<ConsegnaRecord> = {};
 
     if (dettagliDirty) {
-      const payload = {
+      Object.assign(payload, {
         rif: this.formModel.rif,
         cliente: this.formModel.cliente,
         tipoImpianto: this.formModel.tipoImpianto || null,
         dataConsegna: this.formModel.dataConsegna || null,
         cantiere: this.formModel.cantiere || null,
         dataOrdine: this.formModel.dataOrdine || null,
+        referente: this.formModel.referente || null,
+        telefono: this.formModel.telefono || null,
         stato: this.formModel.stato || this.selectedDetail.stato,
         note: this.formModel.note || null,
         trasporto: this.formModel.trasporto,
@@ -2470,8 +2595,27 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         responsabileInternoId: this.formModel.responsabileInternoId,
         folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
         folderLinkFoto: this.formModel.folderLinkFoto || null,
-      };
-      taskObs.push(this.consegneService.update(id, payload));
+      });
+    }
+    if (detailSectionsDirty) {
+      Object.assign(payload, {
+        folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti || null,
+        folderLinkFoto: this.selectedDetail.folderLinkFoto || null,
+        disegnoSpeditoAt: this.selectedDetail.disegnoSpeditoAt || null,
+        disegnoMittenteId: this.selectedDetail.disegnoMittenteId || null,
+        disegnoNote: this.selectedDetail.disegnoNote || null,
+        massicciataNota: this.selectedDetail.massicciataNota || null,
+        tipoCariciNota: this.selectedDetail.tipoCariciNota || null,
+        lavorazioneAssegnataAt: this.selectedDetail.lavorazioneAssegnataAt || null,
+        consegnaDataEffettiva: this.selectedDetail.consegnaDataEffettiva || null,
+        vettoreId: this.selectedDetail.vettoreId || null,
+        bilici: this.selectedDetail.bilici,
+        ddtPronti: this.selectedDetail.ddtPronti,
+        bancale: this.selectedDetail.bancale,
+        chiusini: this.selectedDetail.chiusini,
+        caricoVerificato: this.selectedDetail.caricoVerificato,
+        camSiNo: this.selectedDetail.camSiNo,
+      });
     }
     if (cementiDirty) {
       const items = this.cementiSelections.filter(s => s.selezionato).map(s => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
@@ -2481,8 +2625,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       const items = this.accessoriSelections.filter(s => s.selezionato).map(s => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
       taskObs.push(this.consegneService.updateOrderAccessori(id, items));
     }
-    if (camDirty) {
-      taskObs.push(this.consegneService.update(id, { camSiNo: this.selectedDetail.camSiNo }));
+    if (Object.keys(payload).length > 0) {
+      taskObs.push(this.consegneService.update(id, payload));
+    }
+    if (operaiDirty) {
+      const operaiIds = this.selectedDetail.operaiAssegnati?.map((o) => o.id) ?? [];
+      taskObs.push(this.consegneService.updateOperai(id, operaiIds));
     }
 
     forkJoin(taskObs).subscribe({
@@ -2496,6 +2644,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             dataConsegna: this.formModel.dataConsegna || null,
             cantiere: this.formModel.cantiere || null,
             dataOrdine: this.formModel.dataOrdine || null,
+            referente: this.formModel.referente || null,
+            telefono: this.formModel.telefono || null,
             stato: this.formModel.stato,
             note: this.formModel.note || null,
             trasporto: this.formModel.trasporto,
@@ -2507,12 +2657,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             folderLinkFoto: this.formModel.folderLinkFoto || null,
           });
           this.dettagliSnapshot = this.serializeDettagli();
-          this.editMode = false;
           this.refreshData(1);
         }
+        this.detailSectionsSnapshot = this.serializeDetailSections();
+        this.operaiSnapshot = this.serializeOperaiSelection();
         if (cementiDirty) this.cementiSnapshot = this.serializeCementi();
         if (accessoriDirty) this.accessoriSnapshot = this.serializeAccessori();
-        if (camDirty) this.camSnapshot = this.selectedDetail!.camSiNo ?? false;
+        if (cementiDirty || accessoriDirty) this.loadBoard();
+        if (this.editMode) this.editMode = false;
         this.operationSuccess = 'Modifiche salvate';
         setTimeout(() => { this.operationSuccess = ''; }, 3000);
       },
@@ -2551,21 +2703,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedDetail.folderLinkFoto = trimmedPath;
       this.formModel.folderLinkFoto = trimmedPath ?? '';
     }
-    const payload = field === 'documenti'
-      ? { folderLinkDocumenti: trimmedPath }
-      : { folderLinkFoto: trimmedPath };
-    this.consegneService.update(this.selectedDetail.id, payload)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.operationSuccess = trimmedPath ? 'Cartella salvata' : 'Cartella rimossa';
-          setTimeout(() => { this.operationSuccess = ''; }, 3000);
-        },
-        error: (err: { error?: { message?: string } }) => {
-          this.operationError = err?.error?.message ?? 'Errore salvataggio cartella';
-          setTimeout(() => { this.operationError = ''; }, 3000);
-        },
-      });
   }
 
   clearFolderPath(field: 'documenti' | 'foto'): void {
@@ -2615,7 +2752,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       const parsed = JSON.parse(raw) as ConsegnaStatus[];
       const valid = parsed.filter((s) => this.statusFlow.includes(s));
       if (valid.length > 0) {
-        this.visibleStatuses = new Set(valid);
+        const missingDefaults = this.statusFlow.filter((s) => !valid.includes(s));
+        this.visibleStatuses = new Set([...valid, ...missingDefaults]);
       }
     } catch {
       // ignore corrupt storage

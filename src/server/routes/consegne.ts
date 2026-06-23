@@ -16,17 +16,18 @@ const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/
 const dateOrDateTimeRegex = /^\d{4}-\d{2}-\d{2}(?:T.*)?$/
-const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'] as const
+const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'] as const
 const transitionMap: Record<(typeof allowedStatuses)[number], (typeof allowedStatuses)[number][]> = {
   'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
   'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
-  'DISEGNO APPROVATO': ['IN LAVORAZIONE', 'SOSPESO'],
-  'IN LAVORAZIONE': ['CONCLUSI', 'SOSPESO'],
+  'DISEGNO APPROVATO': ['DA ASSEGNARE', 'SOSPESO'],
+  'DA ASSEGNARE': ['ASSEGNATO', 'SOSPESO'],
+  ASSEGNATO: ['CONCLUSI', 'SOSPESO'],
   CONCLUSI: ['PRONTI & AVVISATI', 'SOSPESO'],
   'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
   'CONSEGNA PIANIFICATA': ['CONSEGNA EFFETTUATA', 'SOSPESO'],
   'CONSEGNA EFFETTUATA': [],
-  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
+  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
 }
 const attachmentsRoot = path.resolve(process.env.ATTACHMENTS_DIR ?? './data/uploads')
 const allowedAttachmentExtensions = (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS ?? 'pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx')
@@ -120,6 +121,8 @@ const consegnaInputSchema = z.object({
   dataConsegna: z.string().regex(dateOrDateTimeRegex, 'dataConsegna must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   cantiere: z.string().optional().nullable(),
   dataOrdine: z.string().regex(dateOrDateTimeRegex, 'dataOrdine must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  referente: z.string().optional().nullable(),
+  telefono: z.string().optional().nullable(),
   scarico: z.string().optional().nullable(),
   vascheCav: z.string().optional().nullable(),
   accessori: z.string().optional().nullable(),
@@ -140,13 +143,15 @@ const consegnaInputSchema = z.object({
   // campi DISEGNO APPROVATO
   massicciataNota: z.string().optional().nullable(),
   tipoCariciNota: z.string().optional().nullable(),
-  // campi IN LAVORAZIONE
+  // campi ASSEGNATO
   lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   // campi CONSEGNA PIANIFICATA
   consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   vettoreId: z.number().int().positive().optional().nullable(),
+  bilici: z.number().int().min(0).optional().default(0),
   ddtPronti: z.boolean().optional().default(false),
   bancale: z.boolean().optional().default(false),
+  chiusini: z.boolean().optional().default(false),
   caricoVerificato: z.boolean().optional().default(false),
   // tab C.A.M.
   camSiNo: z.boolean().optional().default(false),
@@ -155,6 +160,12 @@ const consegnaInputSchema = z.object({
 const transitionSchema = z.object({
   toStatus: z.enum(allowedStatuses),
   note: z.string().optional(),
+  lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  operaiIds: z.array(z.number().int().positive()).optional(),
+  skipAssegnazione: z.boolean().optional().default(false),
+  conclusiMode: z.enum(['week', 'date']).optional(),
+  conclusiWeek: z.string().regex(/^\d{4}-W\d{2}$/, 'conclusiWeek must be YYYY-Www').optional().nullable(),
+  conclusiDate: z.string().regex(dateOrDateTimeRegex, 'conclusiDate must be YYYY-MM-DD or ISO datetime').optional().nullable(),
 })
 
 type OrderEvent = {
@@ -225,6 +236,8 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     dataConsegna: toIsoDate(row.dataConsegna),
     cantiere: row.cantiere,
     dataOrdine: toIsoDate(row.dataOrdine),
+    referente: row.referente,
+    telefono: row.telefono,
     scarico: row.scarico,
     vascheCav: row.vascheCav,
     accessori: row.accessori,
@@ -245,18 +258,69 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     // campi DISEGNO APPROVATO
     massicciataNota: row.massicciataNota ?? null,
     tipoCariciNota: row.tipoCariciNota ?? null,
-    // campi IN LAVORAZIONE
+    // campi ASSEGNATO
     lavorazioneAssegnataAt: toIsoDate(row.lavorazioneAssegnataAt),
     // campi CONSEGNA PIANIFICATA
     consegnaDataEffettiva: toIsoDate(row.consegnaDataEffettiva),
     vettoreId: row.vettoreId ?? null,
+    bilici: row.bilici ?? 0,
     ddtPronti: row.ddtPronti ?? false,
     bancale: row.bancale ?? false,
+    chiusini: row.chiusini ?? false,
     caricoVerificato: row.caricoVerificato ?? false,
     // tab C.A.M.
     camSiNo: row.camSiNo ?? false,
     createdAt: row.createdAt,
   }
+}
+
+function parseEventDetails(details: unknown): Record<string, unknown> | null {
+  if (!details) return null
+  if (typeof details === 'string') {
+    try {
+      const parsed = JSON.parse(details)
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
+    } catch {
+      return null
+    }
+  }
+  return typeof details === 'object' && !Array.isArray(details) ? (details as Record<string, unknown>) : null
+}
+
+function compareNullableDatesDesc(a: Date | null | undefined, b: Date | null | undefined): number {
+  const aTime = a?.getTime() ?? Number.NEGATIVE_INFINITY
+  const bTime = b?.getTime() ?? Number.NEGATIVE_INFINITY
+  return bTime - aTime
+}
+
+function sortBoardItems(
+  status: string,
+  rows: typeof ordini.$inferSelect[],
+  lastModifiedByOrder: Map<number, Date | null>,
+): typeof ordini.$inferSelect[] {
+  if (status === 'IN CORSO') {
+    return [...rows].sort((a, b) => {
+      const byOrderDate = compareNullableDatesDesc(a.dataOrdine, b.dataOrdine)
+      if (byOrderDate !== 0) return byOrderDate
+      return compareNullableDatesDesc(a.createdAt, b.createdAt)
+    })
+  }
+
+  if (status === 'CONSEGNA PIANIFICATA') {
+    return [...rows].sort((a, b) => {
+      const byDeliveryDate = compareNullableDatesDesc(a.dataConsegna, b.dataConsegna)
+      if (byDeliveryDate !== 0) return byDeliveryDate
+      return compareNullableDatesDesc(a.createdAt, b.createdAt)
+    })
+  }
+
+  return [...rows].sort((a, b) => {
+    const byLastModified = compareNullableDatesDesc(lastModifiedByOrder.get(a.id), lastModifiedByOrder.get(b.id))
+    if (byLastModified !== 0) return byLastModified
+    const byCreatedAt = compareNullableDatesDesc(a.createdAt, b.createdAt)
+    if (byCreatedAt !== 0) return byCreatedAt
+    return compareNullableDatesDesc(a.dataOrdine, b.dataOrdine)
+  })
 }
 
 function safeFilename(value: string): string {
@@ -322,6 +386,13 @@ async function addOrderEvent(payload: {
       ${payload.details ? JSON.stringify(payload.details) : null}
     )
   `)
+}
+
+async function replaceOrderOperai(tx: any, orderId: number, operaiIds: number[]) {
+  await tx.delete(orderOperai).where(eq(orderOperai.orderId, orderId))
+  if (operaiIds.length > 0) {
+    await tx.insert(orderOperai).values(operaiIds.map((operaioId) => ({ orderId, operaioId })))
+  }
 }
 
 router.get('/', async (req, res, next) => {
@@ -513,6 +584,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         Vettore: vettore,
         'DDT pronti': yesNo(row.ddtPronti),
         Bancale: yesNo(row.bancale),
+        Chiusini: yesNo(row.chiusini),
         'Carico verificato': yesNo(row.caricoVerificato),
         Cementi: joinValues(cementiByOrder.get(row.id) ?? []),
         'Cementi count': (cementiByOrder.get(row.id) ?? []).length,
@@ -685,16 +757,84 @@ router.get('/board', async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query)
     const whereClause = buildListFilters(query)
-    const rows = await db
-      .select()
-      .from(ordini)
-      .where(whereClause)
-      .orderBy(desc(ordini.dataConsegna), desc(ordini.createdAt))
+    const [rows, cementiRows, lastModifiedRows, conclusiRows] = await Promise.all([
+      db
+        .select()
+        .from(ordini)
+        .where(whereClause)
+        .orderBy(desc(ordini.dataConsegna), desc(ordini.createdAt)),
+      db
+        .select({
+          orderId: orderCementi.orderId,
+          tipoId: orderCementi.tipoId,
+          nome: cementiTipi.nome,
+          ordine: cementiTipi.ordine,
+          ordinata: orderCementi.ordinata,
+          fatta: orderCementi.fatta,
+        })
+        .from(orderCementi)
+        .innerJoin(cementiTipi, eq(orderCementi.tipoId, cementiTipi.id))
+        .orderBy(asc(orderCementi.orderId), asc(cementiTipi.ordine)),
+      db.execute(sql`
+        select
+          order_id as "orderId",
+          max(created_at) as "lastModifiedAt"
+        from order_events
+        group by order_id
+      `),
+      db.execute(sql`
+        select
+          order_id as "orderId",
+          details
+        from order_events
+        where to_status = 'CONCLUSI'
+        order by created_at desc, id desc
+      `),
+    ])
+    const cementiByOrder = new Map<number, typeof cementiRows>()
+    for (const row of cementiRows) {
+      const current = cementiByOrder.get(row.orderId) ?? []
+      current.push(row)
+      cementiByOrder.set(row.orderId, current)
+    }
+
+    const lastModifiedByOrder = new Map<number, Date | null>()
+    for (const row of lastModifiedRows as Array<{ orderId: number; lastModifiedAt: string | Date | null }>) {
+      lastModifiedByOrder.set(row.orderId, row.lastModifiedAt ? new Date(row.lastModifiedAt) : null)
+    }
+
+    const conclusiByOrder = new Map<number, { conclusiMode: 'week' | 'date' | null; conclusiWeek: string | null; conclusiDate: string | null }>()
+    for (const row of conclusiRows as Array<{ orderId: number; details: unknown }>) {
+      if (conclusiByOrder.has(row.orderId)) continue
+      const details = parseEventDetails(row.details)
+      if (!details) continue
+      conclusiByOrder.set(row.orderId, {
+        conclusiMode: (details.conclusiMode as 'week' | 'date' | undefined) ?? null,
+        conclusiWeek: (details.conclusiWeek as string | undefined) ?? null,
+        conclusiDate: (details.conclusiDate as string | undefined) ?? null,
+      })
+    }
 
     const columns = allowedStatuses.map((status) => ({
       status,
       count: rows.filter((row) => (row.stato ?? 'IN CORSO') === status).length,
-      items: rows.filter((row) => (row.stato ?? 'IN CORSO') === status).map(normalizeRow),
+      items: sortBoardItems(
+        status,
+        rows.filter((row) => (row.stato ?? 'IN CORSO') === status),
+        lastModifiedByOrder,
+      ).map((row) => ({
+        ...normalizeRow(row),
+        conclusiMode: conclusiByOrder.get(row.id)?.conclusiMode ?? null,
+        conclusiWeek: conclusiByOrder.get(row.id)?.conclusiWeek ?? null,
+        conclusiDate: conclusiByOrder.get(row.id)?.conclusiDate ?? null,
+        cementi: (cementiByOrder.get(row.id) ?? []).map((cemento) => ({
+          tipoId: cemento.tipoId,
+          nome: cemento.nome,
+          ordine: cemento.ordine,
+          ordinata: cemento.ordinata,
+          fatta: cemento.fatta,
+        })),
+      })),
     }))
 
     return res.json({ columns })
@@ -914,7 +1054,12 @@ router.get('/:id/history', async (req, res, next) => {
     `)
 
     return res.json({
-      data: events as unknown as OrderEvent[],
+      data: (events as unknown as OrderEvent[]).map((event) => ({
+        ...event,
+        details: typeof event.details === 'string' && event.details
+          ? JSON.parse(event.details)
+          : event.details,
+      })),
     })
   } catch (error) {
     return next(error)
@@ -1120,14 +1265,55 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       })
     }
 
-    const [updated] = await db
-      .update(ordini)
-      .set({
+    if (payload.toStatus === 'ASSEGNATO' && !payload.skipAssegnazione) {
+      if (!payload.lavorazioneAssegnataAt) {
+        return res.status(400).json({ message: 'Data assegnazione obbligatoria per ASSEGNATO' })
+      }
+      if (!payload.operaiIds?.length) {
+        return res.status(400).json({ message: 'Seleziona almeno un operaio' })
+      }
+    }
+    if (payload.toStatus === 'CONCLUSI') {
+      const conclusiMode = payload.conclusiMode ?? 'week'
+      if (conclusiMode === 'week' && !payload.conclusiWeek) {
+        return res.status(400).json({ message: 'Settimana obbligatoria per CONCLUSI' })
+      }
+      if (conclusiMode === 'date' && !payload.conclusiDate) {
+        return res.status(400).json({ message: 'Data obbligatoria per CONCLUSI' })
+      }
+    }
+
+    const [updated] = await db.transaction(async (tx) => {
+      const updateData: Partial<typeof ordini.$inferInsert> = {
         stato: payload.toStatus,
         note: payload.note ? `${row.note ? `${row.note}\n` : ''}${payload.note}` : row.note,
-      })
-      .where(eq(ordini.id, id))
-      .returning()
+      }
+
+      if (payload.toStatus === 'ASSEGNATO' && !payload.skipAssegnazione) {
+        updateData.lavorazioneAssegnataAt = parseInputDate(payload.lavorazioneAssegnataAt!)
+      }
+
+      const [result] = await tx.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
+      if (payload.toStatus === 'ASSEGNATO' && !payload.skipAssegnazione) {
+        await replaceOrderOperai(tx, id, payload.operaiIds ?? [])
+      }
+      return result ? [result] : []
+    })
+
+    const transitionDetails =
+      payload.toStatus === 'ASSEGNATO'
+        ? {
+          lavorazioneAssegnataAt: payload.lavorazioneAssegnataAt,
+          operaiIds: payload.operaiIds ?? [],
+          skipAssegnazione: payload.skipAssegnazione ?? false,
+        }
+        : payload.toStatus === 'CONCLUSI'
+          ? {
+            conclusiMode: payload.conclusiMode ?? 'week',
+            conclusiWeek: (payload.conclusiMode ?? 'week') === 'week' ? payload.conclusiWeek ?? null : null,
+            conclusiDate: (payload.conclusiMode ?? 'week') === 'date' ? payload.conclusiDate ?? null : null,
+          }
+          : null
 
     await addOrderEvent({
       orderId: id,
@@ -1136,6 +1322,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       toStatus: payload.toStatus,
       note: payload.note ?? null,
       actor: req.user?.username ?? null,
+      details: transitionDetails,
     })
 
     return res.json(normalizeRow(updated))
@@ -1188,11 +1375,25 @@ router.get('/:id', async (req, res, next) => {
         .orderBy(accessoriTipi.ordine),
     ])
 
+    const [conclusiEvent] = await db.execute(sql`
+      select details
+      from order_events
+      where order_id = ${id} and to_status = 'CONCLUSI'
+      order by created_at desc, id desc
+      limit 1
+    `)
+    const conclusiDetails = conclusiEvent && typeof (conclusiEvent as { details?: unknown }).details === 'string'
+      ? JSON.parse(String((conclusiEvent as { details: string }).details))
+      : (conclusiEvent as { details?: Record<string, unknown> } | undefined)?.details ?? null
+
     return res.json({
       ...normalizeRow(row),
       operaiAssegnati: operaiRows,
       cementi: cementiRows,
       accessori: accessoriRows,
+      conclusiMode: (conclusiDetails?.conclusiMode as 'week' | 'date' | undefined) ?? null,
+      conclusiWeek: (conclusiDetails?.conclusiWeek as string | undefined) ?? null,
+      conclusiDate: (conclusiDetails?.conclusiDate as string | undefined) ?? null,
     })
   } catch (error) {
     return next(error)
@@ -1212,6 +1413,8 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
         dataConsegna: payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null,
         cantiere: payload.cantiere ?? null,
         dataOrdine: payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null,
+        referente: payload.referente ?? null,
+        telefono: payload.telefono ?? null,
         scarico: payload.scarico ?? null,
         vascheCav: payload.vascheCav ?? null,
         accessori: payload.accessori ?? null,
@@ -1223,6 +1426,8 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
         accontoPagato: payload.accontoPagato ?? false,
         commercialeId: payload.commercialeId ?? null,
         responsabileInternoId: payload.responsabileInternoId ?? null,
+        bilici: payload.bilici ?? 0,
+        chiusini: payload.chiusini ?? false,
       })
       .returning()
 
@@ -1262,6 +1467,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('dataConsegna' in payload) updateData.dataConsegna = payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null
     if ('cantiere' in payload) updateData.cantiere = payload.cantiere ?? null
     if ('dataOrdine' in payload) updateData.dataOrdine = payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null
+    if ('referente' in payload) updateData.referente = payload.referente ?? null
+    if ('telefono' in payload) updateData.telefono = payload.telefono ?? null
     if ('scarico' in payload) updateData.scarico = payload.scarico ?? null
     if ('vascheCav' in payload) updateData.vascheCav = payload.vascheCav ?? null
     if ('accessori' in payload) updateData.accessori = payload.accessori ?? null
@@ -1284,8 +1491,10 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('lavorazioneAssegnataAt' in payload) updateData.lavorazioneAssegnataAt = payload.lavorazioneAssegnataAt ? parseInputDate(payload.lavorazioneAssegnataAt) : null
     if ('consegnaDataEffettiva' in payload) updateData.consegnaDataEffettiva = payload.consegnaDataEffettiva ? parseInputDate(payload.consegnaDataEffettiva) : null
     if ('vettoreId' in payload) updateData.vettoreId = payload.vettoreId ?? null
+    if ('bilici' in payload) updateData.bilici = payload.bilici ?? 0
     if ('ddtPronti' in payload) updateData.ddtPronti = payload.ddtPronti ?? false
     if ('bancale' in payload) updateData.bancale = payload.bancale ?? false
+    if ('chiusini' in payload) updateData.chiusini = payload.chiusini ?? false
     if ('caricoVerificato' in payload) updateData.caricoVerificato = payload.caricoVerificato ?? false
     if ('camSiNo' in payload) updateData.camSiNo = payload.camSiNo ?? false
 
@@ -1330,8 +1539,10 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('lavorazioneAssegnataAt' in payload) diffStr('lavorazioneAssegnataAt', normDate(existing.lavorazioneAssegnataAt), payload.lavorazioneAssegnataAt)
     if ('consegnaDataEffettiva' in payload) diffStr('consegnaDataEffettiva', normDate(existing.consegnaDataEffettiva), payload.consegnaDataEffettiva)
     if ('vettoreId' in payload) diffNum('vettoreId', existing.vettoreId, payload.vettoreId)
+    if ('bilici' in payload) diffNum('bilici', existing.bilici, payload.bilici)
     if ('ddtPronti' in payload) diffBool('ddtPronti', existing.ddtPronti, payload.ddtPronti)
     if ('bancale' in payload) diffBool('bancale', existing.bancale, payload.bancale)
+    if ('chiusini' in payload) diffBool('chiusini', existing.chiusini, payload.chiusini)
     if ('caricoVerificato' in payload) diffBool('caricoVerificato', existing.caricoVerificato, payload.caricoVerificato)
     if ('camSiNo' in payload) diffBool('camSiNo', existing.camSiNo, payload.camSiNo)
 
@@ -1391,10 +1602,7 @@ router.put('/:id/operai', requireAuth, requireRole(['admin', 'operativo']), asyn
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
     await db.transaction(async (tx) => {
-      await tx.delete(orderOperai).where(eq(orderOperai.orderId, id))
-      if (operaiIds.length > 0) {
-        await tx.insert(orderOperai).values(operaiIds.map((operaioId) => ({ orderId: id, operaioId })))
-      }
+      await replaceOrderOperai(tx, id, operaiIds)
       await tx.execute(sql`
         insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
         values (

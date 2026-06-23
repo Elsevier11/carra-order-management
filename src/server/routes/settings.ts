@@ -95,6 +95,13 @@ router.post('/sqlserver/test', requireAuth, requireRole(['admin']), async (_req,
     await testErpConnection(config)
     return res.json({ ok: true })
   } catch (err) {
+    const error = err as { message?: string; code?: string; syscall?: string }
+    if (error?.code === 'ENOTFOUND') {
+      return res.json({
+        ok: false,
+        message: `Host SQL non risolto: ${error.message ?? "controlla il nome server, DNS o usa l'IP"}.`,
+      })
+    }
     const message = err instanceof Error ? err.message : 'Errore connessione'
     return res.json({ ok: false, message })
   }

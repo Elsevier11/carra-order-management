@@ -56,6 +56,8 @@ export const ordini = pgTable('ordini', {
   dataConsegna: timestamp('data_consegna'),
   cantiere: text('cantiere'),
   dataOrdine: timestamp('data_ordine'),
+  referente: text('referente'),
+  telefono: text('telefono'),
   scarico: text('scarico'),
   vascheCav: text('vasche_cav'),
   accessori: text('accessori'),
@@ -79,13 +81,15 @@ export const ordini = pgTable('ordini', {
   // campi DISEGNO APPROVATO
   massicciataNota: text('massicciata_nota'),
   tipoCariciNota: text('tipo_carici_nota'),
-  // campi IN LAVORAZIONE
+  // campi ASSEGNATO
   lavorazioneAssegnataAt: timestamp('lavorazione_assegnata_at'),
   // campi CONSEGNA PIANIFICATA
   consegnaDataEffettiva: timestamp('consegna_data_effettiva'),
   vettoreId: integer('vettore_id').references(() => vettori.id, { onDelete: 'set null' }),
+  bilici: integer('bilici').notNull().default(0),
   ddtPronti: boolean('ddt_pronti').notNull().default(false),
   bancale: boolean('bancale').notNull().default(false),
+  chiusini: boolean('chiusini').notNull().default(false),
   caricoVerificato: boolean('carico_verificato').notNull().default(false),
   // tab C.A.M.
   camSiNo: boolean('cam_si_no').notNull().default(false),

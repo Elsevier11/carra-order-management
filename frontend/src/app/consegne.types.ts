@@ -54,6 +54,8 @@ export interface ConsegnaRecord {
   dataConsegna: string | null;
   cantiere: string | null;
   dataOrdine: string | null;
+  referente: string | null;
+  telefono: string | null;
   scarico: string | null;
   vascheCav: string | null;
   stato: string;
@@ -77,10 +79,15 @@ export interface ConsegnaRecord {
   // Consegna
   consegnaDataEffettiva: string | null;
   vettoreId: number | null;
+  bilici: number;
   ddtPronti: boolean;
   bancale: boolean;
+  chiusini: boolean;
   caricoVerificato: boolean;
   camSiNo: boolean;
+  conclusiMode?: 'week' | 'date' | null;
+  conclusiWeek?: string | null;
+  conclusiDate?: string | null;
   // Relazioni
   operaiAssegnati: { id: number; nome: string }[];
   cementi: OrderCemento[];
@@ -99,7 +106,7 @@ export interface ResponsabileRecord {
   createdAt: string | null;
 }
 
-export type ConsegnaStatus = 'IN CORSO' | 'DISEGNO IN GESTIONE' | 'DISEGNO APPROVATO' | 'IN LAVORAZIONE' | 'CONCLUSI' | 'PRONTI & AVVISATI' | 'CONSEGNA PIANIFICATA' | 'CONSEGNA EFFETTUATA' | 'SOSPESO';
+export type ConsegnaStatus = 'IN CORSO' | 'DISEGNO IN GESTIONE' | 'DISEGNO APPROVATO' | 'DA ASSEGNARE' | 'ASSEGNATO' | 'CONCLUSI' | 'PRONTI & AVVISATI' | 'CONSEGNA PIANIFICATA' | 'CONSEGNA EFFETTUATA' | 'SOSPESO';
 
 export interface ConsegnaFilters {
   q?: string;

@@ -73,9 +73,14 @@
   color: #166534;
 }
 
-.status-chip.status-in-lavorazione {
+.status-chip.status-da-assegnare {
   border-color: rgba(15, 118, 110, 0.24);
   color: #0f766e;
+}
+
+.status-chip.status-assegnato {
+  border-color: rgba(124, 58, 237, 0.24);
+  color: #7c3aed;
 }
 
 .status-chip.status-disegno-gestione {
@@ -115,7 +120,7 @@
 
 .kanban-grid {
   display: grid;
-  grid-template-columns: repeat(9, 260px);
+  grid-template-columns: repeat(10, 260px);
   gap: 16px;
   align-items: start;
   padding: 18px 0 12px;
@@ -140,19 +145,21 @@
   left: 300px;
   right: 0;
   bottom: 0;
-  height: 20px;
+  height: 44px;
+  padding: 1px 0 0;
+  box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
   z-index: 35;
   background: linear-gradient(180deg, rgba(238, 243, 249, 0), rgba(238, 243, 249, 0.88) 30%, rgba(238, 243, 249, 0.98) 100%);
   border-top: 1px solid var(--border-glass);
   box-shadow: 0 -8px 16px rgba(15, 23, 42, 0.04);
-  scrollbar-width: thin;
+  scrollbar-width: auto;
   scrollbar-color: var(--scrollbar-track) transparent;
 }
 
 .kanban-bottom-scroll::-webkit-scrollbar {
-  height: 6px;
+  height: 28px;
 }
 
 .kanban-bottom-scroll::-webkit-scrollbar-track {
@@ -186,8 +193,12 @@
   --kanban-color: #166534;
 }
 
-.kanban-column.status-in-lavorazione {
+.kanban-column.status-da-assegnare {
   --kanban-color: #0f766e;
+}
+
+.kanban-column.status-assegnato {
+  --kanban-color: #7c3aed;
 }
 
 .kanban-column.status-disegno-gestione {
@@ -307,12 +318,18 @@
 
 .kanban-card-meta {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   color: var(--muted);
   font-size: 0.78rem;
   min-width: 0;
+}
+
+.kanban-card-meta__order {
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .kanban-card-meta__date {
@@ -371,6 +388,7 @@
 .kanban-card--compact .kanban-card-meta {
   font-size: 0.76rem;
   line-height: 1.25;
+  gap: 1px;
 }
 
 .cdk-drag-preview {
@@ -398,7 +416,7 @@
 
 @media (max-width: 1600px) {
   .kanban-grid {
-    grid-template-columns: repeat(9, 240px);
+    grid-template-columns: repeat(10, 240px);
   }
 }
 

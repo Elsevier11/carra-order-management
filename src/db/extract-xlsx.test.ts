@@ -44,7 +44,7 @@ describe('extractWorkbook', () => {
 
     expect(result.sheetsUsed).toEqual(['IN CORSO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI'])
     expect(result.extracted).toHaveLength(4)
-    expect(result.extracted.map((r) => r.stato)).toEqual(['IN CORSO', 'IN LAVORAZIONE', 'CONCLUSI', 'PRONTI & AVVISATI'])
+    expect(result.extracted.map((r) => r.stato)).toEqual(['IN CORSO', 'DA ASSEGNARE', 'CONCLUSI', 'PRONTI & AVVISATI'])
   })
 
   it('reports skipped rows when rif or cliente are missing', () => {

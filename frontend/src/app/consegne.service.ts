@@ -48,8 +48,24 @@ export class ConsegneService {
     return this.http.get<{ data: OrderEvent[] }>(`${this.baseUrl}/${id}/history`);
   }
 
-  transition(id: number, toStatus: string, note?: string) {
-    return this.http.post(`${this.baseUrl}/${id}/transition`, { toStatus, note });
+  transition(
+    id: number,
+    toStatus: string,
+    note?: string,
+    payload?: {
+      lavorazioneAssegnataAt?: string | null;
+      operaiIds?: number[];
+      skipAssegnazione?: boolean;
+      conclusiMode?: 'week' | 'date';
+      conclusiWeek?: string | null;
+      conclusiDate?: string | null;
+    },
+  ) {
+    return this.http.post(`${this.baseUrl}/${id}/transition`, {
+      toStatus,
+      note,
+      ...payload,
+    });
   }
 
   exportCsv(query: ConsegnaFilters & { sortBy?: string; sortDir?: string }): Observable<string> {

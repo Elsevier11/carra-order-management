@@ -108,8 +108,10 @@ export async function ensureDatabaseObjects() {
       lavorazione_assegnata_at timestamp,
       consegna_data_effettiva timestamp,
       vettore_id integer references vettori(id) on delete set null,
+      bilici integer not null default 0,
       ddt_pronti boolean not null default false,
       bancale boolean not null default false,
+      chiusini boolean not null default false,
       carico_verificato boolean not null default false,
       cam_si_no boolean not null default false
     );
@@ -246,7 +248,12 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists acconto_pagato boolean not null default false;`)
   await pgClient.unsafe(`alter table ordini add column if not exists commerciale_id integer references commerciali(id) on delete set null;`)
   await pgClient.unsafe(`alter table ordini add column if not exists responsabile_interno_id integer references responsabili_interni(id) on delete set null;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists referente text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists telefono text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists bilici integer not null default 0;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists chiusini boolean not null default false;`)
   await pgClient.unsafe(`alter table order_events add column if not exists details jsonb;`)
+  await pgClient.unsafe(`update ordini set stato = 'DA ASSEGNARE' where stato = 'IN LAVORAZIONE';`)
 
   // Cartella di rete per ordine
   await pgClient.unsafe(`alter table ordini add column if not exists folder_link text;`)
