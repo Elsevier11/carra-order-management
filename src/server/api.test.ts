@@ -17,6 +17,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
   let ilike: (typeof import('drizzle-orm'))['ilike']
   let gte: (typeof import('drizzle-orm'))['gte']
   let like: (typeof import('drizzle-orm'))['like']
+  let sql: (typeof import('drizzle-orm'))['sql']
   let token = ''
   let letturaToken = ''
   let operativoToken = ''
@@ -45,6 +46,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
     ilike = drizzleModule.ilike
     gte = drizzleModule.gte
     like = drizzleModule.like
+    sql = drizzleModule.sql
 
     await ensureDatabaseObjects()
 
@@ -215,6 +217,55 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(Number(byStatus['IN CORSO'] ?? 0)).toBeGreaterThanOrEqual(2)
     expect(Number(byStatus.CONCLUSI ?? 0)).toBeGreaterThanOrEqual(1)
     expect(Array.isArray(res.body.weeklyTrend)).toBe(true)
+  })
+
+  it('GET /api/consegne/dashboard/aging returns the operational aging list sorted by permanence', async () => {
+    const first = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__AGING-001',
+      cliente: 'Cliente Aging Uno',
+      tipoImpianto: 'TA-1',
+      dataConsegna: '2026-07-10',
+      dataOrdine: '2026-06-20',
+      stato: 'DISEGNO IN GESTIONE',
+    })
+    expect(first.status).toBe(201)
+
+    const second = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__AGING-002',
+      cliente: 'Cliente Aging Due',
+      tipoImpianto: 'TA-2',
+      dataConsegna: '2026-07-11',
+      dataOrdine: '2026-06-21',
+      stato: 'PRONTI & AVVISATI',
+    })
+    expect(second.status).toBe(201)
+
+    await db.execute(sql`
+      update order_events
+      set created_at = ${'2026-06-18T00:00:00.000Z'}
+      where order_id = ${first.body.id} and event_type = 'ORDER_CREATED'
+    `)
+    await db.execute(sql`
+      update order_events
+      set created_at = ${'2026-06-21T00:00:00.000Z'}
+      where order_id = ${second.body.id} and event_type = 'ORDER_CREATED'
+    `)
+
+    const res = await request(app).get('/api/consegne/dashboard/aging')
+    expect(res.status).toBe(200)
+    const refs = res.body.data.map((item: { rif: string }) => item.rif)
+    const firstIndex = refs.indexOf('__TEST__AGING-001')
+    const secondIndex = refs.indexOf('__TEST__AGING-002')
+    expect(firstIndex).toBeGreaterThanOrEqual(0)
+    expect(secondIndex).toBeGreaterThanOrEqual(0)
+    expect(firstIndex).toBeLessThan(secondIndex)
+    const firstRow = res.body.data.find((item: { rif: string; daysInState: number }) => item.rif === '__TEST__AGING-001')
+    const secondRow = res.body.data.find((item: { rif: string; daysInState: number }) => item.rif === '__TEST__AGING-002')
+    expect(firstRow?.daysInState ?? 0).toBeGreaterThan(secondRow?.daysInState ?? 0)
+    expect([firstRow?.stato, secondRow?.stato]).toEqual(['DISEGNO IN GESTIONE', 'PRONTI & AVVISATI'])
+
+    await request(app).delete(`/api/consegne/${first.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/consegne/${second.body.id}`).set('Authorization', `Bearer ${token}`)
   })
 
   it('GET /api/consegne/filters is not intercepted by id route', async () => {

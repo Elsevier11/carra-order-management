@@ -122,6 +122,22 @@ export interface BoardResponse {
   columns: BoardColumn[];
 }
 
+export interface DashboardAgingItem {
+  id: number;
+  rif: string;
+  cliente: string;
+  stato: string;
+  enteredAt: string | null;
+  daysInState: number;
+  dataOrdine: string | null;
+  dataConsegna: string | null;
+  resposabileMancante?: boolean;
+}
+
+export interface DashboardAgingResponse {
+  data: DashboardAgingItem[];
+}
+
 export interface ConsegneResponse {
   data: ConsegnaRecord[];
   pagination: {

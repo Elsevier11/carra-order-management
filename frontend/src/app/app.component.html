@@ -69,7 +69,7 @@
 
       @if (activeView === 'dashboard') {
         @if (dashboardChartsComponent) {
-          <ng-container *ngComponentOutlet="dashboardChartsComponent; inputs: { stats: stats }"></ng-container>
+          <ng-container *ngComponentOutlet="dashboardChartsComponent; inputs: { stats: stats, app: dashboardHost }"></ng-container>
         } @else {
           <section class="charts">
             <article class="chart-card full">

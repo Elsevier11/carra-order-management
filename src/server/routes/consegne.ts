@@ -1320,6 +1320,69 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
   }
 })
 
+router.get('/dashboard/aging', async (_req, res, next) => {
+  try {
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    const rows = await db.execute(sql`
+      select
+        o.id,
+        coalesce(o.rifto, '') as rif,
+        coalesce(o.cliente, '') as cliente,
+        coalesce(o.stato, 'IN CORSO') as stato,
+        o.data_ordine as "dataOrdine",
+        o.data_consegna as "dataConsegna",
+        coalesce(s.entered_at, o.created_at) as "enteredAt"
+      from ordini o
+      left join lateral (
+        select e.created_at as entered_at
+        from order_events e
+        where e.order_id = o.id
+          and (
+            (e.event_type = 'ORDER_CREATED' and coalesce(e.to_status, 'IN CORSO') = coalesce(o.stato, 'IN CORSO'))
+            or (e.event_type in ('STATUS_CHANGED', 'STATUS_SUSPENDED') and e.to_status = o.stato)
+          )
+        order by e.created_at desc, e.id desc
+        limit 1
+      ) s on true
+      where coalesce(o.stato, 'IN CORSO') in ('DISEGNO IN GESTIONE', 'PRONTI & AVVISATI')
+      order by "enteredAt" asc, o.id desc
+    `)
+
+    const data = (rows as Array<{
+      id: number
+      rif: string
+      cliente: string
+      stato: string
+      dataOrdine: string | Date | null
+      dataConsegna: string | Date | null
+      enteredAt: string | Date | null
+    }>).map((row) => {
+      const enteredAt = row.enteredAt ? new Date(row.enteredAt) : null
+      const enteredAtStart = enteredAt ? new Date(enteredAt) : null
+      if (enteredAtStart) enteredAtStart.setHours(0, 0, 0, 0)
+      const daysInState = enteredAtStart ? Math.max(0, Math.floor((startOfToday.getTime() - enteredAtStart.getTime()) / 86400000)) : 0
+      return {
+        id: row.id,
+        rif: row.rif,
+        cliente: row.cliente,
+        stato: row.stato,
+        enteredAt: enteredAt ? enteredAt.toISOString() : null,
+        daysInState,
+        dataOrdine: row.dataOrdine ? new Date(row.dataOrdine).toISOString() : null,
+        dataConsegna: row.dataConsegna ? new Date(row.dataConsegna).toISOString() : null,
+      }
+    })
+
+    data.sort((a, b) => b.daysInState - a.daysInState || (a.enteredAt ?? '').localeCompare(b.enteredAt ?? '') || b.id - a.id)
+
+    return res.json({ data })
+  } catch (error) {
+    return next(error)
+  }
+})
+
 router.get('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id)

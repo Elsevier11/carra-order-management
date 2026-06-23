@@ -127,6 +127,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly statusFlow: ConsegnaStatus[] = [...ORDER_STATUS_FLOW];
   readonly kanbanHost: KanbanBoardHost = this as unknown as KanbanBoardHost;
+  readonly dashboardHost: any = this;
   readonly detailHost: any = this;
 
   boardColumns: BoardColumn[] = [];
@@ -340,6 +341,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Detail modal tab switcher ─────────────────────────────────────────────
   activeDetailTab: 'dettagli' | 'cementi' | 'accessori' | 'cam' | 'gestione' = 'dettagli';
+  private detailReturnView: ViewMode | null = null;
 
   cementiTipiList: CementoTipo[] = [];
   accessoriTipiList: AccessorioTipo[] = [];
@@ -664,6 +666,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   doCloseDetailModal(): void {
+    const returnView = this.detailReturnView;
     this.closeConfirmOpen = false;
     this.detailModalOpen = false;
     this.selectedDetail = null;
@@ -676,6 +679,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.camSnapshot = null;
     this.editMode = false;
     this.dettagliSnapshot = '';
+    this.detailReturnView = null;
+    if (returnView && returnView !== this.activeView) {
+      this.changeView(returnView);
+    }
   }
 
   changeView(view: ViewMode): void {
@@ -734,6 +741,16 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectFromBoard(row: ConsegnaRecord): void {
+    this.detailReturnView = 'kanban';
+    this.selectedRow = row;
+    this.loadDetail(row.id);
+  }
+
+  openOrderFromDashboard(row: ConsegnaRecord): void {
+    this.detailReturnView = 'dashboard';
+    if (this.activeView !== 'kanban') {
+      this.changeView('kanban');
+    }
     this.selectedRow = row;
     this.loadDetail(row.id);
   }

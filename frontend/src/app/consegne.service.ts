@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AccessorioTipo, AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CementoTipo, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, ErpOrderPreviewItem, FilterOptions, ImportConfig, MittenteDisegno, Operaio, OrderAccessorio, OrderCemento, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse, Vettore } from './consegne.types';
+import { AccessorioTipo, AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CementoTipo, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, DashboardAgingResponse, ErpOrderPreviewItem, FilterOptions, ImportConfig, MittenteDisegno, Operaio, OrderAccessorio, OrderCemento, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse, Vettore } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
@@ -28,6 +28,10 @@ export class ConsegneService {
 
   stats(): Observable<ConsegnaStats> {
     return this.http.get<ConsegnaStats>(`${this.baseUrl}/stats`);
+  }
+
+  dashboardAging(): Observable<DashboardAgingResponse> {
+    return this.http.get<DashboardAgingResponse>(`${this.baseUrl}/dashboard/aging`);
   }
 
   filters(): Observable<FilterOptions> {
