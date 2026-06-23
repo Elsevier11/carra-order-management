@@ -3,19 +3,7 @@ import { Component, Input } from '@angular/core';
 import { ChartConfiguration } from 'chart.js';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ConsegnaStats } from './consegne.types';
-
-const STATUS_ORDER = [
-  'IN CORSO',
-  'DISEGNO IN GESTIONE',
-  'DISEGNO APPROVATO',
-  'DA ASSEGNARE',
-  'ASSEGNATO',
-  'PRONTI & AVVISATI',
-  'CONSEGNA PIANIFICATA',
-  'CONSEGNA EFFETTUATA',
-  'CONCLUSI',
-  'SOSPESO',
-];
+import { ORDER_STATUS_FLOW } from '../../../src/shared/order-flow';
 
 @Component({
   selector: 'app-dashboard-charts',
@@ -190,11 +178,11 @@ export class DashboardChartsComponent {
   }
 
   get pipelineChartData(): ChartConfiguration<'bar'>['data'] {
-    const sorted = STATUS_ORDER
+    const sorted = ORDER_STATUS_FLOW
       .map((s) => this.stats.pipelineConRitardi.find((r) => r.stato === s))
       .filter(Boolean) as Array<{ stato: string; total: number; late: number }>;
 
-    const extra = this.stats.pipelineConRitardi.filter((r) => !STATUS_ORDER.includes(r.stato));
+    const extra = this.stats.pipelineConRitardi.filter((r) => !ORDER_STATUS_FLOW.includes(r.stato as (typeof ORDER_STATUS_FLOW)[number]));
     const all = [...sorted, ...extra];
 
     return {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, Type, ViewChild, inject } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +20,6 @@ import {
   ConsegnaFilters,
   ConsegnaRecord,
   ConsegnaStats,
-  ConsegnaStatus,
   ErpOrderPreviewItem,
   MittenteDisegno,
   Operaio,
@@ -34,7 +33,26 @@ import {
   SqlServerTestResult,
   Vettore,
 } from './consegne.types';
+import { TransitionModalComponent, type TransitionModalModel } from './transition-modal.component';
+import { KanbanBoardComponent, type KanbanBoardHost } from './kanban-board.component';
+import { OrderDetailModalComponent } from './order-detail-modal.component';
+import {
+  boardCementiSummary as boardCementiSummaryHelper,
+  boardConclusiBadge as boardConclusiBadgeHelper,
+  cementoBadgeClass as cementoBadgeClassHelper,
+  cementoBadgeClassFromFlags as cementoBadgeClassFromFlagsHelper,
+  conclusiDateLabel as conclusiDateLabelHelper,
+  conclusiWeekLabel as conclusiWeekLabelHelper,
+  detailMissingItems as detailMissingItemsHelper,
+  onCementoFattaChange as onCementoFattaChangeHelper,
+  onCementoOrdinataChange as onCementoOrdinataChangeHelper,
+  operaiNomiLabel as operaiNomiLabelHelper,
+  orderWarnings as orderWarningsHelper,
+  selectedCementiSummary as selectedCementiSummaryHelper,
+} from './order-formatters';
 import { SettingsService } from './settings.service';
+import { ORDER_STATUS_FLOW, allowedNextStatuses, statusClass, statusShortLabel, type ConsegnaStatus } from '../../../src/shared/order-flow';
+import { validateTransitionState } from '../../../src/shared/transition-validation';
 
 type EditableConsegna = {
   rif: string;
@@ -65,7 +83,7 @@ type RegistryTab = 'persone' | 'produzione';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, NgxDatatableModule, CdkDropList, CdkDrag],
+  imports: [CommonModule, FormsModule, NgxDatatableModule, TransitionModalComponent, KanbanBoardComponent, OrderDetailModalComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -107,19 +125,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   user: AuthUser | null = null;
   canWrite = false;
 
-  readonly statusFlow: ConsegnaStatus[] = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'];
-  readonly transitionRules: Record<ConsegnaStatus, ConsegnaStatus[]> = {
-    'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
-    'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
-    'DISEGNO APPROVATO': ['DA ASSEGNARE', 'SOSPESO'],
-    'DA ASSEGNARE': ['ASSEGNATO', 'SOSPESO'],
-    'ASSEGNATO': ['CONCLUSI', 'SOSPESO'],
-    'CONCLUSI': ['PRONTI & AVVISATI', 'SOSPESO'],
-    'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
-    'CONSEGNA PIANIFICATA': ['CONSEGNA EFFETTUATA', 'SOSPESO'],
-    'CONSEGNA EFFETTUATA': [],
-    'SOSPESO': ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
-  };
+  readonly statusFlow: ConsegnaStatus[] = [...ORDER_STATUS_FLOW];
+  readonly kanbanHost: KanbanBoardHost = this as unknown as KanbanBoardHost;
+  readonly detailHost: any = this;
 
   boardColumns: BoardColumn[] = [];
   loadingBoard = false;
@@ -143,20 +151,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   dashboardChartsComponent: Type<unknown> | null = null;
   loadingDashboardCharts = false;
 
-  dropTransitionModal: {
-    open: boolean;
-    order: ConsegnaRecord | null;
-    fromStatus: ConsegnaStatus | '';
-    toStatus: ConsegnaStatus | '';
-    lavorazioneAssegnataAt: string;
-    operaiIds: number[];
-    skipAssegnazione: boolean;
-    conclusiMode: 'week' | 'date';
-    conclusiWeek: string;
-    conclusiDate: string;
-    note: string;
-    error: string;
-  } = {
+  dropTransitionModal: TransitionModalModel = {
     open: false,
     order: null,
     fromStatus: '',
@@ -754,35 +749,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   columnClass(status: string): string {
-    const map: Record<string, string> = {
-      'IN CORSO': 'status-in-corso',
-      'DISEGNO IN GESTIONE': 'status-disegno-gestione',
-      'DISEGNO APPROVATO': 'status-disegno-approvato',
-      'DA ASSEGNARE': 'status-da-assegnare',
-      'ASSEGNATO': 'status-assegnato',
-      'PRONTI & AVVISATI': 'status-pronti-avvisati',
-      'CONSEGNA PIANIFICATA': 'status-consegna-pianificata',
-      'CONSEGNA EFFETTUATA': 'status-consegna-effettuata',
-      CONCLUSI: 'status-conclusi',
-      SOSPESO: 'status-sospeso',
-    };
-    return map[status] ?? '';
+    return statusClass(status);
   }
 
   columnShortLabel(status: ConsegnaStatus): string {
-    const map: Record<ConsegnaStatus, string> = {
-      'IN CORSO': 'In corso',
-      'DISEGNO IN GESTIONE': 'Dis. gestione',
-      'DISEGNO APPROVATO': 'Dis. approvato',
-      'DA ASSEGNARE': 'Da assegnare',
-      'ASSEGNATO': 'Assegnato',
-      'CONCLUSI': 'Conclusi',
-      'PRONTI & AVVISATI': 'Pronti',
-      'CONSEGNA PIANIFICATA': 'Cons. pianif.',
-      'CONSEGNA EFFETTUATA': 'Cons. eff.',
-      'SOSPESO': 'Sospeso',
-    };
-    return map[status] ?? status;
+    return statusShortLabel(status);
   }
 
   isColumnVisible(status: ConsegnaStatus): boolean {
@@ -902,45 +873,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   orderWarnings(item: ConsegnaRecord): string[] {
-    const warnings: string[] = [];
-    if (this.isLate(item)) warnings.push(`Ritardo ${this.lateDays(item)}g`);
-    if (!item.dataConsegna) warnings.push('Data consegna mancante');
-    if (!item.responsabileInternoId) warnings.push('Resp. mancante');
-    return warnings;
+    return orderWarningsHelper(item, (order) => this.isLate(order), (order) => this.lateDays(order));
   }
 
   boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }> {
-    if (item.stato !== 'DISEGNO APPROVATO' || !item.cementi?.length) return [];
-    return item.cementi
-      .filter((cemento) => cemento !== null && cemento !== undefined)
-      .map((cemento) => ({
-        nome: (cemento as { nome?: string; tipo?: string }).nome ?? cemento.tipo,
-        ordinata: !!cemento.ordinata,
-        fatta: !!cemento.fatta,
-      }));
+    return boardCementiSummaryHelper(item);
   }
 
   boardConclusiBadge(item: ConsegnaRecord): string | null {
-    if (!item.conclusiMode || item.stato === 'CONCLUSI') return null;
-    if (item.conclusiMode === 'week') {
-      return `A.M.P.: ${this.conclusiWeekLabel(item.conclusiWeek)}`;
-    }
-    if (!item.conclusiDate) return null;
-    const parsed = new Date(item.conclusiDate);
-    if (Number.isNaN(parsed.getTime())) return `A.M.P.: ${item.conclusiDate}`;
-    return `A.M.P.: ${parsed.toLocaleDateString('it-IT')}`;
+    return boardConclusiBadgeHelper(item, (value) => this.conclusiWeekLabel(value));
   }
 
   detailMissingItems(item: ConsegnaRecord): string[] {
-    const missing: string[] = [];
-    if (!item.dataConsegna) missing.push('Data consegna');
-    if (!item.responsabileInternoId) missing.push('Responsabile');
-    if (item.stato === 'CONSEGNA PIANIFICATA') {
-      if (!item.consegnaDataEffettiva) missing.push('Data consegna effettiva');
-      if (!item.vettoreId) missing.push('Vettore');
-      if (!item.ddtPronti) missing.push('DDT pronti');
-    }
-    return missing;
+    return detailMissingItemsHelper(item);
   }
 
   nextStatusLabel(status: string): string {
@@ -948,29 +893,23 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectedCementiSummary(): { tipoId: number; nome: string; selezionato: boolean; ordinata: boolean; fatta: boolean }[] {
-    return this.cementiSelections.filter((sel) => sel.selezionato);
+    return selectedCementiSummaryHelper(this.cementiSelections);
   }
 
   cementoBadgeClass(sel: { selezionato: boolean; ordinata: boolean; fatta: boolean }): string {
-    if (sel.fatta && sel.ordinata) return 'cemento-badge cemento-badge--verde';
-    if (sel.ordinata) return 'cemento-badge cemento-badge--arancione';
-    return 'cemento-badge cemento-badge--rosso';
+    return cementoBadgeClassHelper(sel);
   }
 
   cementoBadgeClassFromFlags(sel: { ordinata: boolean; fatta: boolean }): string {
-    if (sel.fatta && sel.ordinata) return 'cemento-badge cemento-badge--verde';
-    if (sel.ordinata) return 'cemento-badge cemento-badge--arancione';
-    return 'cemento-badge cemento-badge--rosso';
+    return cementoBadgeClassFromFlagsHelper(sel);
   }
 
   onCementoOrdinataChange(sel: { ordinata: boolean; fatta: boolean }): void {
-    if (!sel.ordinata) {
-      sel.fatta = false;
-    }
+    onCementoOrdinataChangeHelper(sel);
   }
 
   onCementoFattaChange(sel: { ordinata: boolean; fatta: boolean }, checked: boolean): void {
-    sel.fatta = checked && sel.ordinata;
+    onCementoFattaChangeHelper(sel, checked);
   }
 
   goToTransitionPanel(): void {
@@ -1050,43 +989,20 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const modal = this.dropTransitionModal;
     if (!modal.open || !modal.order || !modal.fromStatus || !modal.toStatus) return;
     const orderId = modal.order.id;
-
-    if (modal.toStatus === 'SOSPESO' && !modal.note.trim()) {
-      this.dropTransitionModal.error = 'Inserisci il motivo della sospensione.';
+    const validationError = validateTransitionState({ ...modal, skipAssegnazione });
+    if (validationError) {
+      this.dropTransitionModal.error = validationError;
       return;
-    }
-
-    const isAssignmentFlow = modal.toStatus === 'ASSEGNATO' && !skipAssegnazione;
-    const isConclusiFlow = modal.toStatus === 'CONCLUSI';
-    if (isAssignmentFlow) {
-      if (!modal.lavorazioneAssegnataAt) {
-        this.dropTransitionModal.error = 'Inserisci la data assegnazione.';
-        return;
-      }
-      if (!modal.operaiIds.length) {
-        this.dropTransitionModal.error = 'Seleziona almeno un operaio.';
-        return;
-      }
-    }
-    if (isConclusiFlow) {
-      if (modal.conclusiMode === 'week' && !modal.conclusiWeek) {
-        this.dropTransitionModal.error = 'Seleziona la settimana.';
-        return;
-      }
-      if (modal.conclusiMode === 'date' && !modal.conclusiDate) {
-        this.dropTransitionModal.error = 'Seleziona la data.';
-        return;
-      }
     }
 
     this.pendingTransitionId = orderId;
     this.consegneService.transition(orderId, modal.toStatus, modal.note.trim() || undefined, {
-      lavorazioneAssegnataAt: isAssignmentFlow ? modal.lavorazioneAssegnataAt : undefined,
-      operaiIds: isAssignmentFlow ? modal.operaiIds : undefined,
+      lavorazioneAssegnataAt: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.lavorazioneAssegnataAt : undefined,
+      operaiIds: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.operaiIds : undefined,
       skipAssegnazione,
-      conclusiMode: isConclusiFlow ? modal.conclusiMode : undefined,
-      conclusiWeek: isConclusiFlow && modal.conclusiMode === 'week' ? modal.conclusiWeek : undefined,
-      conclusiDate: isConclusiFlow && modal.conclusiMode === 'date' ? modal.conclusiDate : undefined,
+      conclusiMode: modal.toStatus === 'CONCLUSI' ? modal.conclusiMode : undefined,
+      conclusiWeek: modal.toStatus === 'CONCLUSI' && modal.conclusiMode === 'week' ? modal.conclusiWeek : undefined,
+      conclusiDate: modal.toStatus === 'CONCLUSI' && modal.conclusiMode === 'date' ? modal.conclusiDate : undefined,
     }).subscribe({
       next: () => {
         this.notifySuccess(`Stato aggiornato a ${modal.toStatus}`);
@@ -1302,36 +1218,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   allowedNextStatuses(currentStatus: string): ConsegnaStatus[] {
-    const casted = currentStatus as ConsegnaStatus;
-    return this.transitionRules[casted] ?? [];
-  }
-
-  isTransitionOperaioSelected(id: number): boolean {
-    return this.dropTransitionModal.operaiIds.includes(id);
-  }
-
-  toggleTransitionOperaio(id: number): void {
-    if (!this.dropTransitionModal.open || this.dropTransitionModal.toStatus !== 'ASSEGNATO') return;
-    const current = this.dropTransitionModal.operaiIds;
-    this.dropTransitionModal.operaiIds = current.includes(id)
-      ? current.filter((value) => value !== id)
-      : [...current, id];
-  }
-
-  decideLaterTransition(): void {
-    if (!this.dropTransitionModal.open || this.dropTransitionModal.toStatus !== 'ASSEGNATO') return;
-    this.confirmDropTransition(true);
-  }
-
-  toggleConclusiMode(mode: 'week' | 'date'): void {
-    if (!this.dropTransitionModal.open || this.dropTransitionModal.toStatus !== 'CONCLUSI') return;
-    this.dropTransitionModal.conclusiMode = mode;
-    if (mode === 'week' && !this.dropTransitionModal.conclusiWeek) {
-      this.dropTransitionModal.conclusiWeek = this.todayIsoWeek();
-    }
-    if (mode === 'date' && !this.dropTransitionModal.conclusiDate) {
-      this.dropTransitionModal.conclusiDate = this.todayIsoDate();
-    }
+    return allowedNextStatuses(currentStatus);
   }
 
   todayIsoDate(): string {
@@ -1823,6 +1710,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Mittenti Disegno CRUD ─────────────────────────────────────────────────
 
+  nomeVettore(id: number | null | undefined): string {
+    if (!id) return 'â€”';
+    return this.vettoriList.find((v) => v.id === id)?.nome ?? `#${id}`;
+  }
+
   loadMittentiDisegnoAdmin(): void {
     this.mittentiDisegnoLoading = true;
     this.consegneService.listMittentiDisegno().subscribe({
@@ -2278,7 +2170,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private canTransition(fromStatus: ConsegnaStatus, toStatus: ConsegnaStatus): boolean {
-    return this.transitionRules[fromStatus]?.includes(toStatus) ?? false;
+    return allowedNextStatuses(fromStatus).includes(toStatus);
   }
 
   private loadFilters(): void {

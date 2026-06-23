@@ -1,0 +1,107 @@
+<div class="detail-section" *ngIf="app.activeDetailTab === 'gestione'">
+  <ng-container [ngSwitch]="detail.stato">
+    <ng-container *ngSwitchCase="'DISEGNO IN GESTIONE'">
+      <div class="detail-section-title">Disegno in gestione</div>
+      <div class="detail-kv-grid detail-kv-grid--2col">
+        <div class="detail-kv">
+          <span class="kv-label">Mittente disegno</span>
+          <span class="kv-value">{{ app.nomeMittente(detail.disegnoMittenteId) }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Data invio disegno</span>
+          <span class="kv-value">{{ detail.disegnoSpeditoAt ? (detail.disegnoSpeditoAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+        </div>
+      </div>
+      <div class="detail-kv-grid detail-kv-grid--2col" style="margin-top: 10px">
+        <div class="detail-kv">
+          <span class="kv-label">Rientro disegno previsto</span>
+          <span class="kv-value">{{ detail.disegnoNote || 'â€”' }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Rientro disegno effettivo</span>
+          <span class="kv-value">{{ detail.lavorazioneAssegnataAt ? (detail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'DISEGNO APPROVATO'">
+      <div class="detail-section-title">Disegno approvato</div>
+      <div class="detail-kv-grid detail-kv-grid--2col">
+        <div class="detail-kv">
+          <span class="kv-label">Data invio disegno</span>
+          <span class="kv-value">{{ detail.disegnoSpeditoAt ? (detail.disegnoSpeditoAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Mittente disegno</span>
+          <span class="kv-value">{{ app.nomeMittente(detail.disegnoMittenteId) }}</span>
+        </div>
+      </div>
+      <div class="detail-kv-grid detail-kv-grid--2col" style="margin-top: 10px">
+        <div class="detail-kv">
+          <span class="kv-label">Note</span>
+          <span class="kv-value">{{ detail.disegnoNote || 'â€”' }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Lavorazione assegnata</span>
+          <span class="kv-value">{{ detail.lavorazioneAssegnataAt ? (detail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'ASSEGNATO'">
+      <div class="detail-section-title">Assegnato</div>
+      <div class="detail-kv-grid detail-kv-grid--2col">
+        <div class="detail-kv">
+          <span class="kv-label">Data assegnazione</span>
+          <span class="kv-value">{{ detail.lavorazioneAssegnataAt ? (detail.lavorazioneAssegnataAt | date:'dd/MM/yyyy') : 'â€”' }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Operai assegnati</span>
+          <span class="kv-value">{{ app.operaiNomiLabel(detail.operaiAssegnati) }}</span>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'CONSEGNA PIANIFICATA'">
+      <div class="detail-section-title">Consegna pianificata</div>
+      <div class="detail-kv-grid detail-kv-grid--2col">
+        <div class="detail-kv">
+          <span class="kv-label">Data consegna effettiva</span>
+          <span class="kv-value">{{ detail.consegnaDataEffettiva ? (detail.consegnaDataEffettiva | date:'dd/MM/yyyy') : 'â€”' }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Vettore</span>
+          <span class="kv-value">{{ app.nomeVettore(detail.vettoreId) }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">N° bilici</span>
+          <span class="kv-value">{{ detail.bilici ?? 'â€”' }}</span>
+        </div>
+      </div>
+      <div class="detail-pills-row" style="margin-top: 12px">
+        <div class="detail-pill-item"><span class="kv-label">DDT pronti</span><span [class]="detail.ddtPronti ? 'badge-ok' : 'badge-neutral'">{{ detail.ddtPronti ? 'SI' : 'NO' }}</span></div>
+        <div class="detail-pill-item"><span class="kv-label">Bancale</span><span [class]="detail.bancale ? 'badge-ok' : 'badge-neutral'">{{ detail.bancale ? 'SI' : 'NO' }}</span></div>
+        <div class="detail-pill-item"><span class="kv-label">Chiusini</span><span [class]="detail.chiusini ? 'badge-ok' : 'badge-neutral'">{{ detail.chiusini ? 'SI' : 'NO' }}</span></div>
+        <div class="detail-pill-item"><span class="kv-label">Carico verificato</span><span [class]="detail.caricoVerificato ? 'badge-ok' : 'badge-neutral'">{{ detail.caricoVerificato ? 'SI' : 'NO' }}</span></div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'CONCLUSI'">
+      <div class="detail-section-title">Conclusi</div>
+      <div class="detail-kv-grid detail-kv-grid--2col">
+        <div class="detail-kv">
+          <span class="kv-label">Chiusura</span>
+          <span class="kv-value">{{ detail.conclusiMode === 'week' ? app.conclusiWeekLabel(detail.conclusiWeek) : (detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : 'â€”') }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Note chiusura</span>
+          <span class="kv-value">{{ detail.note || 'â€”' }}</span>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchDefault>
+      <p class="detail-empty">Nessun dato aggiuntivo richiesto per questo stato. Usa il pannello qui sotto per passare allo stato successivo.</p>
+    </ng-container>
+  </ng-container>
+</div>

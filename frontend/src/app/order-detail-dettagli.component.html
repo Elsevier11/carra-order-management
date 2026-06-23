@@ -1,0 +1,159 @@
+<div class="detail-section" *ngIf="app.activeDetailTab === 'dettagli'">
+  <div *ngIf="app.editMode; else dettagliRead" class="detail-section detail-edit-section">
+    <div class="detail-form-compact">
+      <div class="form-field">
+        <label class="form-field__label form-field__label--required">Riferimento</label>
+        <input type="text" [(ngModel)]="app.formModel.rif" />
+      </div>
+      <div class="form-field">
+        <label class="form-field__label form-field__label--required">Cliente</label>
+        <input type="text" [(ngModel)]="app.formModel.cliente" />
+      </div>
+      <div class="form-field form-field--span2">
+        <label class="form-field__label">Tipo impianto</label>
+        <input type="text" [(ngModel)]="app.formModel.tipoImpianto" />
+      </div>
+      <div class="form-field">
+        <label class="form-field__label">Data consegna</label>
+        <input type="date" [(ngModel)]="app.formModel.dataConsegna" />
+      </div>
+      <div class="form-field form-field--span2">
+        <label class="form-field__label">Cantiere</label>
+        <input type="text" [(ngModel)]="app.formModel.cantiere" />
+      </div>
+      <div class="form-field">
+        <label class="form-field__label">Data ordine</label>
+        <input type="date" [(ngModel)]="app.formModel.dataOrdine" />
+      </div>
+      <div class="form-field form-field--span2 form-field--referente">
+        <label class="form-field__label">Referente</label>
+        <input type="text" [(ngModel)]="app.formModel.referente" maxlength="80" />
+      </div>
+      <div class="form-field form-field--telefono">
+        <label class="form-field__label">Telefono</label>
+        <input type="text" [(ngModel)]="app.formModel.telefono" maxlength="30" />
+      </div>
+      <div class="form-field">
+        <label class="form-field__label">Stato</label>
+        <select [(ngModel)]="app.formModel.stato">
+          <option *ngFor="let status of app.statusFlow" [value]="status">{{ status }}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-field__label">Commerciale</label>
+        <select [(ngModel)]="app.formModel.commercialeId">
+          <option [ngValue]="null">Nessun commerciale</option>
+          <option *ngFor="let c of app.commercialiRows" [ngValue]="c.id">{{ c.nome }}</option>
+        </select>
+      </div>
+      <div class="form-field form-field--span2">
+        <label class="form-field__label">Responsabile</label>
+        <select [(ngModel)]="app.formModel.responsabileInternoId">
+          <option [ngValue]="null">Nessun responsabile</option>
+          <option *ngFor="let r of app.responsabiliRows" [ngValue]="r.id">{{ r.nome }}</option>
+        </select>
+      </div>
+      <div class="detail-form-checks">
+        <label class="kanban-toggle"><input type="checkbox" [(ngModel)]="app.formModel.trasporto" /><span>Trasporto a nostro carico</span></label>
+        <label class="kanban-toggle"><input type="checkbox" [(ngModel)]="app.formModel.scaricoCarico" /><span>Scarico a nostro carico</span></label>
+        <label class="kanban-toggle"><input type="checkbox" [(ngModel)]="app.formModel.accontoPagato" /><span>Acconto pagato</span></label>
+      </div>
+      <textarea [(ngModel)]="app.formModel.note" placeholder="Note operative..."></textarea>
+    </div>
+  </div>
+
+  <ng-template #dettagliRead>
+    <div class="detail-section">
+      <div class="detail-kv-grid">
+        <div class="detail-kv">
+          <span class="kv-label">Impianto</span>
+          <span class="kv-value kv-value--prominent">{{ detail.tipoImpianto || '—' }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Cantiere</span>
+          <span class="kv-value">{{ detail.cantiere || '—' }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Data consegna</span>
+          <span class="kv-value">{{ detail.dataConsegna ? (detail.dataConsegna | date:'dd/MM/yyyy') : '—' }}</span>
+        </div>
+      </div>
+      <div class="detail-kv-grid detail-kv-grid--2col detail-kv-grid--contact" style="margin-top: 10px">
+        <div class="detail-kv">
+          <span class="kv-label">Commerciale</span>
+          <span class="kv-value">{{ app.nomeCommerciale(detail.commercialeId) }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Responsabile</span>
+          <span class="kv-value">{{ app.nomeResponsabile(detail.responsabileInternoId) }}</span>
+        </div>
+        <div class="detail-kv detail-kv--contact-name">
+          <span class="kv-label">Referente</span>
+          <span class="kv-value">{{ detail.referente || '—' }}</span>
+        </div>
+        <div class="detail-kv detail-kv--contact-phone">
+          <span class="kv-label">Telefono</span>
+          <span class="kv-value">{{ detail.telefono || '—' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Logistica & Pagamento</div>
+      <div class="detail-pills-row">
+        <div class="detail-pill-item"><span class="kv-label">Trasporto ns. carico</span><span [class]="detail.trasporto ? 'badge-ok' : 'badge-neutral'">{{ detail.trasporto ? 'SI' : 'NO' }}</span></div>
+        <div class="detail-pill-item"><span class="kv-label">Scarico ns. carico</span><span [class]="detail.scaricoCarico ? 'badge-ok' : 'badge-neutral'">{{ detail.scaricoCarico ? 'SI' : 'NO' }}</span></div>
+        <div class="detail-pill-item"><span class="kv-label">Acconto pagato</span><span [class]="detail.accontoPagato ? 'badge-ok' : 'badge-neutral'">{{ detail.accontoPagato ? 'SI' : 'NO' }}</span></div>
+      </div>
+    </div>
+
+    <div class="detail-section" *ngIf="detail.note">
+      <div class="detail-section-title">Note</div>
+      <p class="detail-note-box">{{ detail.note }}</p>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Cartelle di riferimento</div>
+      <div class="folder-rows">
+        <div class="folder-row">
+          <span class="folder-row-label">Documenti</span>
+          <input type="text" class="folder-row-input" [value]="detail.folderLinkDocumenti ?? ''" (change)="app.saveFolderPath('documenti', $any($event.target).value)" />
+          <button type="button" class="ghost icon-btn" (click)="app.pasteFolderPath('documenti')">📋</button>
+          <a *ngIf="detail.folderLinkDocumenti" class="ghost icon-btn" [href]="app.folderProtocolUrl(detail.folderLinkDocumenti!)">↗</a>
+          <button *ngIf="detail.folderLinkDocumenti" type="button" class="ghost-danger icon-btn" (click)="app.clearFolderPath('documenti')">×</button>
+        </div>
+        <div class="folder-row">
+          <span class="folder-row-label">Foto</span>
+          <input type="text" class="folder-row-input" [value]="detail.folderLinkFoto ?? ''" (change)="app.saveFolderPath('foto', $any($event.target).value)" />
+          <button type="button" class="ghost icon-btn" (click)="app.pasteFolderPath('foto')">📋</button>
+          <a *ngIf="detail.folderLinkFoto" class="ghost icon-btn" [href]="app.folderProtocolUrl(detail.folderLinkFoto!)">↗</a>
+          <button *ngIf="detail.folderLinkFoto" type="button" class="ghost-danger icon-btn" (click)="app.clearFolderPath('foto')">×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Allegati</div>
+      <div *ngIf="app.loadingAttachments">Caricamento allegati...</div>
+      <ng-container *ngIf="!app.loadingAttachments">
+        <div *ngIf="app.canWrite" class="attachment-upload">
+          <input type="file" (change)="app.onAttachmentSelected($event)" accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx" />
+          <button type="button" [disabled]="!app.selectedUploadFile" (click)="app.uploadAttachment()">Upload</button>
+        </div>
+        <p *ngIf="!app.attachments.length" class="detail-empty">Nessun allegato.</p>
+        <div class="attach-grid" *ngIf="app.attachments.length">
+          <div class="attach-card" *ngFor="let attachment of app.attachments">
+            <div class="attach-info">
+              <span class="attach-name">{{ attachment.fileName }}</span>
+              <span class="attach-meta">{{ app.formatFileSize(attachment.sizeBytes) }} · {{ attachment.uploadedBy || 'sistema' }}</span>
+            </div>
+            <div class="attach-btns">
+              <button type="button" class="ghost icon-btn" (click)="app.openAttachment(attachment)">Apri</button>
+              <button *ngIf="app.canWrite" type="button" class="ghost-danger icon-btn" (click)="app.deleteAttachment(attachment)">Elimina</button>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </ng-template>
+</div>

@@ -1,0 +1,96 @@
+@if (modal.open && modal.order) {
+  <div class="modal-backdrop">
+    <div class="modal">
+      <h2>Conferma cambio stato</h2>
+      <p>
+        Ordine <strong>{{ modal.order.rif }}</strong>:
+        <strong>{{ modal.fromStatus }}</strong> -> <strong>{{ modal.toStatus }}</strong>
+      </p>
+      <p class="transition-confirm-note">
+        Il cambio stato aggiorna il Kanban e viene registrato nello storico dell'ordine.
+      </p>
+      <div class="modal-grid">
+        @if (modal.toStatus === 'ASSEGNATO') {
+          <label class="form-field">
+            <span>Data assegnazione</span>
+            <input type="date" [(ngModel)]="modal.lavorazioneAssegnataAt" />
+          </label>
+          <div class="form-field" style="grid-column: 1 / -1;">
+            <span>Operai da assegnare</span>
+            <div class="transition-workers">
+              @if (!operaiList.length) {
+                <small>Nessun operaio disponibile.</small>
+              } @else {
+                @for (op of operaiList; track op.id) {
+                  <label class="transition-worker">
+                    <input
+                      type="checkbox"
+                      [checked]="isOperaioSelected(op.id)"
+                      (change)="toggleOperaio(op.id)"
+                    />
+                    <span>{{ op.nome }}</span>
+                  </label>
+                }
+              }
+            </div>
+          </div>
+        } @else if (modal.toStatus === 'CONCLUSI') {
+          <div class="form-field" style="grid-column: 1 / -1;">
+            <span>Chiusura ordine</span>
+            <div class="transition-mode-switch">
+              <button
+                type="button"
+                class="ghost"
+                [class.active]="modal.conclusiMode === 'week'"
+                (click)="toggleConclusiMode('week')"
+              >
+                Settimana
+              </button>
+              <button
+                type="button"
+                class="ghost"
+                [class.active]="modal.conclusiMode === 'date'"
+                (click)="toggleConclusiMode('date')"
+              >
+                DATA
+              </button>
+            </div>
+            @if (modal.conclusiMode === 'week') {
+              <input type="week" [(ngModel)]="modal.conclusiWeek" />
+            } @else {
+              <input type="date" [(ngModel)]="modal.conclusiDate" />
+            }
+          </div>
+        }
+        <input
+          type="text"
+          [(ngModel)]="modal.note"
+          [placeholder]="modal.toStatus === 'SOSPESO' ? 'Motivo sospensione (obbligatorio)' : 'Nota opzionale'"
+        />
+      </div>
+      @if (modal.error) {
+        <div class="error">{{ modal.error }}</div>
+      }
+      <div class="modal-actions">
+        @if (modal.toStatus === 'ASSEGNATO') {
+          <button
+            type="button"
+            class="ghost"
+            [disabled]="pendingTransitionId === modal.order.id"
+            (click)="decideLater.emit()"
+          >
+            Decido dopo
+          </button>
+        }
+        <button
+          type="button"
+          [disabled]="isConfirmDisabled()"
+          (click)="requestConfirm()"
+        >
+          Conferma
+        </button>
+        <button type="button" class="ghost" [disabled]="pendingTransitionId === modal.order.id" (click)="cancel.emit()">Annulla</button>
+      </div>
+    </div>
+  </div>
+}

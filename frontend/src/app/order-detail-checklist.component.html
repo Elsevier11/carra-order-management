@@ -1,0 +1,29 @@
+<div class="detail-section" *ngIf="app.activeDetailTab === kind">
+  <ng-container [ngSwitch]="kind">
+    <ng-container *ngSwitchCase="'cementi'">
+      <div class="detail-checklist" *ngIf="app.cementiTipiList.length; else noCementi">
+        <div class="checklist-row" *ngFor="let sel of app.cementiSelections" [class.checklist-row--selected]="sel.selezionato">
+          <label class="checklist-main"><input type="checkbox" [(ngModel)]="sel.selezionato" /><span>{{ sel.nome }}</span></label>
+          <ng-container *ngIf="sel.selezionato">
+            <label class="checklist-flag"><input type="checkbox" [ngModel]="sel.ordinata" (ngModelChange)="sel.ordinata = $event; app.onCementoOrdinataChange(sel)" /><span>Ordinata</span></label>
+            <label class="checklist-flag"><input type="checkbox" [ngModel]="sel.fatta" (ngModelChange)="app.onCementoFattaChange(sel, $event)" [disabled]="!sel.ordinata" /><span>Fatta</span></label>
+          </ng-container>
+        </div>
+      </div>
+      <ng-template #noCementi><p class="detail-empty">Nessun tipo di cemento configurato.</p></ng-template>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'accessori'">
+      <div class="detail-checklist" *ngIf="app.accessoriTipiList.length; else noAccessori">
+        <div class="checklist-row" *ngFor="let sel of app.accessoriSelections" [class.checklist-row--selected]="sel.selezionato">
+          <label class="checklist-main"><input type="checkbox" [(ngModel)]="sel.selezionato" /><span>{{ sel.nome }}</span></label>
+          <ng-container *ngIf="sel.selezionato">
+            <label class="checklist-flag"><input type="checkbox" [ngModel]="sel.ordinata" (ngModelChange)="sel.ordinata = $event; app.onCementoOrdinataChange(sel)" /><span>Ordinata</span></label>
+            <label class="checklist-flag"><input type="checkbox" [ngModel]="sel.fatta" (ngModelChange)="app.onCementoFattaChange(sel, $event)" [disabled]="!sel.ordinata" /><span>Fatta</span></label>
+          </ng-container>
+        </div>
+      </div>
+      <ng-template #noAccessori><p class="detail-empty">Nessun tipo di accessorio configurato.</p></ng-template>
+    </ng-container>
+  </ng-container>
+</div>

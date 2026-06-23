@@ -11,24 +11,13 @@ import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
 import { scanBufferWithAntivirus } from '../security/antivirus'
+import { ORDER_STATUS_FLOW, ORDER_TRANSITIONS, type ConsegnaStatus } from '../../../src/shared/order-flow'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/
 const dateOrDateTimeRegex = /^\d{4}-\d{2}-\d{2}(?:T.*)?$/
-const allowedStatuses = ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'] as const
-const transitionMap: Record<(typeof allowedStatuses)[number], (typeof allowedStatuses)[number][]> = {
-  'IN CORSO': ['DISEGNO IN GESTIONE', 'SOSPESO'],
-  'DISEGNO IN GESTIONE': ['DISEGNO APPROVATO', 'SOSPESO'],
-  'DISEGNO APPROVATO': ['DA ASSEGNARE', 'SOSPESO'],
-  'DA ASSEGNARE': ['ASSEGNATO', 'SOSPESO'],
-  ASSEGNATO: ['CONCLUSI', 'SOSPESO'],
-  CONCLUSI: ['PRONTI & AVVISATI', 'SOSPESO'],
-  'PRONTI & AVVISATI': ['CONSEGNA PIANIFICATA', 'SOSPESO'],
-  'CONSEGNA PIANIFICATA': ['CONSEGNA EFFETTUATA', 'SOSPESO'],
-  'CONSEGNA EFFETTUATA': [],
-  SOSPESO: ['IN CORSO', 'DISEGNO IN GESTIONE', 'DISEGNO APPROVATO', 'DA ASSEGNARE', 'ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'],
-}
+const allowedStatuses = ORDER_STATUS_FLOW
 const attachmentsRoot = path.resolve(process.env.ATTACHMENTS_DIR ?? './data/uploads')
 const allowedAttachmentExtensions = (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS ?? 'pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx')
   .split(',')
@@ -1248,7 +1237,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       return res.status(400).json({ message: 'Order already in requested status' })
     }
 
-    const allowedNext = transitionMap[currentStatus as keyof typeof transitionMap] ?? []
+    const allowedNext = ORDER_TRANSITIONS[currentStatus as ConsegnaStatus] ?? []
     if (!allowedNext.includes(payload.toStatus)) {
       return res.status(400).json({
         message: `Transizione non consentita: ${currentStatus} -> ${payload.toStatus}`,

@@ -1,3 +1,5 @@
+import type { ConsegnaStatus } from '../../../src/shared/order-flow';
+
 export interface OrderCemento {
   id: number;
   tipoId: number;
@@ -45,6 +47,8 @@ export interface AccessorioTipo {
   ordine: number;
   createdAt: string | null;
 }
+
+export type { ConsegnaStatus } from '../../../src/shared/order-flow';
 
 export interface ConsegnaRecord {
   id: number;
@@ -105,8 +109,6 @@ export interface ResponsabileRecord {
   nome: string;
   createdAt: string | null;
 }
-
-export type ConsegnaStatus = 'IN CORSO' | 'DISEGNO IN GESTIONE' | 'DISEGNO APPROVATO' | 'DA ASSEGNARE' | 'ASSEGNATO' | 'CONCLUSI' | 'PRONTI & AVVISATI' | 'CONSEGNA PIANIFICATA' | 'CONSEGNA EFFETTUATA' | 'SOSPESO';
 
 export interface ConsegnaFilters {
   q?: string;

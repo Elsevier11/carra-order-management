@@ -1,0 +1,90 @@
+<ng-container *ngIf="app.detailModalOpen && app.selectedDetail">
+  <ng-container *ngIf="app.selectedDetail as detail">
+    <div class="modal-backdrop">
+      <div class="modal modal--detail" (click)="$event.stopPropagation()">
+        <ng-container *ngIf="app.loadingDetails; else detailContent">
+          <p>Caricamento...</p>
+        </ng-container>
+
+        <ng-template #detailContent>
+          <div class="detail-header">
+            <div class="detail-header-left">
+              <span class="status-chip detail-stato-badge" [ngClass]="app.columnClass(detail.stato)">{{ detail.stato }}</span>
+              <h2 class="detail-title">{{ detail.rif }}</h2>
+              <p class="detail-subtitle">{{ detail.cliente || '—' }}</p>
+              <ng-container *ngIf="app.allowedNextStatuses(detail.stato) as nextStatuses">
+                <div class="detail-next-step">
+                  <span>Prossimo passo</span>
+                  <strong>{{ nextStatuses.length ? nextStatuses[0] : 'Ordine completato' }}</strong>
+                </div>
+              </ng-container>
+              <p class="detail-missing-summary" *ngIf="app.detailMissingItems(detail).length">{{ app.detailMissingItems(detail).length }} dati principali da completare</p>
+              <div class="kanban-card-alerts detail-alerts" *ngIf="app.orderWarnings(detail) as warnings">
+                <span class="kanban-card-alert" *ngFor="let warning of warnings">{{ warning }}</span>
+              </div>
+            </div>
+            <div class="detail-header-actions">
+              <button *ngIf="app.canWrite && app.allowedNextStatuses(detail.stato).length" type="button" class="detail-advance-btn" (click)="app.openNextStatusConfirm()">
+                Passa a {{ app.allowedNextStatuses(detail.stato)[0] }}
+              </button>
+              <button *ngIf="app.canWrite && !app.editMode" type="button" (click)="app.openEdit()">
+                Modifica
+              </button>
+              <button *ngIf="app.canWrite && app.editMode" type="button" class="ghost" (click)="app.cancelEdit()">Annulla</button>
+              <button *ngIf="app.canWrite" type="button" [class.ghost]="!app.hasPendingChanges()" (click)="app.saveAll()">Salva</button>
+              <button *ngIf="app.canWrite" type="button" class="ghost-danger" (click)="app.deleteSelected()">Elimina</button>
+              <button type="button" class="ghost modal-close-btn" (click)="app.closeDetailModal()" aria-label="Chiudi">✕</button>
+            </div>
+          </div>
+
+          <div class="detail-toast detail-toast--success" *ngIf="app.operationSuccess">✓ {{ app.operationSuccess }}</div>
+          <div class="detail-toast detail-toast--error" *ngIf="app.operationError">{{ app.operationError }}</div>
+
+          <div class="detail-tabs">
+            <button type="button" class="detail-tab" [class.active]="app.activeDetailTab === 'dettagli'" (click)="app.setDetailTab('dettagli')">Dettagli</button>
+            <button type="button" class="detail-tab" [class.active]="app.activeDetailTab === 'gestione'" (click)="app.setDetailTab('gestione')">Gestione</button>
+            <button type="button" class="detail-tab" [class.active]="app.activeDetailTab === 'cementi'" (click)="app.setDetailTab('cementi')">Cementi</button>
+            <button type="button" class="detail-tab" [class.active]="app.activeDetailTab === 'accessori'" (click)="app.setDetailTab('accessori')">Accessori</button>
+            <button type="button" class="detail-tab" [class.active]="app.activeDetailTab === 'cam'" (click)="app.setDetailTab('cam')">C.A.M.</button>
+          </div>
+
+          <div class="detail-tab-body">
+            <app-order-detail-dettagli [app]="app" [detail]="detail"></app-order-detail-dettagli>
+            <app-order-detail-gestione [app]="app" [detail]="detail"></app-order-detail-gestione>
+            <app-order-detail-checklist kind="cementi" [app]="app"></app-order-detail-checklist>
+            <app-order-detail-checklist kind="accessori" [app]="app"></app-order-detail-checklist>
+            <app-order-detail-cam [app]="app" [detail]="detail"></app-order-detail-cam>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="ghost" (click)="app.openHistoryModal(detail)">Storico</button>
+          </div>
+
+          <div class="import-confirm-overlay" *ngIf="app.closeConfirmOpen" (click)="app.closeConfirmOpen = false">
+            <div class="import-confirm-card" (click)="$event.stopPropagation()">
+              <div class="import-confirm-icon">⚠️</div>
+              <h3>Modifiche non salvate</h3>
+              <p>Ci sono modifiche non ancora salvate. Chiudendo andranno perse.</p>
+              <div class="import-confirm-actions">
+                <button type="button" class="danger" (click)="app.doCloseDetailModal()">Chiudi senza salvare</button>
+                <button type="button" class="ghost" (click)="app.closeConfirmOpen = false">Continua a modificare</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="import-confirm-overlay" *ngIf="app.deleteConfirmOpen" (click)="app.deleteConfirmOpen = false">
+            <div class="import-confirm-card" (click)="$event.stopPropagation()">
+              <div class="import-confirm-icon">🗑️</div>
+              <h3>Elimina ordine</h3>
+              <p>Stai per eliminare l'ordine <strong>{{ detail.rif }}</strong>.<br />L'operazione è irreversibile.</p>
+              <div class="import-confirm-actions">
+                <button type="button" class="danger" (click)="app.confirmDelete()">Elimina definitivamente</button>
+                <button type="button" class="ghost" (click)="app.deleteConfirmOpen = false">Annulla</button>
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+  </ng-container>
+</ng-container>

@@ -1,0 +1,6 @@
+<div class="detail-section" *ngIf="app.activeDetailTab === 'cam'">
+  <div class="detail-section-title">Certificazione Ambientale Minima (C.A.M.)</div>
+  <div class="cam-toggle-row">
+    <label class="cam-toggle-label"><input type="checkbox" [(ngModel)]="detail.camSiNo" [disabled]="!app.canWrite" /><span>{{ detail.camSiNo ? 'SI' : 'NO' }}</span></label>
+  </div>
+</div>
