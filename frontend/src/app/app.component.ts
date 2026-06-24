@@ -96,7 +96,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   pageSize = 15;
   loading = false;
   loadingDetails = false;
-  selectedRow: ConsegnaRecord | null = null;
+  selectedRow: ConsegnaRecord | Pick<ConsegnaRecord, 'id'> | null = null;
   selectedDetail: ConsegnaRecord | null = null;
   attachments: AttachmentRecord[] = [];
   loadingAttachments = false;
@@ -743,7 +743,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadDetail(row.id);
   }
 
-  openOrderFromDashboard(row: ConsegnaRecord): void {
+  openOrderFromDashboard(row: Pick<ConsegnaRecord, 'id'>): void {
     this.detailReturnView = 'dashboard';
     if (this.activeView !== 'kanban') {
       this.changeView('kanban');

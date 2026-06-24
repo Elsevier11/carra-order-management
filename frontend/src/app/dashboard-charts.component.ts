@@ -8,6 +8,46 @@ import { ORDER_STATUS_FLOW } from '../../../src/shared/order-flow';
 import type { AppComponent } from './app.component';
 
 type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
+type AgingBandKey = 'over30' | 'days15to30' | 'days8to14' | 'days0to7';
+
+type AgingBand = {
+  key: AgingBandKey;
+  label: string;
+  description: string;
+  className: string;
+  minDays: number;
+};
+
+const AGING_BANDS: AgingBand[] = [
+  {
+    key: 'over30',
+    label: 'Oltre 1 mese',
+    description: 'Più di 30 giorni',
+    className: 'aging-band--overdue',
+    minDays: 31,
+  },
+  {
+    key: 'days15to30',
+    label: '2-4 settimane',
+    description: 'Da 15 a 30 giorni',
+    className: 'aging-band--serious',
+    minDays: 15,
+  },
+  {
+    key: 'days8to14',
+    label: '1-2 settimane',
+    description: 'Da 8 a 14 giorni',
+    className: 'aging-band--attention',
+    minDays: 8,
+  },
+  {
+    key: 'days0to7',
+    label: 'Ultimi 7 giorni',
+    description: 'Fino a 7 giorni',
+    className: 'aging-band--fresh',
+    minDays: 0,
+  },
+];
 
 @Component({
   selector: 'app-dashboard-charts',
@@ -105,7 +145,8 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
 
       .aging-panel {
         display: grid;
-        gap: 10px;
+        gap: 12px;
+        padding-top: 2px;
       }
 
       .aging-panel__header {
@@ -130,17 +171,38 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
 
       .aging-grid {
         display: grid;
-        gap: 10px;
+        gap: 12px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
       }
 
       .aging-section {
-        background: #ffffff;
-        border: 1px solid #c6d9d3;
-        border-radius: 14px;
-        padding: 10px;
+        position: relative;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
+        border: 1px solid #d6e3df;
+        border-radius: 16px;
+        padding: 12px;
         display: grid;
-        gap: 8px;
+        gap: 10px;
+        align-self: start;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        overflow: hidden;
+      }
+
+      .aging-section::before {
+        content: '';
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        background: #cbd5e1;
+      }
+
+      .aging-section--disegno::before {
+        background: linear-gradient(180deg, #f59e0b 0%, #fb7185 100%);
+      }
+
+      .aging-section--pronti::before {
+        background: linear-gradient(180deg, #14b8a6 0%, #2563eb 100%);
       }
 
       .aging-section__head {
@@ -152,8 +214,9 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
 
       .aging-section__head h3 {
         margin: 0;
-        font-size: 0.92rem;
+        font-size: 0.9rem;
         color: #0b1c1c;
+        letter-spacing: 0.01em;
       }
 
       .aging-section__meta {
@@ -161,40 +224,181 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
         color: #64748b;
       }
 
+      .aging-bands {
+        display: grid;
+        gap: 8px;
+      }
+
+      .aging-band {
+        display: grid;
+        gap: 8px;
+        border: 1px solid #dbe4ee;
+        border-radius: 14px;
+        padding: 10px;
+        background: #fff;
+      }
+
+      .aging-band--accordion {
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .aging-band__summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      }
+
+      .aging-band__summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .aging-band__summary:focus-visible {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+      }
+
+      .aging-band__summary-chevron {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1d4ed8;
+        font-size: 1.1rem;
+        font-weight: 900;
+        line-height: 1;
+        transition: transform 0.15s ease;
+      }
+
+      .aging-band--accordion[open] .aging-band__summary-chevron {
+        transform: rotate(90deg);
+      }
+
+      .aging-band__body {
+        display: grid;
+        gap: 8px;
+        padding: 0 10px 10px;
+      }
+
+      .aging-band__head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .aging-band__title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .aging-band__label {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+      }
+
+      .aging-band__description {
+        font-size: 0.74rem;
+        color: #64748b;
+      }
+
+      .aging-band__count {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #334155;
+        white-space: nowrap;
+      }
+
+      .aging-band__summary-action {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid #bfdbfe;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 0.72rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .aging-band--overdue .aging-band__label {
+        background: #fef2f2;
+        color: #b91c1c;
+      }
+
+      .aging-band--serious .aging-band__label {
+        background: #fff7ed;
+        color: #c2410c;
+      }
+
+      .aging-band--attention .aging-band__label {
+        background: #eff6ff;
+        color: #1d4ed8;
+      }
+
+      .aging-band--fresh .aging-band__label {
+        background: #ecfdf3;
+        color: #166534;
+      }
+
       .aging-list {
         display: grid;
-        gap: 6px;
+        gap: 8px;
+        max-height: 320px;
+        overflow: auto;
+        padding-right: 4px;
       }
 
       .aging-row {
         display: grid;
-        grid-template-columns: auto 1fr auto auto;
-        gap: 8px;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 12px;
         align-items: center;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #dbe4ee;
         border-radius: 12px;
-        padding: 8px 10px;
-        background: #fbfdff;
+        padding: 9px 10px;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
       }
 
-      .aging-row__check {
-        display: inline-flex;
-        align-items: center;
+      .aging-row:hover {
+        border-color: #b8c8da;
+        background: #ffffff;
       }
 
       .aging-row__main {
         display: grid;
-        gap: 2px;
+        gap: 3px;
         min-width: 0;
       }
 
       .aging-row__ref {
         font-weight: 800;
-        color: #0b1c1c;
+        color: #0f172a;
+        font-size: 0.9rem;
       }
 
       .aging-row__cliente {
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         color: #475569;
         white-space: nowrap;
         overflow: hidden;
@@ -206,8 +410,8 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
         gap: 2px;
         justify-items: end;
         text-align: right;
-        font-size: 0.75rem;
-        color: #64748b;
+        font-size: 0.74rem;
+        color: #475569;
       }
 
       .aging-pill {
@@ -216,8 +420,8 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
         align-items: center;
         border-radius: 999px;
         border: 1px solid transparent;
-        padding: 2px 8px;
-        font-size: 0.72rem;
+        padding: 2px 7px;
+        font-size: 0.7rem;
         font-weight: 700;
       }
 
@@ -239,16 +443,6 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
         color: #991b1b;
       }
 
-      .aging-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-
-      .aging-actions button {
-        white-space: nowrap;
-      }
-
       .aging-empty,
       .aging-error {
         color: #64748b;
@@ -260,13 +454,34 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
         color: #b91c1c;
       }
 
+      .aging-panel__count {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: #eef6ff;
+        color: #1d4ed8;
+        border: 1px solid #dbeafe;
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+
+      .aging-empty {
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      }
+
       @media (max-width: 900px) {
         .kpi-row { grid-template-columns: repeat(3, 1fr); }
         .charts { grid-template-columns: 1fr; }
         .chart-wrap { height: 170px; }
         .aging-grid { grid-template-columns: 1fr; }
-        .aging-row { grid-template-columns: auto 1fr; }
+        .aging-row { grid-template-columns: 1fr; }
         .aging-row__meta { justify-items: start; text-align: left; }
+        .aging-list { max-height: none; }
+        .aging-band__head { align-items: flex-start; flex-direction: column; }
       }
     `,
   ],
@@ -335,11 +550,9 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
         <div class="aging-panel__header">
           <div>
             <h2>Ordini da riprendere</h2>
-            <p>Solo gli ordini fermi in <strong>DISEGNO IN GESTIONE</strong> e <strong>PRONTI & AVVISATI</strong>.</p>
+            <p>Solo gli ordini fermi in <strong>DISEGNO IN GESTIONE</strong> e <strong>PRONTI & AVVISATI</strong>, con accesso rapido ai casi da sbloccare.</p>
           </div>
-          <div class="aging-actions">
-            <button type="button" class="ghost" (click)="reloadAging()">Aggiorna elenco</button>
-          </div>
+          <button type="button" class="ghost" (click)="reloadAging()">Aggiorna elenco</button>
         </div>
 
         @if (agingLoading) {
@@ -349,34 +562,72 @@ type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
         } @else {
           <div class="aging-grid">
             @for (status of agingStatuses; track status) {
-              <article class="aging-section">
+              <article class="aging-section" [class.aging-section--disegno]="status === 'DISEGNO IN GESTIONE'" [class.aging-section--pronti]="status === 'PRONTI & AVVISATI'">
                 <div class="aging-section__head">
                   <div>
                     <h3>{{ status }}</h3>
                     <div class="aging-section__meta">{{ agingRowsByStatus(status).length }} ordini</div>
                   </div>
-                  <button type="button" class="ghost" [disabled]="!selectedAgingRowsByStatus(status).length" (click)="openFirstSelected(status)">
-                    Apri selezionato
-                  </button>
                 </div>
 
                 @if (agingRowsByStatus(status).length) {
-                  <div class="aging-list">
-                    @for (item of agingRowsByStatus(status); track item.id) {
-                      <div class="aging-row">
-                        <label class="aging-row__check">
-                          <input type="checkbox" [checked]="isAgingSelected(item.id)" (change)="toggleAgingSelection(item.id)" />
-                        </label>
-                        <div class="aging-row__main">
-                          <div class="aging-row__ref">{{ item.rif }}</div>
-                          <div class="aging-row__cliente">{{ item.cliente }}</div>
+                  <div class="aging-bands">
+                    @for (band of agingBandsByStatus(status); track band.key) {
+                      @if (shouldUseAccordion(band.rows.length)) {
+                        <details class="aging-band aging-band--accordion" [ngClass]="band.className" [open]="band.key === 'over30'">
+                          <summary class="aging-band__summary">
+                          <div class="aging-band__title">
+                            <span class="aging-band__label">{{ band.label }}</span>
+                            <span class="aging-band__description">{{ band.description }}</span>
+                          </div>
+                          <span class="aging-band__summary-action">Apri lista</span>
+                          <div class="aging-band__count">{{ band.rows.length }} ordini</div>
+                          <span class="aging-band__summary-chevron">›</span>
+                        </summary>
+                          <div class="aging-band__body">
+                            <div class="aging-list">
+                              @for (item of band.rows; track item.id) {
+                                <div class="aging-row">
+                                  <div class="aging-row__main">
+                                    <div class="aging-row__ref">{{ item.rif }}</div>
+                                    <div class="aging-row__cliente">{{ item.cliente }}</div>
+                                  </div>
+                                  <div class="aging-row__meta">
+                                    <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
+                                    <span>Ingresso: {{ formatAgingDate(item.enteredAt) }}</span>
+                                  </div>
+                                  <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
+                                </div>
+                              }
+                            </div>
+                          </div>
+                        </details>
+                      } @else {
+                        <div class="aging-band" [ngClass]="band.className">
+                          <div class="aging-band__head">
+                            <div class="aging-band__title">
+                              <span class="aging-band__label">{{ band.label }}</span>
+                              <span class="aging-band__description">{{ band.description }}</span>
+                            </div>
+                            <div class="aging-band__count">{{ band.rows.length }} ordini</div>
+                          </div>
+                          <div class="aging-list">
+                            @for (item of band.rows; track item.id) {
+                              <div class="aging-row">
+                                <div class="aging-row__main">
+                                  <div class="aging-row__ref">{{ item.rif }}</div>
+                                  <div class="aging-row__cliente">{{ item.cliente }}</div>
+                                </div>
+                                <div class="aging-row__meta">
+                                  <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
+                                  <span>Ingresso: {{ formatAgingDate(item.enteredAt) }}</span>
+                                </div>
+                                <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
+                              </div>
+                            }
+                          </div>
                         </div>
-                        <div class="aging-row__meta">
-                          <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
-                          <span>Ingresso: {{ formatAgingDate(item.enteredAt) }}</span>
-                        </div>
-                        <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
-                      </div>
+                      }
                     }
                   </div>
                 } @else {
@@ -400,7 +651,6 @@ export class DashboardChartsComponent implements OnInit {
   agingError = '';
   agingRows: DashboardAgingItem[] = [];
   readonly agingStatuses: AgingStatus[] = ['DISEGNO IN GESTIONE', 'PRONTI & AVVISATI'];
-  private readonly agingSelectedIds = new Set<number>();
 
   ngOnInit(): void {
     this.loadAging();
@@ -435,30 +685,27 @@ export class DashboardChartsComponent implements OnInit {
     return this.agingRows.filter((row) => row.stato === status);
   }
 
-  isAgingSelected(id: number): boolean {
-    return this.agingSelectedIds.has(id);
+  agingBandsByStatus(status: AgingStatus): Array<AgingBand & { rows: DashboardAgingItem[] }> {
+    const rows = this.agingRowsByStatus(status);
+    return AGING_BANDS.map((band) => ({
+      ...band,
+      rows: rows.filter((row) => this.agingBandKey(row.daysInState) === band.key),
+    })).filter((band) => band.rows.length > 0);
   }
 
-  toggleAgingSelection(id: number): void {
-    if (this.agingSelectedIds.has(id)) {
-      this.agingSelectedIds.delete(id);
-      return;
-    }
-    this.agingSelectedIds.add(id);
-  }
-
-  selectedAgingRowsByStatus(status: AgingStatus): DashboardAgingItem[] {
-    return this.agingRowsByStatus(status).filter((row) => this.agingSelectedIds.has(row.id));
-  }
-
-  openFirstSelected(status: AgingStatus): void {
-    const row = this.selectedAgingRowsByStatus(status)[0];
-    if (!row) return;
-    this.openAgingItem(row);
+  shouldUseAccordion(rowCount: number): boolean {
+    return rowCount > 3;
   }
 
   openAgingItem(item: DashboardAgingItem): void {
     this.app.openOrderFromDashboard(item);
+  }
+
+  private agingBandKey(daysInState: number): AgingBandKey {
+    if (daysInState >= 31) return 'over30';
+    if (daysInState >= 15) return 'days15to30';
+    if (daysInState >= 8) return 'days8to14';
+    return 'days0to7';
   }
 
   agingDaysClass(daysInState: number): string {

@@ -100,7 +100,7 @@
           <label class="kv-label">N° bilici</label>
           <input *ngIf="app.canWrite; else biliciRead" type="number" min="0" step="1" [(ngModel)]="detail.bilici" />
           <ng-template #biliciRead>
-            <span class="kv-value">{{ detail.bilici ?? '—' }}</span>
+            <span class="kv-value">{{ detail.bilici }}</span>
           </ng-template>
         </div>
         <div class="detail-kv">
