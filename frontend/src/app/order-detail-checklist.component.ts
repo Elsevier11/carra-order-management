@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, ViewEncapsulation } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import type { AppComponent } from './app.component';
 
 @Component({
   selector: 'app-order-detail-checklist',
@@ -11,6 +12,6 @@ import { FormsModule } from '@angular/forms';
   encapsulation: ViewEncapsulation.None,
 })
 export class OrderDetailChecklistComponent {
-  @Input({ required: true }) app!: any;
+  @Input({ required: true }) app!: AppComponent;
   @Input({ required: true }) kind!: 'cementi' | 'accessori';
 }

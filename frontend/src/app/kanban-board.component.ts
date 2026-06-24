@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
-import { AfterViewChecked, AfterViewInit, Component, ElementRef, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BoardColumn, ConsegnaFilters, ConsegnaRecord } from './consegne.types';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';

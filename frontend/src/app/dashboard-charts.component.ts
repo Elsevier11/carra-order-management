@@ -5,6 +5,7 @@ import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2
 import { ConsegneService } from './consegne.service';
 import { ConsegnaStats, DashboardAgingItem } from './consegne.types';
 import { ORDER_STATUS_FLOW } from '../../../src/shared/order-flow';
+import type { AppComponent } from './app.component';
 
 type AgingStatus = 'DISEGNO IN GESTIONE' | 'PRONTI & AVVISATI';
 
@@ -393,7 +394,7 @@ export class DashboardChartsComponent implements OnInit {
   private readonly consegneService = inject(ConsegneService);
 
   @Input({ required: true }) stats!: ConsegnaStats;
-  @Input({ required: true }) app!: any;
+  @Input({ required: true }) app!: AppComponent;
 
   agingLoading = false;
   agingError = '';

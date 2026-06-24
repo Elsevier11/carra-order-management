@@ -41,12 +41,9 @@ import {
   boardConclusiBadge as boardConclusiBadgeHelper,
   cementoBadgeClass as cementoBadgeClassHelper,
   cementoBadgeClassFromFlags as cementoBadgeClassFromFlagsHelper,
-  conclusiDateLabel as conclusiDateLabelHelper,
-  conclusiWeekLabel as conclusiWeekLabelHelper,
   detailMissingItems as detailMissingItemsHelper,
   onCementoFattaChange as onCementoFattaChangeHelper,
   onCementoOrdinataChange as onCementoOrdinataChangeHelper,
-  operaiNomiLabel as operaiNomiLabelHelper,
   orderWarnings as orderWarningsHelper,
   selectedCementiSummary as selectedCementiSummaryHelper,
 } from './order-formatters';
@@ -127,8 +124,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly statusFlow: ConsegnaStatus[] = [...ORDER_STATUS_FLOW];
   readonly kanbanHost: KanbanBoardHost = this as unknown as KanbanBoardHost;
-  readonly dashboardHost: any = this;
-  readonly detailHost: any = this;
+  readonly dashboardHost: AppComponent = this;
+  readonly detailHost: AppComponent = this;
 
   boardColumns: BoardColumn[] = [];
   loadingBoard = false;

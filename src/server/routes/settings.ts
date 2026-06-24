@@ -89,7 +89,7 @@ router.put('/sqlserver', requireAuth, requireRole(['admin']), async (req, res, n
 
 // ── POST /api/settings/sqlserver/test ────────────────────────────────────────
 
-router.post('/sqlserver/test', requireAuth, requireRole(['admin']), async (_req, res, next) => {
+router.post('/sqlserver/test', requireAuth, requireRole(['admin']), async (_req, res) => {
   let config: Awaited<ReturnType<typeof resolveErpConfig>> | null = null
   try {
     config = await resolveErpConfig(pgClient)

@@ -5,6 +5,7 @@ import { OrderDetailCamComponent } from './order-detail-cam.component';
 import { OrderDetailChecklistComponent } from './order-detail-checklist.component';
 import { OrderDetailDettagliComponent } from './order-detail-dettagli.component';
 import { OrderDetailGestioneComponent } from './order-detail-gestione.component';
+import type { AppComponent } from './app.component';
 
 @Component({
   selector: 'app-order-detail-modal',
@@ -15,5 +16,5 @@ import { OrderDetailGestioneComponent } from './order-detail-gestione.component'
   encapsulation: ViewEncapsulation.None,
 })
 export class OrderDetailModalComponent {
-  @Input({ required: true }) app!: any;
+  @Input({ required: true }) app!: AppComponent;
 }

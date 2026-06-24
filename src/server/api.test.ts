@@ -10,7 +10,6 @@ describe.runIf(runDbTests)('Consegne API', () => {
   let pgClient: (typeof import('./db'))['pgClient']
   let ensureDatabaseObjects: (typeof import('./db'))['ensureDatabaseObjects']
   let ordini: (typeof import('../db/schema'))['ordini']
-  let orderAttachments: (typeof import('../db/schema'))['orderAttachments']
   let auditLogs: (typeof import('../db/schema'))['auditLogs']
   let appUsers: (typeof import('../db/schema'))['appUsers']
   let eq: (typeof import('drizzle-orm'))['eq']
@@ -39,7 +38,6 @@ describe.runIf(runDbTests)('Consegne API', () => {
     pgClient = dbModule.pgClient
     ensureDatabaseObjects = dbModule.ensureDatabaseObjects
     ordini = schemaModule.ordini
-    orderAttachments = schemaModule.orderAttachments
     auditLogs = schemaModule.auditLogs
     appUsers = schemaModule.appUsers
     eq = drizzleModule.eq

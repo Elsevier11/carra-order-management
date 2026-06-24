@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { eq, isNotNull } from 'drizzle-orm'
+import { isNotNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { analyzeImportRows, rawRowSchema } from '../../db/import'
 import { db, pgClient } from '../db'
@@ -228,4 +228,3 @@ router.post(
 )
 
 export default router
-

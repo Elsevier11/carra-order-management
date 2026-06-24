@@ -179,6 +179,8 @@ type Attachment = {
   createdAt: string
 }
 
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
 function toIsoDate(value: Date | null): string | null {
   return value ? value.toISOString().slice(0, 10) : null
 }
@@ -377,7 +379,7 @@ async function addOrderEvent(payload: {
   `)
 }
 
-async function replaceOrderOperai(tx: any, orderId: number, operaiIds: number[]) {
+async function replaceOrderOperai(tx: DbTransaction, orderId: number, operaiIds: number[]) {
   await tx.delete(orderOperai).where(eq(orderOperai.orderId, orderId))
   if (operaiIds.length > 0) {
     await tx.insert(orderOperai).values(operaiIds.map((operaioId) => ({ orderId, operaioId })))
