@@ -86,6 +86,10 @@ docker compose --profile tools run --rm importer
 
 Se serve un reset totale del database di test, si fa solo dopo backup e con consenso esplicito.
 
+Nota pratica:
+- le credenziali `POSTGRES_USER` e `POSTGRES_PASSWORD` vengono lette solo alla prima inizializzazione del volume
+- se cambi user/password o vuoi davvero ripartire da zero, devi fermare lo stack e rimuovere `data/postgres` prima del nuovo `docker compose up -d --build`
+
 ## 9. Backup
 
 Fare backup di:
