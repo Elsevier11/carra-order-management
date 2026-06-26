@@ -90,6 +90,11 @@ Puoi anche passare un file custom:
   - frontend Angular servito da Nginx
   - PostgreSQL
   - importer one-shot per il JSON iniziale
+- Per un aggiornamento normale in produzione:
+  - `git pull`
+  - `docker compose up -d --build`
+- Il bootstrap DB va eseguito solo sul primo avvio di un DB nuovo:
+  - `npm run db:bootstrap`
 
 ### URL API Frontend
 

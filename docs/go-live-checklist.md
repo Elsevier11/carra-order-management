@@ -19,8 +19,8 @@
 - Build: `npm run build`
 
 ## 3. Database
-- Run migrations/bootstrap:
-  - `npm run db:migrate`
+- Run bootstrap only on the first startup of a fresh database:
+  - `npm run db:bootstrap`
 - Validate object creation on first startup:
   - `order_events`
   - `order_attachments`

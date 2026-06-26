@@ -64,6 +64,14 @@ Esegui una sola volta quando il database e vuoto:
 docker compose --profile tools run --rm importer
 ```
 
+Se il database e nuovo e lo stack viene avviato senza dati preesistenti, prima del primo start del backend esegui:
+
+```bash
+npm run db:bootstrap
+```
+
+Questo comando crea gli oggetti mancanti e prepara il DB iniziale. Non va usato come operazione di deploy ricorrente.
+
 ## 7. Verifiche minime
 
 - apri `/health`
@@ -89,6 +97,7 @@ Se serve un reset totale del database di test, si fa solo dopo backup e con cons
 Nota pratica:
 - le credenziali `POSTGRES_USER` e `POSTGRES_PASSWORD` vengono lette solo alla prima inizializzazione del volume
 - se cambi user/password o vuoi davvero ripartire da zero, devi fermare lo stack e rimuovere `data/postgres` prima del nuovo `docker compose up -d --build`
+- gli update normali di backend e frontend non devono eseguire migrazioni automatiche: usa solo `git pull` e `docker compose up -d --build`
 
 ## 9. Backup
 

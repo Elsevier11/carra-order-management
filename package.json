@@ -14,6 +14,7 @@
     "preview": "cross-env NG_CLI_ANALYTICS=false npm --prefix frontend run start",
     "db:generate": "drizzle-kit generate:pg",
     "db:migrate": "drizzle-kit push:pg",
+    "db:bootstrap": "tsx src/server/bootstrap.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
     "db:extract:xlsx": "tsx src/db/extract-xlsx.ts",

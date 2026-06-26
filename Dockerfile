@@ -9,4 +9,6 @@ COPY . .
 
 EXPOSE 3100
 
-CMD ["sh", "-c", "npm run db:migrate && npm run start"]
+ENV RUN_DB_BOOTSTRAP=false
+
+CMD ["npm", "run", "start"]

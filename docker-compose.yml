@@ -24,6 +24,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3100
+      RUN_DB_BOOTSTRAP: false
       DATABASE_URL: postgresql://${POSTGRES_USER:-carra}:${POSTGRES_PASSWORD:-change-me-now}@db:5432/${POSTGRES_DB:-carra_consegne}
       JWT_SECRET: ${JWT_SECRET:-change-me-now-please-use-a-long-random-secret}
       ATTACHMENTS_DIR: /data/attachments
