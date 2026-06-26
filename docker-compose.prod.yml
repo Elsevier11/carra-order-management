@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-carra_consegne}
+      POSTGRES_USER: ${POSTGRES_USER:-carra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-now}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ghcr.io/${GHCR_NAMESPACE:-elsevier11}/carra-order-management-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      RUN_DB_BOOTSTRAP: false
+      DATABASE_URL: postgresql://${POSTGRES_USER:-carra}:${POSTGRES_PASSWORD:-change-me-now}@db:5432/${POSTGRES_DB:-carra_consegne}
+      JWT_SECRET: ${JWT_SECRET:-change-me-now-please-use-a-long-random-secret}
+      ATTACHMENTS_DIR: /data/attachments
+      ATTACHMENTS_ALLOWED_EXTENSIONS: ${ATTACHMENTS_ALLOWED_EXTENSIONS:-pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx}
+      ATTACHMENTS_ALLOWED_MIME: ${ATTACHMENTS_ALLOWED_MIME:-application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document}
+      ATTACHMENTS_ALLOWED_EXTENSIONS_ADMIN: ${ATTACHMENTS_ALLOWED_EXTENSIONS_ADMIN:-pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx}
+      ATTACHMENTS_ALLOWED_EXTENSIONS_OPERATIVO: ${ATTACHMENTS_ALLOWED_EXTENSIONS_OPERATIVO:-pdf,xls,xlsx,csv,txt,jpg,jpeg,png}
+      ATTACHMENTS_MAX_SIZE_ADMIN: ${ATTACHMENTS_MAX_SIZE_ADMIN:-15728640}
+      ATTACHMENTS_MAX_SIZE_OPERATIVO: ${ATTACHMENTS_MAX_SIZE_OPERATIVO:-10485760}
+      ATTACHMENTS_ANTIVIRUS_MODE: ${ATTACHMENTS_ANTIVIRUS_MODE:-}
+      ATTACHMENTS_ANTIVIRUS_COMMAND: ${ATTACHMENTS_ANTIVIRUS_COMMAND:-}
+      ATTACHMENTS_ANTIVIRUS_FAIL_PATTERN: ${ATTACHMENTS_ANTIVIRUS_FAIL_PATTERN:-eicar}
+      ATTACHMENTS_RETENTION_DAYS: ${ATTACHMENTS_RETENTION_DAYS:-365}
+    volumes:
+      - ./data/uploads:/data/attachments
+    expose:
+      - "3100"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    image: ghcr.io/${GHCR_NAMESPACE:-elsevier11}/carra-order-management-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"

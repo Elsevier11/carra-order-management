@@ -56,6 +56,18 @@ Il backend risponde dietro il proxy su:
 - `http://<server>/api`
 - `http://<server>/health`
 
+Per la produzione con immagini pubblicate su GitHub Container Registry usa invece:
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Variabili utili:
+- `GHCR_NAMESPACE` se il namespace del package non coincide con il default
+- `IMAGE_TAG` se vuoi avviare una versione specifica invece di `latest`
+- se le immagini sono private, esegui prima `docker login ghcr.io`
+
 ## 6. Import iniziale dati
 
 Esegui una sola volta quando il database e vuoto:
@@ -98,6 +110,7 @@ Nota pratica:
 - le credenziali `POSTGRES_USER` e `POSTGRES_PASSWORD` vengono lette solo alla prima inizializzazione del volume
 - se cambi user/password o vuoi davvero ripartire da zero, devi fermare lo stack e rimuovere `data/postgres` prima del nuovo `docker compose up -d --build`
 - gli update normali di backend e frontend non devono eseguire migrazioni automatiche: usa solo `git pull` e `docker compose up -d --build`
+- con le immagini pubblicate, l'update normale di produzione diventa `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`
 
 ## 9. Backup
 

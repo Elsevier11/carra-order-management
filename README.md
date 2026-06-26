@@ -95,6 +95,9 @@ Puoi anche passare un file custom:
   - `docker compose up -d --build`
 - Il bootstrap DB va eseguito solo sul primo avvio di un DB nuovo:
   - `npm run db:bootstrap`
+- Per aggiornamenti via immagini pubblicate su GitHub Container Registry:
+  - `docker compose -f docker-compose.prod.yml pull`
+  - `docker compose -f docker-compose.prod.yml up -d`
 
 ### URL API Frontend
 
