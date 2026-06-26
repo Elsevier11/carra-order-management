@@ -66,7 +66,7 @@ docker compose -f docker-compose.prod.yml up -d
 Variabili utili:
 - `GHCR_NAMESPACE` se il namespace del package non coincide con il default
 - `IMAGE_TAG` se vuoi avviare una versione specifica invece di `latest`
-- se le immagini sono private, esegui prima `docker login ghcr.io`
+- se il package risultasse ancora privato per versioni vecchie, esegui una sola volta `docker login ghcr.io` e aggiorna la visibilità del package su GitHub
 
 ## 6. Import iniziale dati
 

@@ -34,6 +34,9 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          labels: |
+            org.opencontainers.image.source=https://github.com/Elsevier11/carra-order-management
+            org.opencontainers.image.description=Backend API for Carra Consegne
           tags: |
             ghcr.io/${{ steps.vars.outputs.owner_lower }}/carra-order-management-backend:latest
             ghcr.io/${{ steps.vars.outputs.owner_lower }}/carra-order-management-backend:${{ github.sha }}
@@ -62,6 +65,9 @@ jobs:
           context: .
           file: ./frontend/Dockerfile
           push: true
+          labels: |
+            org.opencontainers.image.source=https://github.com/Elsevier11/carra-order-management
+            org.opencontainers.image.description=Frontend UI for Carra Consegne
           tags: |
             ghcr.io/${{ steps.vars.outputs.owner_lower }}/carra-order-management-frontend:latest
             ghcr.io/${{ steps.vars.outputs.owner_lower }}/carra-order-management-frontend:${{ github.sha }}

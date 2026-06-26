@@ -2,6 +2,9 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app/frontend
 
+LABEL org.opencontainers.image.source="https://github.com/Elsevier11/carra-order-management"
+LABEL org.opencontainers.image.description="Frontend UI for Carra Consegne"
+
 COPY frontend/package*.json ./
 RUN npm ci
 
