@@ -861,8 +861,16 @@
   background: var(--backdrop);
   display: grid;
   place-items: center;
-  z-index: 30;
+  z-index: var(--z-modal-base);
   padding: 20px;
+}
+
+.modal-backdrop--history {
+  z-index: var(--z-history-modal);
+}
+
+.modal-backdrop--import {
+  z-index: var(--z-import-modal);
 }
 
 .modal {
@@ -982,7 +990,7 @@
   border-radius: 8px;
   font-size: 0.82rem;
   font-weight: 600;
-  z-index: 20;
+  z-index: var(--z-detail-toast);
   pointer-events: none;
   animation: toast-fadeout 0.35s ease 2.65s forwards;
 }
@@ -1059,7 +1067,7 @@
   flex-shrink: 0;
   margin-top: 1px;
   border: 2px solid var(--surface);
-  z-index: 1;
+  z-index: var(--z-timeline-dot);
 }
 
 .timeline-dot.event--created { background: #16a34a; }
@@ -1647,7 +1655,7 @@ tr.selected-row:hover {
   align-items: center;
   justify-content: center;
   border-radius: inherit;
-  z-index: 10;
+  z-index: var(--z-import-confirm);
 }
 
 .import-confirm-card {

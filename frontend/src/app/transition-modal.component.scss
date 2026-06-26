@@ -8,7 +8,7 @@
   background: var(--backdrop);
   display: grid;
   place-items: center;
-  z-index: 30;
+  z-index: var(--z-transition-modal);
   padding: 20px;
 }
 

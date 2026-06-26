@@ -828,7 +828,7 @@
   }
 
   @if (historyModalTitle) {
-    <div class="modal-backdrop">
+    <div class="modal-backdrop modal-backdrop--history">
       <div class="modal modal--history">
         <h2>Percorso ordine — {{ historyModalTitle }}</h2>
         @if (loadingHistoryModal) {
@@ -890,7 +890,7 @@
   />
 
   @if (sqlImportModalOpen) {
-    <div class="modal-backdrop" (click)="closeSqlImportModal()">
+    <div class="modal-backdrop modal-backdrop--import" (click)="closeSqlImportModal()">
       <div class="modal modal--import" (click)="$event.stopPropagation()">
         <div class="import-header">
           <div>

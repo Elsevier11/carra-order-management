@@ -150,7 +150,7 @@
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
-  z-index: 35;
+  z-index: var(--z-kanban-scroll);
   background: linear-gradient(180deg, rgba(238, 243, 249, 0), rgba(238, 243, 249, 0.88) 30%, rgba(238, 243, 249, 0.98) 100%);
   border-top: 1px solid var(--border-glass);
   box-shadow: 0 -8px 16px rgba(15, 23, 42, 0.04);
@@ -420,7 +420,7 @@
   background: var(--surface-glass);
   border-color: var(--border-glass-md);
   color: var(--muted);
-  z-index: 5;
+  z-index: var(--z-card-action);
   display: flex;
   align-items: center;
   justify-content: center;

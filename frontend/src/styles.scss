@@ -59,6 +59,16 @@
   /* Overlays */
   --backdrop: rgba(15, 23, 42, 0.40);
   --backdrop-strong: rgba(15, 23, 42, 0.45);
+  /* Z layers */
+  --z-timeline-dot: 1;
+  --z-card-action: 5;
+  --z-import-confirm: 10;
+  --z-detail-toast: 20;
+  --z-modal-base: 30;
+  --z-kanban-scroll: 35;
+  --z-transition-modal: 50;
+  --z-history-modal: 55;
+  --z-import-modal: 60;
   /* Alert */
   --alert-bg: #fff1f2;
   --alert-border-light: #fecdd3;
