@@ -72,15 +72,22 @@
         </div>
         <div class="detail-kv detail-kv--full">
           <label class="kv-label">Operai assegnati</label>
-          <div *ngIf="app.canWrite; else operaiRead" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+          <div class="detail-worker-badges">
+            <span *ngIf="detail.operaiAssegnati?.length; else operaiMissing" class="detail-worker-badge">
+              <span *ngFor="let operaio of detail.operaiAssegnati; let last = last">
+                {{ operaio.nome }}<span *ngIf="!last">, </span>
+              </span>
+            </span>
+            <ng-template #operaiMissing>
+              <span class="detail-worker-badge detail-worker-badge--empty">Segnalazione operai mancante</span>
+            </ng-template>
+          </div>
+          <div *ngIf="app.canWrite" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
             <label *ngFor="let operaio of app.operaiList" style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer">
               <input type="checkbox" [checked]="app.isOperaioSelected(operaio.id)" (change)="app.toggleOperaio(operaio.id)" />
               {{ operaio.nome }}
             </label>
           </div>
-          <ng-template #operaiRead>
-            <span class="kv-value">{{ app.operaiNomiLabel(detail.operaiAssegnati) }}</span>
-          </ng-template>
         </div>
       </div>
       <p *ngIf="app.canWrite" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
