@@ -50,7 +50,8 @@
   - `npm run test:db`
 
 ## 6. Operational Controls
-- Daily DB backups.
+- Daily DB backups:
+  - `npm run db:backup`
 - Retention policy for attachments.
 - Monitoring/alerts on:
   - HTTP 5xx

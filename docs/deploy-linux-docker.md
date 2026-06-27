@@ -118,6 +118,23 @@ Fare backup di:
 - PostgreSQL
 - `data/uploads`
 
+Backup DB compresso con retention di 7 giorni:
+
+```bash
+npm run db:backup
+```
+
+Variabili utili:
+- `BACKUP_DIR` per cambiare cartella di destinazione
+- `COMPOSE_FILE` per usare un file compose diverso
+- `RETENTION_DAYS` per cambiare la retention
+
+Esempio `cron` giornaliero alle 02:15:
+
+```cron
+15 2 * * * cd /percorso/del/repository && /usr/bin/npm run db:backup >> backups/db-backup.log 2>&1
+```
+
 ## 10. Note tecniche
 
 - il frontend usa `apiUrl: '/api'`
