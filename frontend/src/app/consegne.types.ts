@@ -60,6 +60,8 @@ export interface ConsegnaRecord {
   dataOrdine: string | null;
   referente: string | null;
   telefono: string | null;
+  referente2: string | null;
+  telefono2: string | null;
   scarico: string | null;
   vascheCav: string | null;
   stato: string;
@@ -75,6 +77,7 @@ export interface ConsegnaRecord {
   disegnoSpeditoAt: string | null;
   disegnoMittenteId: number | null;
   disegnoNote: string | null;
+  disegnoApprovatoAt: string | null;
   // Massicciata / tipo carici
   massicciataNota: string | null;
   tipoCariciNota: string | null;
@@ -89,6 +92,7 @@ export interface ConsegnaRecord {
   chiusini: boolean;
   caricoVerificato: boolean;
   camSiNo: boolean;
+  cementiNote: string | null;
   conclusiMode?: 'week' | 'date' | null;
   conclusiWeek?: string | null;
   conclusiDate?: string | null;
@@ -96,6 +100,23 @@ export interface ConsegnaRecord {
   operaiAssegnati: { id: number; nome: string }[];
   cementi: OrderCemento[];
   accessori: OrderAccessorio[];
+}
+
+export interface DuplicateOrderCandidate {
+  id: number;
+  rif: string | null;
+  cliente: string | null;
+  tipoImpianto: string | null;
+  stato: string | null;
+  dataOrdine: string | null;
+  dataConsegna: string | null;
+  createdAt: string | null;
+}
+
+export interface DuplicateOrderResponse {
+  message: string;
+  code: 'DUPLICATE_ORDER';
+  duplicates: DuplicateOrderCandidate[];
 }
 
 export interface CommercialeRecord {
@@ -131,6 +152,7 @@ export interface DashboardAgingItem {
   daysInState: number;
   dataOrdine: string | null;
   dataConsegna: string | null;
+  disegnoApprovatoAt: string | null;
   resposabileMancante?: boolean;
 }
 

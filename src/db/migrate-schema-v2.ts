@@ -90,6 +90,7 @@ async function main() {
     { col: 'disegno_spedito_at',       ddl: 'ALTER TABLE ordini ADD COLUMN disegno_spedito_at TIMESTAMP' },
     { col: 'disegno_mittente_id',      ddl: 'ALTER TABLE ordini ADD COLUMN disegno_mittente_id INTEGER REFERENCES mittenti_disegno(id) ON DELETE SET NULL' },
     { col: 'disegno_note',             ddl: 'ALTER TABLE ordini ADD COLUMN disegno_note TEXT' },
+    { col: 'disegno_approvato_at',     ddl: 'ALTER TABLE ordini ADD COLUMN disegno_approvato_at TIMESTAMP' },
     { col: 'massicciata_nota',         ddl: 'ALTER TABLE ordini ADD COLUMN massicciata_nota TEXT' },
     { col: 'tipo_carici_nota',         ddl: 'ALTER TABLE ordini ADD COLUMN tipo_carici_nota TEXT' },
     { col: 'lavorazione_assegnata_at', ddl: 'ALTER TABLE ordini ADD COLUMN lavorazione_assegnata_at TIMESTAMP' },
@@ -99,6 +100,10 @@ async function main() {
     { col: 'bancale',                  ddl: 'ALTER TABLE ordini ADD COLUMN bancale BOOLEAN NOT NULL DEFAULT FALSE' },
     { col: 'carico_verificato',        ddl: 'ALTER TABLE ordini ADD COLUMN carico_verificato BOOLEAN NOT NULL DEFAULT FALSE' },
     { col: 'cam_si_no',                ddl: 'ALTER TABLE ordini ADD COLUMN cam_si_no BOOLEAN NOT NULL DEFAULT FALSE' },
+    { col: 'updated_at',               ddl: 'ALTER TABLE ordini ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT NOW()' },
+    { col: 'referente2',               ddl: 'ALTER TABLE ordini ADD COLUMN referente2 TEXT' },
+    { col: 'telefono2',                ddl: 'ALTER TABLE ordini ADD COLUMN telefono2 TEXT' },
+    { col: 'cementi_note',             ddl: 'ALTER TABLE ordini ADD COLUMN cementi_note TEXT' },
   ]
 
   for (const { col, ddl } of newOrdiniColumns) {

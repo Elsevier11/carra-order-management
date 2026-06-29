@@ -20,6 +20,8 @@ import {
   ConsegnaFilters,
   ConsegnaRecord,
   ConsegnaStats,
+  DuplicateOrderCandidate,
+  DuplicateOrderResponse,
   ErpOrderPreviewItem,
   MittenteDisegno,
   Operaio,
@@ -60,6 +62,8 @@ type EditableConsegna = {
   dataOrdine: string;
   referente: string;
   telefono: string;
+  referente2: string;
+  telefono2: string;
   scarico: string;
   vascheCav: string;
   accessori: string;
@@ -73,6 +77,15 @@ type EditableConsegna = {
   responsabileInternoId: number | null;
   folderLinkDocumenti: string;
   folderLinkFoto: string;
+  cementiNote: string;
+};
+
+type ConfirmModalState = {
+  title: string;
+  message: string;
+  details?: string[];
+  confirmLabel?: string;
+  onConfirm: () => void;
 };
 
 type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche' | 'settings';
@@ -216,7 +229,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   };
   detailModalOpen = false;
   deleteConfirmOpen = false;
-  confirmModal: { message: string; onConfirm: () => void } | null = null;
+  confirmModal: ConfirmModalState | null = null;
+  savingForm = false;
 
   commercialiRows: CommercialeRecord[] = [];
   commercialiLoading = false;
@@ -600,6 +614,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataOrdine: this.formModel.dataOrdine,
       referente: this.formModel.referente,
       telefono: this.formModel.telefono,
+      referente2: this.formModel.referente2,
+      telefono2: this.formModel.telefono2,
       stato: this.formModel.stato,
       note: this.formModel.note,
       trasporto: this.formModel.trasporto,
@@ -627,6 +643,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoSpeditoAt: this.selectedDetail?.disegnoSpeditoAt ?? '',
       disegnoMittenteId: this.selectedDetail?.disegnoMittenteId ?? null,
       disegnoNote: this.selectedDetail?.disegnoNote ?? '',
+      disegnoApprovatoAt: this.selectedDetail?.disegnoApprovatoAt ?? '',
       massicciataNota: this.selectedDetail?.massicciataNota ?? '',
       tipoCariciNota: this.selectedDetail?.tipoCariciNota ?? '',
       lavorazioneAssegnataAt: this.selectedDetail?.lavorazioneAssegnataAt ?? '',
@@ -638,6 +655,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       chiusini: !!this.selectedDetail?.chiusini,
       caricoVerificato: !!this.selectedDetail?.caricoVerificato,
       camSiNo: !!this.selectedDetail?.camSiNo,
+      cementiNote: this.selectedDetail?.cementiNote ?? '',
     });
   }
 
@@ -1109,6 +1127,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataOrdine: this.selectedDetail.dataOrdine ?? '',
       referente: this.selectedDetail.referente ?? '',
       telefono: this.selectedDetail.telefono ?? '',
+      referente2: this.selectedDetail.referente2 ?? '',
+      telefono2: this.selectedDetail.telefono2 ?? '',
       scarico: this.selectedDetail.scarico ?? '',
       vascheCav: this.selectedDetail.vascheCav ?? '',
       accessori: '',
@@ -1122,6 +1142,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       responsabileInternoId: this.selectedDetail.responsabileInternoId ?? null,
       folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti ?? '',
       folderLinkFoto: this.selectedDetail.folderLinkFoto ?? '',
+      cementiNote: this.selectedDetail.cementiNote ?? '',
     };
     this.dettagliSnapshot = this.serializeDettagli();
     this.editMode = true;
@@ -1138,6 +1159,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveForm(): void {
+    if (this.savingForm) return;
     const payload = {
       rif: this.formModel.rif,
       cliente: this.formModel.cliente,
@@ -1147,6 +1169,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataOrdine: this.formModel.dataOrdine || null,
       referente: this.formModel.referente || null,
       telefono: this.formModel.telefono || null,
+      referente2: this.formModel.referente2 || null,
+      telefono2: this.formModel.telefono2 || null,
       scarico: this.formModel.scarico || null,
       vascheCav: this.formModel.vascheCav || null,
       accessori: this.formModel.accessori || null,
@@ -1160,27 +1184,100 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       responsabileInternoId: this.formModel.responsabileInternoId,
       folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
       folderLinkFoto: this.formModel.folderLinkFoto || null,
+      cementiNote: this.formModel.cementiNote || null,
     };
 
-    const req = this.editingId ? this.consegneService.update(this.editingId, payload) : this.consegneService.create(payload);
-    req.subscribe({
+    if (this.editingId) {
+      this.savingForm = true;
+      this.consegneService.update(this.editingId, payload).subscribe({
+        next: (result) => {
+          this.savingForm = false;
+          this.formVisible = false;
+          this.notifySuccess('Consegna aggiornata');
+          this.refreshData(1);
+          const createdOrUpdated = result as ConsegnaRecord;
+          if (createdOrUpdated?.id) {
+            this.loadDetail(createdOrUpdated.id);
+          }
+        },
+        error: (error) => {
+          this.savingForm = false;
+          this.notifyError(error?.error?.message ?? 'Errore salvataggio');
+        },
+      });
+      return;
+    }
+
+    this.createOrderWithDuplicateCheck(payload);
+  }
+
+  private createOrderWithDuplicateCheck(payload: Record<string, unknown>): void {
+    this.savingForm = true;
+    this.consegneService.create(payload).subscribe({
       next: (result) => {
+        this.savingForm = false;
         this.formVisible = false;
-        this.notifySuccess(this.editingId ? 'Consegna aggiornata' : 'Consegna creata');
+        this.notifySuccess('Consegna creata');
         this.refreshData(1);
-        const createdOrUpdated = result as ConsegnaRecord;
-        if (createdOrUpdated?.id) {
-          this.loadDetail(createdOrUpdated.id);
+        const created = result as ConsegnaRecord;
+        if (created?.id) {
+          this.loadDetail(created.id);
         }
       },
       error: (error) => {
+        this.savingForm = false;
+        const duplicateResponse = error?.error as DuplicateOrderResponse | undefined;
+        if (error?.status === 409 && duplicateResponse?.code === 'DUPLICATE_ORDER' && duplicateResponse.duplicates?.length) {
+          this.openConfirm({
+            title: 'Possibile ordine duplicato',
+            message: 'Esiste già almeno un ordine con lo stesso cliente e tipo impianto. Verifica i dettagli sotto e conferma solo se vuoi creare comunque il nuovo ordine.',
+            details: this.formatDuplicateDetails(duplicateResponse.duplicates),
+            confirmLabel: 'Conferma creazione',
+            onConfirm: () => this.createOrderWithDuplicateCheck({ ...payload, forceCreateDuplicate: true }),
+          });
+          return;
+        }
         this.notifyError(error?.error?.message ?? 'Errore salvataggio');
       },
     });
   }
 
-  openConfirm(message: string, onConfirm: () => void): void {
-    this.confirmModal = { message, onConfirm };
+  private formatDuplicateDetails(duplicates: DuplicateOrderCandidate[]): string[] {
+    return duplicates.slice(0, 5).map((item) => {
+      const dataOrdine = item.dataOrdine ? this.formatShortDate(item.dataOrdine) : 'n/d';
+      const dataConsegna = item.dataConsegna ? this.formatShortDate(item.dataConsegna) : 'n/d';
+      const tipo = item.tipoImpianto || '—';
+      const rif = item.rif || `ID ${item.id}`;
+      return `${rif} | ${item.cliente || 'Cliente n/d'} | ${tipo} | stato ${item.stato || 'n/d'} | ordine ${dataOrdine} | consegna ${dataConsegna}`;
+    });
+  }
+
+  private formatShortDate(value: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('it-IT');
+  }
+
+  openConfirm(messageOrConfig: string | (Omit<ConfirmModalState, 'onConfirm'> & { onConfirm: () => void }), onConfirm?: () => void): void {
+    if (typeof messageOrConfig === 'string') {
+      this.confirmModal = {
+        title: 'Conferma operazione',
+        message: messageOrConfig,
+        onConfirm: onConfirm ?? (() => {}),
+      };
+      return;
+    }
+    this.confirmModal = {
+      title: messageOrConfig.title,
+      message: messageOrConfig.message,
+      details: messageOrConfig.details,
+      confirmLabel: messageOrConfig.confirmLabel,
+      onConfirm: messageOrConfig.onConfirm,
+    };
   }
 
   doConfirm(): void {
@@ -2326,6 +2423,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       dataOrdine: '',
       referente: '',
       telefono: '',
+      referente2: '',
+      telefono2: '',
       scarico: '',
       vascheCav: '',
       accessori: '',
@@ -2339,6 +2438,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       responsabileInternoId: null,
       folderLinkDocumenti: '',
       folderLinkFoto: '',
+      cementiNote: '',
     };
   }
 
@@ -2492,6 +2592,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         dataOrdine: this.formModel.dataOrdine || null,
         referente: this.formModel.referente || null,
         telefono: this.formModel.telefono || null,
+        referente2: this.formModel.referente2 || null,
+        telefono2: this.formModel.telefono2 || null,
         stato: this.formModel.stato || this.selectedDetail.stato,
         note: this.formModel.note || null,
         trasporto: this.formModel.trasporto,
@@ -2510,6 +2612,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         disegnoSpeditoAt: this.selectedDetail.disegnoSpeditoAt || null,
         disegnoMittenteId: this.selectedDetail.disegnoMittenteId || null,
         disegnoNote: this.selectedDetail.disegnoNote || null,
+        disegnoApprovatoAt: this.selectedDetail.disegnoApprovatoAt || null,
         massicciataNota: this.selectedDetail.massicciataNota || null,
         tipoCariciNota: this.selectedDetail.tipoCariciNota || null,
         lavorazioneAssegnataAt: this.selectedDetail.lavorazioneAssegnataAt || null,
@@ -2521,6 +2624,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         chiusini: this.selectedDetail.chiusini,
         caricoVerificato: this.selectedDetail.caricoVerificato,
         camSiNo: this.selectedDetail.camSiNo,
+        cementiNote: this.selectedDetail.cementiNote || null,
       });
     }
     if (cementiDirty) {
@@ -2552,6 +2656,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             dataOrdine: this.formModel.dataOrdine || null,
             referente: this.formModel.referente || null,
             telefono: this.formModel.telefono || null,
+            referente2: this.formModel.referente2 || null,
+            telefono2: this.formModel.telefono2 || null,
             stato: this.formModel.stato,
             note: this.formModel.note || null,
             trasporto: this.formModel.trasporto,
@@ -2561,6 +2667,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             responsabileInternoId: this.formModel.responsabileInternoId,
             folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
             folderLinkFoto: this.formModel.folderLinkFoto || null,
+            cementiNote: this.formModel.cementiNote || null,
           });
           this.dettagliSnapshot = this.serializeDettagli();
           this.refreshData(1);

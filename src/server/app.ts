@@ -14,7 +14,7 @@ import operaiRoutes from './routes/operai'
 import vettoriRoutes from './routes/vettori'
 import cementiTipiRoutes from './routes/cementi-tipi'
 import accessoriTipiRoutes from './routes/accessori-tipi'
-import { BadRequestError } from './errors'
+import { BadRequestError, ConcurrencyConflictError } from './errors'
 import { auditMiddleware } from './audit'
 
 export function createApp() {
@@ -64,6 +64,10 @@ export function createApp() {
 
     if (err instanceof BadRequestError) {
       return res.status(400).json({ message: err.message })
+    }
+
+    if (err instanceof ConcurrencyConflictError) {
+      return res.status(409).json({ message: err.message })
     }
 
     if (err instanceof Error) {

@@ -34,6 +34,13 @@
     <ng-container *ngSwitchCase="'DISEGNO APPROVATO'">
       <div class="detail-section-title">Disegno Approvato</div>
       <div class="detail-kv-grid">
+        <div class="detail-kv">
+          <label class="kv-label">Data approvazione disegno</label>
+          <input *ngIf="app.canWrite; else disegnoApprovatoRead" type="date" [(ngModel)]="detail.disegnoApprovatoAt" />
+          <ng-template #disegnoApprovatoRead>
+            <span class="kv-value">{{ detail.disegnoApprovatoAt ? (detail.disegnoApprovatoAt | date:'dd/MM/yyyy') : '—' }}</span>
+          </ng-template>
+        </div>
         <div class="detail-kv detail-kv--full">
           <label class="kv-label">Massicciata</label>
           <textarea *ngIf="app.canWrite; else massicciataRead" [(ngModel)]="detail.massicciataNota" rows="3" style="width:100%;resize:vertical"></textarea>

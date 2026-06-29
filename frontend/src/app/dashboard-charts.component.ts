@@ -594,7 +594,7 @@ const AGING_BANDS: AgingBand[] = [
                                   </div>
                                   <div class="aging-row__meta">
                                     <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
-                                    <span>Ingresso: {{ formatAgingDate(item.enteredAt) }}</span>
+                                    <span>{{ item.disegnoApprovatoAt ? 'Approvazione' : 'Ingresso' }}: {{ formatAgingDate(item.disegnoApprovatoAt || item.enteredAt) }}</span>
                                   </div>
                                   <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
                                 </div>
@@ -620,7 +620,7 @@ const AGING_BANDS: AgingBand[] = [
                                 </div>
                                 <div class="aging-row__meta">
                                   <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
-                                  <span>Ingresso: {{ formatAgingDate(item.enteredAt) }}</span>
+                                  <span>{{ item.disegnoApprovatoAt ? 'Approvazione' : 'Ingresso' }}: {{ formatAgingDate(item.disegnoApprovatoAt || item.enteredAt) }}</span>
                                 </div>
                                 <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
                               </div>

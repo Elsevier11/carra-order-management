@@ -309,29 +309,76 @@ describe.runIf(runDbTests)('Consegne API', () => {
       dataOrdine: '2026-05-01',
       referente: 'Mario Rossi',
       telefono: '333 1234567',
+      referente2: 'Luca Bianchi',
+      telefono2: '02 123456',
+      cementiNote: 'Prima tranche solo vasca A',
     })
     expect(created.status).toBe(201)
     const id = created.body.id as number
     expect(created.body.referente).toBe('Mario Rossi')
     expect(created.body.telefono).toBe('333 1234567')
+    expect(created.body.referente2).toBe('Luca Bianchi')
+    expect(created.body.telefono2).toBe('02 123456')
+    expect(created.body.cementiNote).toBe('Prima tranche solo vasca A')
 
     const updated = await request(app).put(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`).send({
       stato: 'CONCLUSI',
       note: 'chiuso da test',
       referente: 'Mario Rossi, Luca Bianchi',
       telefono: '02 123456',
+      referente2: 'Paolo Verdi',
+      telefono2: '348 0000000',
+      cementiNote: 'Aggiornata per seconda tranche',
     })
     expect(updated.status).toBe(200)
     expect(updated.body.stato).toBe('CONCLUSI')
     expect(updated.body.note).toBe('chiuso da test')
     expect(updated.body.referente).toBe('Mario Rossi, Luca Bianchi')
     expect(updated.body.telefono).toBe('02 123456')
+    expect(updated.body.referente2).toBe('Paolo Verdi')
+    expect(updated.body.telefono2).toBe('348 0000000')
+    expect(updated.body.cementiNote).toBe('Aggiornata per seconda tranche')
 
     const deleted = await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
     expect(deleted.status).toBe(204)
 
     const check = await db.select().from(ordini).where(eq(ordini.id, id))
     expect(check).toHaveLength(0)
+  })
+
+  it('blocks duplicate creation on same cliente and tipoImpianto unless forced', async () => {
+    const basePayload = {
+      cliente: 'Cliente Duplicato',
+      tipoImpianto: 'N°1 METEOTANK MP/SD 1.800 E.R.',
+      stato: 'DA ASSEGNARE',
+      dataConsegna: '2026-05-20',
+      dataOrdine: '2026-05-10',
+    }
+
+    const first = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__DUP-001',
+      ...basePayload,
+    })
+    expect(first.status).toBe(201)
+
+    const blocked = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__DUP-002',
+      ...basePayload,
+    })
+    expect(blocked.status).toBe(409)
+    expect(blocked.body.code).toBe('DUPLICATE_ORDER')
+    expect(Array.isArray(blocked.body.duplicates)).toBe(true)
+    expect(blocked.body.duplicates[0]?.rif).toBe('__TEST__DUP-001')
+
+    const forced = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__DUP-003',
+      ...basePayload,
+      forceCreateDuplicate: true,
+    })
+    expect(forced.status).toBe(201)
+
+    await request(app).delete(`/api/consegne/${first.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/consegne/${forced.body.id}`).set('Authorization', `Bearer ${token}`)
   })
 
   it('supports DA ASSEGNARE -> ASSEGNATO -> CONCLUSI transition flow', async () => {
@@ -389,6 +436,41 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(historyAfterClose.status).toBe(200)
     expect(historyAfterClose.body.data[0]?.details?.conclusiMode).toBe('week')
     expect(historyAfterClose.body.data[0]?.details?.conclusiWeek).toBe('2026-W19')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('auto-populates disegnoApprovatoAt when transitioning to DISEGNO APPROVATO', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__DIS-APP',
+      cliente: 'Cliente Disegno',
+      stato: 'IN CORSO',
+      dataConsegna: '2026-05-15',
+      dataOrdine: '2026-05-04',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const toGestione = await request(app).post(`/api/consegne/${id}/transition`).set('Authorization', `Bearer ${token}`).send({
+      toStatus: 'DISEGNO IN GESTIONE',
+      note: 'Disegno inviato',
+    })
+    expect(toGestione.status).toBe(200)
+
+    const toApprovato = await request(app).post(`/api/consegne/${id}/transition`).set('Authorization', `Bearer ${token}`).send({
+      toStatus: 'DISEGNO APPROVATO',
+      note: 'Disegno approvato dal cliente',
+    })
+    expect(toApprovato.status).toBe(200)
+    expect(toApprovato.body.stato).toBe('DISEGNO APPROVATO')
+
+    const detail = await request(app).get(`/api/consegne/${id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.disegnoApprovatoAt).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+
+    const history = await request(app).get(`/api/consegne/${id}/history`)
+    expect(history.status).toBe(200)
+    expect(history.body.data[0]?.details?.disegnoApprovatoAt).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })

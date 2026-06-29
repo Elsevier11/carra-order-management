@@ -53,6 +53,37 @@ function parseInputDate(value: string): Date {
   return parsed
 }
 
+function normalizeComparableText(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+async function findDuplicateOrders(tx: DbTransaction, cliente: string, tipoImpianto: string): Promise<DuplicateOrderCandidate[]> {
+  const normalizedCliente = normalizeComparableText(cliente)
+  const normalizedTipoImpianto = normalizeComparableText(tipoImpianto)
+  if (!normalizedCliente || !normalizedTipoImpianto) return []
+
+  return tx
+    .select({
+      id: ordini.id,
+      rif: ordini.rifto,
+      cliente: ordini.cliente,
+      tipoImpianto: ordini.tipoImpianto,
+      stato: ordini.stato,
+      dataOrdine: ordini.dataOrdine,
+      dataConsegna: ordini.dataConsegna,
+      createdAt: ordini.createdAt,
+    })
+    .from(ordini)
+    .where(
+      and(
+        sql`lower(trim(coalesce(${ordini.cliente}, ''))) = ${normalizedCliente}`,
+        sql`lower(trim(coalesce(${ordini.tipoImpianto}, ''))) = ${normalizedTipoImpianto}`,
+      ),
+    )
+    .orderBy(desc(ordini.createdAt), desc(ordini.id))
+    .limit(10)
+}
+
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -112,6 +143,8 @@ const consegnaInputSchema = z.object({
   dataOrdine: z.string().regex(dateOrDateTimeRegex, 'dataOrdine must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   referente: z.string().optional().nullable(),
   telefono: z.string().optional().nullable(),
+  referente2: z.string().optional().nullable(),
+  telefono2: z.string().optional().nullable(),
   scarico: z.string().optional().nullable(),
   vascheCav: z.string().optional().nullable(),
   accessori: z.string().optional().nullable(),
@@ -130,6 +163,7 @@ const consegnaInputSchema = z.object({
   disegnoMittenteId: z.number().int().positive().optional().nullable(),
   disegnoNote: z.string().optional().nullable(),
   // campi DISEGNO APPROVATO
+  disegnoApprovatoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoApprovatoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   massicciataNota: z.string().optional().nullable(),
   tipoCariciNota: z.string().optional().nullable(),
   // campi ASSEGNATO
@@ -144,18 +178,32 @@ const consegnaInputSchema = z.object({
   caricoVerificato: z.boolean().optional().default(false),
   // tab C.A.M.
   camSiNo: z.boolean().optional().default(false),
+  cementiNote: z.string().optional().nullable(),
+  forceCreateDuplicate: z.boolean().optional().default(false),
 })
 
 const transitionSchema = z.object({
   toStatus: z.enum(allowedStatuses),
   note: z.string().optional(),
   lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  disegnoApprovatoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoApprovatoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   operaiIds: z.array(z.number().int().positive()).optional(),
   skipAssegnazione: z.boolean().optional().default(false),
   conclusiMode: z.enum(['week', 'date']).optional(),
   conclusiWeek: z.string().regex(/^\d{4}-W\d{2}$/, 'conclusiWeek must be YYYY-Www').optional().nullable(),
   conclusiDate: z.string().regex(dateOrDateTimeRegex, 'conclusiDate must be YYYY-MM-DD or ISO datetime').optional().nullable(),
 })
+
+type DuplicateOrderCandidate = {
+  id: number
+  rif: string | null
+  cliente: string | null
+  tipoImpianto: string | null
+  stato: string | null
+  dataOrdine: string | Date | null
+  dataConsegna: string | Date | null
+  createdAt: string | Date | null
+}
 
 type OrderEvent = {
   id: number
@@ -229,6 +277,8 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     dataOrdine: toIsoDate(row.dataOrdine),
     referente: row.referente,
     telefono: row.telefono,
+    referente2: row.referente2,
+    telefono2: row.telefono2,
     scarico: row.scarico,
     vascheCav: row.vascheCav,
     accessori: row.accessori,
@@ -247,6 +297,7 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     disegnoMittenteId: row.disegnoMittenteId ?? null,
     disegnoNote: row.disegnoNote ?? null,
     // campi DISEGNO APPROVATO
+    disegnoApprovatoAt: toIsoDate(row.disegnoApprovatoAt),
     massicciataNota: row.massicciataNota ?? null,
     tipoCariciNota: row.tipoCariciNota ?? null,
     // campi ASSEGNATO
@@ -261,6 +312,7 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     caricoVerificato: row.caricoVerificato ?? false,
     // tab C.A.M.
     camSiNo: row.camSiNo ?? false,
+    cementiNote: row.cementiNote ?? null,
     createdAt: row.createdAt,
   }
 }
@@ -446,7 +498,7 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
       .orderBy(query.sortDir === 'asc' ? asc(sortColumn) : desc(sortColumn))
       .limit(10000)
 
-    const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'cantiere', 'stato', 'note']
+    const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'cantiere', 'stato', 'note', 'referente2', 'telefono2', 'disegnoApprovatoAt', 'cementiNote']
     const csvRows = rows.map((row) => {
       const normalized = normalizeRow(row)
       return [
@@ -456,8 +508,12 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
         normalized.dataConsegna ?? '',
         normalized.cantiere ?? '',
         normalized.stato ?? '',
-        normalized.note ?? '',
-      ]
+      normalized.note ?? '',
+      normalized.referente2 ?? '',
+      normalized.telefono2 ?? '',
+      normalized.disegnoApprovatoAt ?? '',
+      normalized.cementiNote ?? '',
+    ]
         .map((value) => `"${String(value).replace(/"/g, '""')}"`)
         .join(',')
     })
@@ -561,6 +617,8 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         'Operai assegnati': joinValues(operaiByOrder.get(row.id) ?? []),
         Commerciale: commerciale,
         'Responsabile interno': responsabile,
+        'Referente 2': row.referente2 ?? '',
+        'Telefono 2': row.telefono2 ?? '',
         Trasporto: yesNo(row.trasporto),
         'Scarico/Carico': yesNo(row.scaricoCarico),
         'Acconto pagato': yesNo(row.accontoPagato),
@@ -568,6 +626,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         'Disegno spedito il': formatItalianDate(row.disegnoSpeditoAt),
         'Mittente disegno': mittente,
         'Note disegno': row.disegnoNote ?? '',
+        'Disegno approvato il': formatItalianDate(row.disegnoApprovatoAt),
         'Massicciata nota': row.massicciataNota ?? '',
         'Tipo carici nota': row.tipoCariciNota ?? '',
         'Lavorazione assegnata il': formatItalianDate(row.lavorazioneAssegnataAt),
@@ -577,6 +636,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         Bancale: yesNo(row.bancale),
         Chiusini: yesNo(row.chiusini),
         'Carico verificato': yesNo(row.caricoVerificato),
+        'Note cementi': row.cementiNote ?? '',
         Cementi: joinValues(cementiByOrder.get(row.id) ?? []),
         'Cementi count': (cementiByOrder.get(row.id) ?? []).length,
         'Accessori relazioni': joinValues(accessoriByOrder.get(row.id) ?? []),
@@ -1274,6 +1334,11 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       }
     }
 
+    const disegnoApprovatoAtValue =
+      payload.toStatus === 'DISEGNO APPROVATO'
+        ? (payload.disegnoApprovatoAt ? parseInputDate(payload.disegnoApprovatoAt) : new Date())
+        : null
+
     const [updated] = await db.transaction(async (tx) => {
       const updateData: Partial<typeof ordini.$inferInsert> = {
         stato: payload.toStatus,
@@ -1282,6 +1347,9 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
 
       if (payload.toStatus === 'ASSEGNATO' && !payload.skipAssegnazione) {
         updateData.lavorazioneAssegnataAt = parseInputDate(payload.lavorazioneAssegnataAt!)
+      }
+      if (payload.toStatus === 'DISEGNO APPROVATO' && disegnoApprovatoAtValue) {
+        updateData.disegnoApprovatoAt = disegnoApprovatoAtValue
       }
 
       const [result] = await tx.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
@@ -1298,6 +1366,10 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
           operaiIds: payload.operaiIds ?? [],
           skipAssegnazione: payload.skipAssegnazione ?? false,
         }
+        : payload.toStatus === 'DISEGNO APPROVATO'
+          ? {
+            disegnoApprovatoAt: disegnoApprovatoAtValue ? disegnoApprovatoAtValue.toISOString().slice(0, 10) : null,
+          }
         : payload.toStatus === 'CONCLUSI'
           ? {
             conclusiMode: payload.conclusiMode ?? 'week',
@@ -1335,6 +1407,7 @@ router.get('/dashboard/aging', async (_req, res, next) => {
         coalesce(o.stato, 'IN CORSO') as stato,
         o.data_ordine as "dataOrdine",
         o.data_consegna as "dataConsegna",
+        o.disegno_approvato_at as "disegnoApprovatoAt",
         coalesce(s.entered_at, o.created_at) as "enteredAt"
       from ordini o
       left join lateral (
@@ -1359,6 +1432,7 @@ router.get('/dashboard/aging', async (_req, res, next) => {
       stato: string
       dataOrdine: string | Date | null
       dataConsegna: string | Date | null
+      disegnoApprovatoAt: string | Date | null
       enteredAt: string | Date | null
     }>).map((row) => {
       const enteredAt = row.enteredAt ? new Date(row.enteredAt) : null
@@ -1374,6 +1448,7 @@ router.get('/dashboard/aging', async (_req, res, next) => {
         daysInState,
         dataOrdine: row.dataOrdine ? new Date(row.dataOrdine).toISOString() : null,
         dataConsegna: row.dataConsegna ? new Date(row.dataConsegna).toISOString() : null,
+        disegnoApprovatoAt: row.disegnoApprovatoAt ? new Date(row.disegnoApprovatoAt).toISOString() : null,
       }
     })
 
@@ -1458,32 +1533,74 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
   try {
     const payload = consegnaInputSchema.parse(req.body)
 
-    const [created] = await db
-      .insert(ordini)
-      .values({
-        rifto: payload.rif,
-        cliente: payload.cliente,
-        tipoImpianto: payload.tipoImpianto ?? null,
-        dataConsegna: payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null,
-        cantiere: payload.cantiere ?? null,
-        dataOrdine: payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null,
-        referente: payload.referente ?? null,
-        telefono: payload.telefono ?? null,
-        scarico: payload.scarico ?? null,
-        vascheCav: payload.vascheCav ?? null,
-        accessori: payload.accessori ?? null,
-        operai: payload.operai ?? null,
-        stato: payload.stato,
-        note: payload.note ?? null,
-        trasporto: payload.trasporto ?? false,
-        scaricoCarico: payload.scaricoCarico ?? false,
-        accontoPagato: payload.accontoPagato ?? false,
-        commercialeId: payload.commercialeId ?? null,
-        responsabileInternoId: payload.responsabileInternoId ?? null,
-        bilici: payload.bilici ?? 0,
-        chiusini: payload.chiusini ?? false,
+    const createResult = await db.transaction(async (tx) => {
+      const normalizedCliente = normalizeComparableText(payload.cliente)
+      const normalizedTipoImpianto = normalizeComparableText(payload.tipoImpianto)
+
+      if (normalizedCliente && normalizedTipoImpianto) {
+        await tx.execute(sql`
+          select pg_advisory_xact_lock(hashtext(${normalizedCliente}), hashtext(${normalizedTipoImpianto}))
+        `)
+        const duplicates = await findDuplicateOrders(tx, payload.cliente, payload.tipoImpianto ?? '')
+        if (duplicates.length > 0 && !payload.forceCreateDuplicate) {
+          return {
+            duplicate: true as const,
+            duplicates,
+          }
+        }
+      }
+
+      const [created] = await tx
+        .insert(ordini)
+        .values({
+          rifto: payload.rif,
+          cliente: payload.cliente,
+          tipoImpianto: payload.tipoImpianto ?? null,
+          dataConsegna: payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null,
+          cantiere: payload.cantiere ?? null,
+          dataOrdine: payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null,
+          referente: payload.referente ?? null,
+          telefono: payload.telefono ?? null,
+          referente2: payload.referente2 ?? null,
+          telefono2: payload.telefono2 ?? null,
+          scarico: payload.scarico ?? null,
+          vascheCav: payload.vascheCav ?? null,
+          accessori: payload.accessori ?? null,
+          operai: payload.operai ?? null,
+          stato: payload.stato,
+          note: payload.note ?? null,
+          trasporto: payload.trasporto ?? false,
+          scaricoCarico: payload.scaricoCarico ?? false,
+          accontoPagato: payload.accontoPagato ?? false,
+          commercialeId: payload.commercialeId ?? null,
+          responsabileInternoId: payload.responsabileInternoId ?? null,
+          bilici: payload.bilici ?? 0,
+          chiusini: payload.chiusini ?? false,
+          cementiNote: payload.cementiNote ?? null,
+        })
+        .returning()
+
+      return { duplicate: false as const, created }
+    })
+
+    if (createResult.duplicate) {
+      return res.status(409).json({
+        message: 'Esiste già un ordine con lo stesso cliente e tipo impianto.',
+        code: 'DUPLICATE_ORDER',
+        duplicates: createResult.duplicates.map((item) => ({
+          id: item.id,
+          rif: item.rif,
+          cliente: item.cliente,
+          tipoImpianto: item.tipoImpianto,
+          stato: item.stato,
+          dataOrdine: item.dataOrdine ? new Date(item.dataOrdine).toISOString() : null,
+          dataConsegna: item.dataConsegna ? new Date(item.dataConsegna).toISOString() : null,
+          createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : null,
+        })),
       })
-      .returning()
+    }
+
+    const created = createResult.created
 
     await addOrderEvent({
       orderId: created.id,
@@ -1523,6 +1640,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('dataOrdine' in payload) updateData.dataOrdine = payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null
     if ('referente' in payload) updateData.referente = payload.referente ?? null
     if ('telefono' in payload) updateData.telefono = payload.telefono ?? null
+    if ('referente2' in payload) updateData.referente2 = payload.referente2 ?? null
+    if ('telefono2' in payload) updateData.telefono2 = payload.telefono2 ?? null
     if ('scarico' in payload) updateData.scarico = payload.scarico ?? null
     if ('vascheCav' in payload) updateData.vascheCav = payload.vascheCav ?? null
     if ('accessori' in payload) updateData.accessori = payload.accessori ?? null
@@ -1540,6 +1659,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('disegnoSpeditoAt' in payload) updateData.disegnoSpeditoAt = payload.disegnoSpeditoAt ? parseInputDate(payload.disegnoSpeditoAt) : null
     if ('disegnoMittenteId' in payload) updateData.disegnoMittenteId = payload.disegnoMittenteId ?? null
     if ('disegnoNote' in payload) updateData.disegnoNote = payload.disegnoNote ?? null
+    if ('disegnoApprovatoAt' in payload) updateData.disegnoApprovatoAt = payload.disegnoApprovatoAt ? parseInputDate(payload.disegnoApprovatoAt) : null
     if ('massicciataNota' in payload) updateData.massicciataNota = payload.massicciataNota ?? null
     if ('tipoCariciNota' in payload) updateData.tipoCariciNota = payload.tipoCariciNota ?? null
     if ('lavorazioneAssegnataAt' in payload) updateData.lavorazioneAssegnataAt = payload.lavorazioneAssegnataAt ? parseInputDate(payload.lavorazioneAssegnataAt) : null
@@ -1551,6 +1671,14 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('chiusini' in payload) updateData.chiusini = payload.chiusini ?? false
     if ('caricoVerificato' in payload) updateData.caricoVerificato = payload.caricoVerificato ?? false
     if ('camSiNo' in payload) updateData.camSiNo = payload.camSiNo ?? false
+    if ('cementiNote' in payload) updateData.cementiNote = payload.cementiNote ?? null
+    const autoDisegnoApprovatoAt =
+      payload.stato === 'DISEGNO APPROVATO' && existing.stato !== 'DISEGNO APPROVATO' && !('disegnoApprovatoAt' in payload)
+        ? new Date()
+        : null
+    if (autoDisegnoApprovatoAt) {
+      updateData.disegnoApprovatoAt = autoDisegnoApprovatoAt
+    }
 
     // Calculate field-level diff (old vs new)
     const diff: Record<string, { from: unknown; to: unknown }> = {}
@@ -1572,6 +1700,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('dataConsegna' in payload) diffStr('dataConsegna', normDate(existing.dataConsegna), payload.dataConsegna)
     if ('cantiere' in payload) diffStr('cantiere', existing.cantiere, payload.cantiere)
     if ('dataOrdine' in payload) diffStr('dataOrdine', normDate(existing.dataOrdine), payload.dataOrdine)
+    if ('referente2' in payload) diffStr('referente2', existing.referente2, payload.referente2)
+    if ('telefono2' in payload) diffStr('telefono2', existing.telefono2, payload.telefono2)
     if ('scarico' in payload) diffStr('scarico', existing.scarico, payload.scarico)
     if ('vascheCav' in payload) diffStr('vascheCav', existing.vascheCav, payload.vascheCav)
     if ('accessori' in payload) diffStr('accessori', existing.accessori, payload.accessori)
@@ -1588,6 +1718,10 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('disegnoSpeditoAt' in payload) diffStr('disegnoSpeditoAt', normDate(existing.disegnoSpeditoAt), payload.disegnoSpeditoAt)
     if ('disegnoMittenteId' in payload) diffNum('disegnoMittenteId', existing.disegnoMittenteId, payload.disegnoMittenteId)
     if ('disegnoNote' in payload) diffStr('disegnoNote', existing.disegnoNote, payload.disegnoNote)
+    if ('disegnoApprovatoAt' in payload) diffStr('disegnoApprovatoAt', normDate(existing.disegnoApprovatoAt), payload.disegnoApprovatoAt)
+    if (!('disegnoApprovatoAt' in payload) && autoDisegnoApprovatoAt) {
+      diffStr('disegnoApprovatoAt', normDate(existing.disegnoApprovatoAt), autoDisegnoApprovatoAt.toISOString().slice(0, 10))
+    }
     if ('massicciataNota' in payload) diffStr('massicciataNota', existing.massicciataNota, payload.massicciataNota)
     if ('tipoCariciNota' in payload) diffStr('tipoCariciNota', existing.tipoCariciNota, payload.tipoCariciNota)
     if ('lavorazioneAssegnataAt' in payload) diffStr('lavorazioneAssegnataAt', normDate(existing.lavorazioneAssegnataAt), payload.lavorazioneAssegnataAt)
@@ -1599,6 +1733,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('chiusini' in payload) diffBool('chiusini', existing.chiusini, payload.chiusini)
     if ('caricoVerificato' in payload) diffBool('caricoVerificato', existing.caricoVerificato, payload.caricoVerificato)
     if ('camSiNo' in payload) diffBool('camSiNo', existing.camSiNo, payload.camSiNo)
+    if ('cementiNote' in payload) diffStr('cementiNote', existing.cementiNote, payload.cementiNote)
 
     const [updated] = await db.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
 

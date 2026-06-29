@@ -1621,6 +1621,10 @@
   text-align: left;
 }
 
+.import-confirm-summary--stacked {
+  gap: 8px;
+}
+
 .transition-confirm-note {
   margin: 8px 0 0;
   color: var(--muted);
@@ -2027,6 +2031,10 @@ tr.selected-row:hover {
   grid-column: span 2;
 }
 
+.form-field--impianto {
+  grid-column: 1 / -1;
+}
+
 .form-field--referente {
   grid-column: span 2;
 }
@@ -2039,6 +2047,20 @@ tr.selected-row:hover {
 
 .form-field--telefono input {
   width: 100%;
+}
+
+.detail-field-note {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+
+  textarea {
+    min-height: 84px;
+    width: 100%;
+    resize: vertical;
+    font-size: 0.9rem;
+    padding: 10px 12px;
+  }
 }
 
 @media (max-width: 900px) {

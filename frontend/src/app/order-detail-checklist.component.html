@@ -10,6 +10,10 @@
           </ng-container>
         </div>
       </div>
+      <div class="detail-field-note">
+        <label class="kv-label">Note cementi</label>
+        <textarea [(ngModel)]="app.selectedDetail!.cementiNote" [disabled]="!app.canWrite" rows="3" placeholder="Note su tranche, ordini parziali, consegne multiple..."></textarea>
+      </div>
       <ng-template #noCementi><p class="detail-empty">Nessun tipo di cemento configurato.</p></ng-template>
     </ng-container>
 

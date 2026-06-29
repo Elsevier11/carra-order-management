@@ -747,7 +747,7 @@
           <label class="form-field__label form-field__label--required">Cliente</label>
           <input type="text" [(ngModel)]="formModel.cliente" placeholder="Ragione sociale" />
         </div>
-        <div class="form-field">
+        <div class="form-field form-field--impianto">
           <label class="form-field__label">Tipo impianto</label>
           <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="es. N°1 METEOTANK MP/SD 1200" />
         </div>
@@ -764,12 +764,20 @@
           <input type="date" [(ngModel)]="formModel.dataOrdine" />
         </div>
         <div class="form-field form-field--referente">
-          <label class="form-field__label">Referente</label>
+          <label class="form-field__label">Referente 1</label>
           <input type="text" [(ngModel)]="formModel.referente" maxlength="80" placeholder="Nome e cognome" />
         </div>
         <div class="form-field form-field--telefono">
-          <label class="form-field__label">Telefono</label>
+          <label class="form-field__label">Telefono 1</label>
           <input type="text" [(ngModel)]="formModel.telefono" maxlength="30" placeholder="es. 333 1234567" />
+        </div>
+        <div class="form-field form-field--referente">
+          <label class="form-field__label">Referente 2</label>
+          <input type="text" [(ngModel)]="formModel.referente2" maxlength="80" placeholder="Nome e cognome" />
+        </div>
+        <div class="form-field form-field--telefono">
+          <label class="form-field__label">Telefono 2</label>
+          <input type="text" [(ngModel)]="formModel.telefono2" maxlength="30" placeholder="es. 333 1234567" />
         </div>
         <div class="form-field">
           <label class="form-field__label">Stato</label>
@@ -820,7 +828,7 @@
         </div>
         </div>
         <div class="modal-actions">
-          <button type="button" (click)="saveForm()">Salva</button>
+          <button type="button" [disabled]="savingForm" (click)="saveForm()">{{ savingForm ? 'Salvataggio...' : 'Salva' }}</button>
           <button type="button" class="ghost" (click)="closeForm()">Annulla</button>
         </div>
       </div>
@@ -1032,9 +1040,17 @@
           <div class="import-confirm-overlay" (click)="closeConfirm()">
             <div class="import-confirm-card" (click)="$event.stopPropagation()">
               <div class="import-confirm-icon">!</div>
+              <h3>{{ confirmModal.title }}</h3>
               <p>{{ confirmModal.message }}</p>
+              @if (confirmModal.details?.length) {
+                <div class="import-confirm-summary import-confirm-summary--stacked">
+                  @for (detail of confirmModal.details; track detail) {
+                    <span>{{ detail }}</span>
+                  }
+                </div>
+              }
               <div class="import-confirm-actions">
-                <button type="button" class="danger" (click)="doConfirm()">Conferma</button>
+                <button type="button" class="danger" (click)="doConfirm()">{{ confirmModal.confirmLabel || 'Conferma' }}</button>
                 <button type="button" class="ghost" (click)="closeConfirm()">Annulla</button>
               </div>
             </div>

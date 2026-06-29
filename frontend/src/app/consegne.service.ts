@@ -56,11 +56,12 @@ export class ConsegneService {
     id: number,
     toStatus: string,
     note?: string,
-    payload?: {
-      lavorazioneAssegnataAt?: string | null;
-      operaiIds?: number[];
-      skipAssegnazione?: boolean;
-      conclusiMode?: 'week' | 'date';
+      payload?: {
+        lavorazioneAssegnataAt?: string | null;
+        disegnoApprovatoAt?: string | null;
+        operaiIds?: number[];
+        skipAssegnazione?: boolean;
+        conclusiMode?: 'week' | 'date';
       conclusiWeek?: string | null;
       conclusiDate?: string | null;
     },

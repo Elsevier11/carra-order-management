@@ -9,7 +9,7 @@
         <label class="form-field__label form-field__label--required">Cliente</label>
         <input type="text" [(ngModel)]="app.formModel.cliente" />
       </div>
-      <div class="form-field form-field--span2">
+      <div class="form-field form-field--span2 form-field--impianto">
         <label class="form-field__label">Tipo impianto</label>
         <input type="text" [(ngModel)]="app.formModel.tipoImpianto" />
       </div>
@@ -26,12 +26,20 @@
         <input type="date" [(ngModel)]="app.formModel.dataOrdine" />
       </div>
       <div class="form-field form-field--span2 form-field--referente">
-        <label class="form-field__label">Referente</label>
+        <label class="form-field__label">Referente 1</label>
         <input type="text" [(ngModel)]="app.formModel.referente" maxlength="80" />
       </div>
       <div class="form-field form-field--telefono">
-        <label class="form-field__label">Telefono</label>
+        <label class="form-field__label">Telefono 1</label>
         <input type="text" [(ngModel)]="app.formModel.telefono" maxlength="30" />
+      </div>
+      <div class="form-field form-field--span2 form-field--referente">
+        <label class="form-field__label">Referente 2</label>
+        <input type="text" [(ngModel)]="app.formModel.referente2" maxlength="80" />
+      </div>
+      <div class="form-field form-field--telefono">
+        <label class="form-field__label">Telefono 2</label>
+        <input type="text" [(ngModel)]="app.formModel.telefono2" maxlength="30" />
       </div>
       <div class="form-field">
         <label class="form-field__label">Stato</label>
@@ -88,12 +96,22 @@
           <span class="kv-value">{{ app.nomeResponsabile(detail.responsabileInternoId) }}</span>
         </div>
         <div class="detail-kv detail-kv--contact-name">
-          <span class="kv-label">Referente</span>
+          <span class="kv-label">Referente 1</span>
           <span class="kv-value">{{ detail.referente || '—' }}</span>
         </div>
         <div class="detail-kv detail-kv--contact-phone">
-          <span class="kv-label">Telefono</span>
+          <span class="kv-label">Telefono 1</span>
           <span class="kv-value">{{ detail.telefono || '—' }}</span>
+        </div>
+      </div>
+      <div class="detail-kv-grid detail-kv-grid--2col detail-kv-grid--contact" style="margin-top: 10px">
+        <div class="detail-kv detail-kv--contact-name">
+          <span class="kv-label">Referente 2</span>
+          <span class="kv-value">{{ detail.referente2 || '—' }}</span>
+        </div>
+        <div class="detail-kv detail-kv--contact-phone">
+          <span class="kv-label">Telefono 2</span>
+          <span class="kv-value">{{ detail.telefono2 || '—' }}</span>
         </div>
       </div>
     </div>

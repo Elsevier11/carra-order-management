@@ -103,6 +103,7 @@ export async function ensureDatabaseObjects() {
       disegno_spedito_at timestamp,
       disegno_mittente_id integer references mittenti_disegno(id) on delete set null,
       disegno_note text,
+      disegno_approvato_at timestamp,
       massicciata_nota text,
       tipo_carici_nota text,
       lavorazione_assegnata_at timestamp,
@@ -113,7 +114,11 @@ export async function ensureDatabaseObjects() {
       bancale boolean not null default false,
       chiusini boolean not null default false,
       carico_verificato boolean not null default false,
-      cam_si_no boolean not null default false
+      cam_si_no boolean not null default false,
+      updated_at timestamp not null default now(),
+      referente2 text,
+      telefono2 text,
+      cementi_note text
     );
   `)
 
@@ -250,8 +255,13 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists responsabile_interno_id integer references responsabili_interni(id) on delete set null;`)
   await pgClient.unsafe(`alter table ordini add column if not exists referente text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists telefono text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists referente2 text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists telefono2 text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists bilici integer not null default 0;`)
   await pgClient.unsafe(`alter table ordini add column if not exists chiusini boolean not null default false;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists disegno_approvato_at timestamp;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists cementi_note text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists updated_at timestamp not null default now();`)
   await pgClient.unsafe(`alter table order_events add column if not exists details jsonb;`)
   await pgClient.unsafe(`update ordini set stato = 'DA ASSEGNARE' where stato = 'IN LAVORAZIONE';`)
 

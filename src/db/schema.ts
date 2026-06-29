@@ -58,6 +58,8 @@ export const ordini = pgTable('ordini', {
   dataOrdine: timestamp('data_ordine'),
   referente: text('referente'),
   telefono: text('telefono'),
+  referente2: text('referente2'),
+  telefono2: text('telefono2'),
   scarico: text('scarico'),
   vascheCav: text('vasche_cav'),
   accessori: text('accessori'),
@@ -79,6 +81,7 @@ export const ordini = pgTable('ordini', {
   disegnoMittenteId: integer('disegno_mittente_id').references(() => mittentiDisegno.id, { onDelete: 'set null' }),
   disegnoNote: text('disegno_note'),
   // campi DISEGNO APPROVATO
+  disegnoApprovatoAt: timestamp('disegno_approvato_at'),
   massicciataNota: text('massicciata_nota'),
   tipoCariciNota: text('tipo_carici_nota'),
   // campi ASSEGNATO
@@ -93,6 +96,8 @@ export const ordini = pgTable('ordini', {
   caricoVerificato: boolean('carico_verificato').notNull().default(false),
   // tab C.A.M.
   camSiNo: boolean('cam_si_no').notNull().default(false),
+  cementiNote: text('cementi_note'),
+  updatedAt: timestamp('updated_at').defaultNow(),
 })
 
 // --- Tabelle relazione per ordine ---
