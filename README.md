@@ -93,8 +93,8 @@ Puoi anche passare un file custom:
 - Per un aggiornamento normale in produzione:
   - `git pull`
   - `docker compose up -d --build`
-- Il bootstrap DB va eseguito solo sul primo avvio di un DB nuovo:
-  - `npm run db:bootstrap`
+- Il backend esegue automaticamente l'allineamento dello schema DB all'avvio.
+- Il comando manuale `npm run db:bootstrap` resta disponibile come utility di manutenzione o verifica.
 - Per aggiornamenti via immagini pubblicate su GitHub Container Registry:
   - `docker compose -f docker-compose.prod.yml pull`
   - `docker compose -f docker-compose.prod.yml up -d`

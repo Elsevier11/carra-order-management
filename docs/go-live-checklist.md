@@ -19,8 +19,8 @@
 - Build: `npm run build`
 
 ## 3. Database
-- Run bootstrap only on the first startup of a fresh database:
-  - `npm run db:bootstrap`
+- The backend runs schema alignment automatically on startup.
+- Keep `npm run db:bootstrap` available only as a manual maintenance command.
 - Validate object creation on first startup:
   - `order_events`
   - `order_attachments`
