@@ -19,6 +19,15 @@ export function boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string;
     }));
 }
 
+export function boardOperaiSummary(item: ConsegnaRecord): string[] {
+  return item.operaiAssegnati?.map((operaio) => operaio.nome).filter(Boolean) ?? [];
+}
+
+export function boardOperaiWarning(item: ConsegnaRecord): string | null {
+  if (item.stato !== 'ASSEGNATO') return null;
+  return (item.operaiAssegnati?.length ?? 0) > 0 ? null : 'Operai mancanti';
+}
+
 export function boardConclusiBadge(item: ConsegnaRecord, conclusiWeekLabel: (value: string | null | undefined) => string): string | null {
   if (!item.conclusiMode || item.stato === 'CONCLUSI') return null;
   if (item.conclusiMode === 'week') {

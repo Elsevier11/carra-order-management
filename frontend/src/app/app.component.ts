@@ -41,13 +41,14 @@ import { OrderDetailModalComponent } from './order-detail-modal.component';
 import {
   boardCementiSummary as boardCementiSummaryHelper,
   boardConclusiBadge as boardConclusiBadgeHelper,
+  boardOperaiSummary as boardOperaiSummaryHelper,
+  boardOperaiWarning as boardOperaiWarningHelper,
   cementoBadgeClass as cementoBadgeClassHelper,
   cementoBadgeClassFromFlags as cementoBadgeClassFromFlagsHelper,
   detailMissingItems as detailMissingItemsHelper,
   onCementoFattaChange as onCementoFattaChangeHelper,
   onCementoOrdinataChange as onCementoOrdinataChangeHelper,
   orderWarnings as orderWarningsHelper,
-  selectedCementiSummary as selectedCementiSummaryHelper,
 } from './order-formatters';
 import { SettingsService } from './settings.service';
 import { ORDER_STATUS_FLOW, allowedNextStatuses, statusClass, statusShortLabel, type ConsegnaStatus } from '../../../src/shared/order-flow';
@@ -912,6 +913,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return boardCementiSummaryHelper(item);
   }
 
+  boardOperaiSummary(item: ConsegnaRecord): string[] {
+    return boardOperaiSummaryHelper(item);
+  }
+
+  boardOperaiWarning(item: ConsegnaRecord): string | null {
+    return boardOperaiWarningHelper(item);
+  }
+
   boardConclusiBadge(item: ConsegnaRecord): string | null {
     return boardConclusiBadgeHelper(item, (value) => this.conclusiWeekLabel(value));
   }
@@ -922,10 +931,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   nextStatusLabel(status: string): string {
     return this.allowedNextStatuses(status)[0] ?? 'Ordine completato';
-  }
-
-  selectedCementiSummary(): { tipoId: number; nome: string; selezionato: boolean; ordinata: boolean; fatta: boolean }[] {
-    return selectedCementiSummaryHelper(this.cementiSelections);
   }
 
   cementoBadgeClass(sel: { selezionato: boolean; ordinata: boolean; fatta: boolean }): string {

@@ -29,6 +29,8 @@ export interface KanbanBoardHost {
   lateCountByStatus(status: ConsegnaStatus): number;
   lateDays(item: ConsegnaRecord): number;
   loadingBoard: boolean;
+  boardOperaiSummary(item: ConsegnaRecord): string[];
+  boardOperaiWarning(item: ConsegnaRecord): string | null;
   onFilterSelectChange(): void;
   onFilterTextChange(): void;
   onKanbanBottomScroll(): void;

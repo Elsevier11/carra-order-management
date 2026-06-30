@@ -152,6 +152,17 @@
                           </div>
                         }
                       }
+                      @if (app.boardOperaiWarning(item); as operaiWarning) {
+                        <div class="kanban-card-alerts">
+                          <span class="kanban-card-alert">{{ operaiWarning }}</span>
+                        </div>
+                      } @else if (app.boardOperaiSummary(item).length) {
+                        <div class="kanban-card-alerts kanban-card-alerts--operai">
+                          @for (operaio of app.boardOperaiSummary(item); track operaio) {
+                            <span class="kanban-card-alert">{{ operaio }}</span>
+                          }
+                        </div>
+                      }
                       @if (app.boardConclusiBadge(item); as conclusiBadge) {
                         <div class="kanban-card-alerts kanban-card-alerts--conclusi">
                           <span class="kanban-card-alert kanban-card-alert--conclusi">{{ conclusiBadge }}</span>
@@ -202,6 +213,17 @@
                           }
                         </div>
                       }
+                    }
+                    @if (app.boardOperaiWarning(item); as operaiWarning) {
+                      <div class="kanban-card-alerts">
+                        <span class="kanban-card-alert">{{ operaiWarning }}</span>
+                      </div>
+                    } @else if (app.boardOperaiSummary(item).length) {
+                      <div class="kanban-card-alerts kanban-card-alerts--operai">
+                        @for (operaio of app.boardOperaiSummary(item); track operaio) {
+                          <span class="kanban-card-alert">{{ operaio }}</span>
+                        }
+                      </div>
                     }
                     @if (app.boardConclusiBadge(item); as conclusiBadge) {
                       <div class="kanban-card-alerts kanban-card-alerts--conclusi">
