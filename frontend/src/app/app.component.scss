@@ -316,51 +316,27 @@
   font-weight: 800;
 }
 
-.kanban-header-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 10px;
-  min-width: 0;
-}
-
-.kanban-header-actions button {
-  width: auto;
-  min-width: 148px;
-}
-
 .kanban-hero__filters {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.kanban-hero__advanced-filters {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 2px 2px 0;
+  align-items: end;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 
 .kanban-filters {
   display: grid;
-  grid-template-columns: minmax(200px, 1.2fr) minmax(150px, 0.7fr) repeat(2, minmax(132px, 0.62fr)) auto auto;
+  grid-template-columns: minmax(140px, 0.78fr) minmax(150px, 0.92fr) minmax(150px, 0.78fr);
   gap: 10px;
   align-items: end;
-  flex: 1 1 720px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
-.kanban-reset-btn {
-  min-width: 116px;
-}
-
-.kanban-toggle--inline {
-  min-height: 40px;
-  padding: 0 12px;
+.kanban-hero__filters > button {
+  width: auto;
+  min-width: 140px;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -375,22 +351,6 @@
 
 .kanban-col-toggles--inline {
   flex: 1 1 auto;
-}
-
-.kanban-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.kanban-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
 }
 
 .kanban-col-toggles-label {
@@ -1171,8 +1131,8 @@
 .kanban-card-alerts {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -1183,13 +1143,13 @@
   align-items: center;
   max-width: 100%;
   min-width: 0;
-  padding: 2px 7px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #f59e0b;
-  font-size: 0.67rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 800;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;

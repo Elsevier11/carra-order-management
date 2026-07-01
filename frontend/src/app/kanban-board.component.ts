@@ -25,9 +25,7 @@ export interface KanbanBoardHost {
   isLate(item: ConsegnaRecord): boolean;
   kanbanCompactMode: boolean;
   kanbanScrollContentWidth: number;
-  lateCount(items: ConsegnaRecord[]): number;
-  lateCountByStatus(status: ConsegnaStatus): number;
-  lateDays(item: ConsegnaRecord): number;
+  responsabiliRows: Array<{ id: number; nome: string }>;
   loadingBoard: boolean;
   boardOperaiSummary(item: ConsegnaRecord): string[];
   boardOperaiWarning(item: ConsegnaRecord): string | null;
@@ -43,9 +41,7 @@ export interface KanbanBoardHost {
   resetFilters(): void;
   selectFromBoard(item: ConsegnaRecord): void;
   showFiltersPanel: boolean;
-  showOnlyLateInKanban: boolean;
   statusFlow: ConsegnaStatus[];
-  totalLateCount: number;
   toggleColumnVisibility(status: ConsegnaStatus): void;
   toggleFiltersPanel(): void;
   visibleKanbanCount(items: ConsegnaRecord[]): number;

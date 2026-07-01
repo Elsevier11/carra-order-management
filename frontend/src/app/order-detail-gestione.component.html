@@ -148,7 +148,7 @@
           <span class="kv-value">{{ detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : '—' }}</span>
         </div>
       </div>
-      <p class="tab-save-hint">Questo dato viene impostato nel passaggio da <strong>ASSEGNATO</strong> a <strong>CONCLUSI</strong>.</p>
+      <p class="tab-save-hint">Questo dato viene confermato nel passaggio da <strong>CONCLUSI</strong> a <strong>PRONTI &amp; AVVISATI</strong>.</p>
     </ng-container>
 
     <ng-container *ngSwitchDefault>
@@ -168,7 +168,7 @@
         <span class="kv-value">{{ detail.conclusiMode === 'date' && detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : '—' }}</span>
       </div>
     </div>
-    <p class="tab-save-hint">Questo dato viene impostato nel passaggio da <strong>ASSEGNATO</strong> a <strong>CONCLUSI</strong> e resta visibile negli stati successivi.</p>
+    <p class="tab-save-hint">Questo dato viene confermato nel passaggio da <strong>CONCLUSI</strong> a <strong>PRONTI &amp; AVVISATI</strong> e resta visibile negli stati successivi.</p>
   </div>
 
   <div class="detail-section">

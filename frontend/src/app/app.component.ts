@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, Type, ViewChild, inject } from '@angular/core';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, Observable, Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
@@ -102,7 +101,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly consegneService = inject(ConsegneService);
   private readonly authService = inject(AuthService);
   private readonly settingsService = inject(SettingsService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   rows: ConsegnaRecord[] = [];
   total = 0;
@@ -168,12 +166,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     order: null,
     fromStatus: '',
     toStatus: '',
+    disegnoSpeditoAt: '',
+    disegnoMittenteId: null,
+    disegnoApprovatoAt: '',
     lavorazioneAssegnataAt: '',
+    consegnaDataEffettiva: '',
+    vettoreId: null,
+    bilici: null,
     operaiIds: [],
     skipAssegnazione: false,
     conclusiMode: 'week',
     conclusiWeek: '',
     conclusiDate: '',
+    accontoPagato: false,
     note: '',
     error: '',
   };
@@ -186,6 +191,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     q: '',
     cliente: '',
     stato: '',
+    responsabileInternoId: '',
     fromDate: '',
     toDate: '',
   };
@@ -408,7 +414,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get activeFiltersCount(): number {
-    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.fromDate, this.filters.toDate, this.showOnlyLateInKanban]
+    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.responsabileInternoId, this.filters.fromDate, this.filters.toDate, this.showOnlyLateInKanban]
       .filter((v) => !!v).length;
   }
 
@@ -881,6 +887,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.lateCount(column?.items ?? []);
   }
 
+  showLateCountBadge(status: ConsegnaStatus): boolean {
+    const visibleFrom = this.statusFlow.indexOf('PRONTI & AVVISATI');
+    return this.statusFlow.indexOf(status) >= visibleFrom && this.lateCountByStatus(status) > 0;
+  }
+
   get totalLateCount(): number {
     return this.boardColumns.reduce((acc, column) => acc + this.lateCount(column.items), 0);
   }
@@ -894,6 +905,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return dueDate < today;
+  }
+
+  showLateBadge(item: ConsegnaRecord): boolean {
+    return ['PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(item.stato) && this.isLate(item);
   }
 
   lateDays(item: ConsegnaRecord): number {
@@ -991,33 +1006,49 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       order: null,
       fromStatus: '',
       toStatus: '',
+      disegnoSpeditoAt: '',
+      disegnoMittenteId: null,
+      disegnoApprovatoAt: '',
       lavorazioneAssegnataAt: '',
+      consegnaDataEffettiva: '',
+      vettoreId: null,
+      bilici: null,
       operaiIds: [],
       skipAssegnazione: false,
       conclusiMode: 'week',
       conclusiWeek: '',
       conclusiDate: '',
+      accontoPagato: false,
       note: '',
       error: '',
     };
   }
 
   private openTransitionModal(order: ConsegnaRecord, fromStatus: ConsegnaStatus, toStatus: ConsegnaStatus, note = ''): void {
+    const conclusiMode = order.conclusiMode ?? 'week';
+    const transitionsNeedLookupLists = ['DISEGNO IN GESTIONE', 'ASSEGNATO', 'CONSEGNA PIANIFICATA'].includes(toStatus);
     this.dropTransitionModal = {
       open: true,
       order,
       fromStatus,
       toStatus,
+      disegnoSpeditoAt: toStatus === 'DISEGNO IN GESTIONE' ? (order.disegnoSpeditoAt ?? this.todayIsoDate()) : '',
+      disegnoMittenteId: toStatus === 'DISEGNO IN GESTIONE' ? (order.disegnoMittenteId ?? null) : null,
+      disegnoApprovatoAt: toStatus === 'DISEGNO APPROVATO' ? (order.disegnoApprovatoAt ?? this.todayIsoDate()) : '',
       lavorazioneAssegnataAt: toStatus === 'ASSEGNATO' ? (order.lavorazioneAssegnataAt ?? this.todayIsoDate()) : '',
+      consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(toStatus) ? (order.consegnaDataEffettiva ?? order.dataConsegna ?? this.todayIsoDate()) : '',
+      vettoreId: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.vettoreId ?? null) : null,
+      bilici: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.bilici ?? 0) : null,
       operaiIds: toStatus === 'ASSEGNATO' ? (order.operaiAssegnati ?? []).map((op) => op.id) : [],
       skipAssegnazione: false,
-      conclusiMode: toStatus === 'CONCLUSI' ? 'week' : 'week',
-      conclusiWeek: toStatus === 'CONCLUSI' ? this.todayIsoWeek() : '',
-      conclusiDate: toStatus === 'CONCLUSI' ? this.todayIsoDate() : '',
+      conclusiMode,
+      conclusiWeek: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'week' ? order.conclusiWeek ?? this.todayIsoWeek() : order.conclusiWeek ?? this.todayIsoWeek()) : '',
+      conclusiDate: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'date' ? order.conclusiDate ?? this.todayIsoDate() : order.conclusiDate ?? this.todayIsoDate()) : '',
+      accontoPagato: toStatus === 'CONSEGNA PIANIFICATA' ? !!order.accontoPagato : false,
       note,
       error: '',
     };
-    if (toStatus === 'ASSEGNATO' || toStatus === 'CONCLUSI') {
+    if (transitionsNeedLookupLists) {
       this.loadLookupLists();
     }
   }
@@ -1034,12 +1065,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.pendingTransitionId = orderId;
     this.consegneService.transition(orderId, modal.toStatus, modal.note.trim() || undefined, {
+      disegnoSpeditoAt: modal.toStatus === 'DISEGNO IN GESTIONE' ? modal.disegnoSpeditoAt : undefined,
+      disegnoMittenteId: modal.toStatus === 'DISEGNO IN GESTIONE' ? modal.disegnoMittenteId : undefined,
+      disegnoApprovatoAt: modal.toStatus === 'DISEGNO APPROVATO' ? modal.disegnoApprovatoAt : undefined,
       lavorazioneAssegnataAt: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.lavorazioneAssegnataAt : undefined,
+      consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(modal.toStatus) ? modal.consegnaDataEffettiva : undefined,
+      vettoreId: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.vettoreId : undefined,
+      bilici: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.bilici : undefined,
+      accontoPagato: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.accontoPagato : undefined,
       operaiIds: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.operaiIds : undefined,
       skipAssegnazione,
-      conclusiMode: modal.toStatus === 'CONCLUSI' ? modal.conclusiMode : undefined,
-      conclusiWeek: modal.toStatus === 'CONCLUSI' && modal.conclusiMode === 'week' ? modal.conclusiWeek : undefined,
-      conclusiDate: modal.toStatus === 'CONCLUSI' && modal.conclusiMode === 'date' ? modal.conclusiDate : undefined,
+      conclusiMode: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(modal.toStatus) ? modal.conclusiMode : undefined,
+      conclusiWeek: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(modal.toStatus) && modal.conclusiMode === 'week' ? modal.conclusiWeek : undefined,
+      conclusiDate: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(modal.toStatus) && modal.conclusiMode === 'date' ? modal.conclusiDate : undefined,
     }).subscribe({
       next: () => {
         this.notifySuccess(`Stato aggiornato a ${modal.toStatus}`);
@@ -1068,6 +1106,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       q: '',
       cliente: '',
       stato: '',
+      responsabileInternoId: '',
       fromDate: '',
       toDate: '',
     };
@@ -1626,6 +1665,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const map: Record<string, string> = {
       ORDER_CREATED: 'Ordine creato',
       ORDER_UPDATED: 'Ordine modificato',
+      ORDER_DELETED: 'Ordine eliminato',
       STATUS_CHANGED: 'Cambio stato',
       STATUS_SUSPENDED: 'Sospensione',
       ATTACHMENT_ADDED: 'Allegato aggiunto',
@@ -1645,6 +1685,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   auditActionClass(action: string): string {
     if (action.includes('FAIL') || action.includes('ERROR')) return 'audit-badge--error';
     if (action === 'ORDER_CREATED' || action === 'USER_CREATED') return 'audit-badge--created';
+    if (action === 'ORDER_DELETED') return 'audit-badge--error';
     if (action === 'STATUS_CHANGED' || action === 'STATUS_SUSPENDED') return 'audit-badge--status';
     if (action.includes('LOGIN')) return 'audit-badge--auth';
     if (action.includes('ATTACHMENT')) return 'audit-badge--attachment';
@@ -2158,6 +2199,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'CONSEGNE_LIST': return `Lista consegne: trovati ${d?.['total'] ?? '?'} risultati`;
       case 'ORDER_CREATED': return 'Nuovo ordine inserito nel sistema';
       case 'ORDER_UPDATED': return 'Dati ordine modificati';
+      case 'ORDER_DELETED': return `Ordine eliminato${d?.['rif'] ? `: ${d['rif']}` : ''}`;
       case 'STATUS_CHANGED': return `Stato cambiato: ${d?.['from'] ?? '?'} → ${d?.['to'] ?? '?'}`;
       case 'STATUS_SUSPENDED': return 'Ordine messo in sospensione';
       case 'AUTH_LOGIN_SUCCESS': return 'Accesso effettuato con successo';
@@ -2697,10 +2739,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     navigator.clipboard.writeText(path);
   }
 
-  folderProtocolUrl(path: string): SafeUrl {
-    return this.sanitizer.bypassSecurityTrustUrl('carra-folder:' + encodeURIComponent(path));
-  }
-
   pasteFolderPath(field: 'documenti' | 'foto'): void {
     navigator.clipboard.readText().then(text => {
       const trimmed = text?.trim();
@@ -2725,6 +2763,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   clearFolderPath(field: 'documenti' | 'foto'): void {
     this.saveFolderPath(field, '');
+  }
+
+  openFolder(path: string | null | undefined): void {
+    const trimmedPath = path?.trim();
+    if (!trimmedPath) return;
+
+    this.consegneService.openFolder(trimmedPath).subscribe({
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Impossibile aprire la cartella';
+        setTimeout(() => { this.operationError = ''; }, 3000);
+      },
+    });
   }
 
   private savePreset(): void {
@@ -2781,6 +2831,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private normalizeFiltersAgainstAvailableOptions(): void {
     if (this.filters.cliente && !this.availableFilters.clienti.includes(this.filters.cliente)) this.filters.cliente = '';
     if (this.filters.stato && !this.availableFilters.stati.includes(this.filters.stato)) this.filters.stato = '';
+    if (this.filters.responsabileInternoId) {
+      const id = Number(this.filters.responsabileInternoId);
+      if (!Number.isFinite(id) || id <= 0 || (this.responsabiliRows.length > 0 && !this.responsabiliRows.some((item) => item.id === id))) {
+        this.filters.responsabileInternoId = '';
+      }
+    }
     this.normalizeDateFilters();
   }
 

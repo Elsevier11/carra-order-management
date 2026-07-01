@@ -1,32 +1,71 @@
-import { describe, expect, it } from 'vitest';
-import { validateTransitionState } from './transition-validation';
+import { describe, expect, it } from 'vitest'
+import { validateTransitionState } from './transition-validation'
 
 describe('validateTransitionState', () => {
-  it('requires assignment data for ASSEGNATO unless skipAssegnazione is true', () => {
-    expect(validateTransitionState({ toStatus: 'ASSEGNATO' })).toBe('Inserisci la data assegnazione.');
+  it('requires drawing dispatch data for DISEGNO IN GESTIONE', () => {
     expect(
       validateTransitionState({
-        toStatus: 'ASSEGNATO',
-        skipAssegnazione: false,
-        lavorazioneAssegnataAt: '2026-06-23',
+        toStatus: 'DISEGNO IN GESTIONE',
+        disegnoSpeditoAt: '',
+        disegnoMittenteId: null,
       }),
-    ).toBe('Seleziona almeno un operaio.');
+    ).toMatch(/spedizione disegno/i)
+
     expect(
       validateTransitionState({
-        toStatus: 'ASSEGNATO',
-        skipAssegnazione: true,
+        toStatus: 'DISEGNO IN GESTIONE',
+        disegnoSpeditoAt: '2026-07-01',
+        disegnoMittenteId: 3,
       }),
-    ).toBeNull();
-  });
+    ).toBeNull()
+  })
 
-  it('requires week or date for CONCLUSI', () => {
-    expect(validateTransitionState({ toStatus: 'CONCLUSI', conclusiMode: 'week' })).toBe('Seleziona la settimana.');
-    expect(validateTransitionState({ toStatus: 'CONCLUSI', conclusiMode: 'date' })).toBe('Seleziona la data.');
-    expect(validateTransitionState({ toStatus: 'CONCLUSI', conclusiMode: 'week', conclusiWeek: '2026-W26' })).toBeNull();
-  });
+  it('requires A.M.P. data for PRONTI & AVVISATI', () => {
+    expect(
+      validateTransitionState({
+        toStatus: 'PRONTI & AVVISATI',
+        conclusiMode: 'week',
+        conclusiWeek: '',
+      }),
+    ).toMatch(/settimana/i)
 
-  it('requires a note for SOSPESO', () => {
-    expect(validateTransitionState({ toStatus: 'SOSPESO', note: '   ' })).toBe('Inserisci il motivo della sospensione.');
-    expect(validateTransitionState({ toStatus: 'SOSPESO', note: 'Motivo' })).toBeNull();
-  });
-});
+    expect(
+      validateTransitionState({
+        toStatus: 'PRONTI & AVVISATI',
+        conclusiMode: 'date',
+        conclusiDate: '2026-07-01',
+      }),
+    ).toBeNull()
+  })
+
+  it('requires delivery planning data and paid deposit for CONSEGNA PIANIFICATA', () => {
+    expect(
+      validateTransitionState({
+        toStatus: 'CONSEGNA PIANIFICATA',
+        consegnaDataEffettiva: '2026-07-01',
+        vettoreId: 4,
+        bilici: 2,
+        accontoPagato: false,
+      }),
+    ).toMatch(/acconto/i)
+
+    expect(
+      validateTransitionState({
+        toStatus: 'CONSEGNA PIANIFICATA',
+        consegnaDataEffettiva: '2026-07-01',
+        vettoreId: 4,
+        bilici: 2,
+        accontoPagato: true,
+      }),
+    ).toBeNull()
+  })
+
+  it('requires delivery date for CONSEGNA EFFETTUATA', () => {
+    expect(
+      validateTransitionState({
+        toStatus: 'CONSEGNA EFFETTUATA',
+        consegnaDataEffettiva: '',
+      }),
+    ).toMatch(/consegna effettiva/i)
+  })
+})

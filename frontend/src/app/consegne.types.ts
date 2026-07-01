@@ -135,6 +135,7 @@ export interface ConsegnaFilters {
   q?: string;
   cliente?: string;
   stato?: string;
+  responsabileInternoId?: number | string;
   fromDate?: string;
   toDate?: string;
 }

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Router } from 'express'
@@ -28,6 +29,9 @@ const allowedAttachmentMimeTypes = (process.env.ATTACHMENTS_ALLOWED_MIME ?? 'app
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean)
 const completedStatuses = new Set(['CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA EFFETTUATA'])
+const openFolderSchema = z.object({
+  path: z.string().min(1),
+})
 const roleAttachmentLimits = {
   admin: {
     maxBytes: Number(process.env.ATTACHMENTS_MAX_SIZE_ADMIN ?? 15 * 1024 * 1024),
@@ -90,6 +94,7 @@ const listQuerySchema = z.object({
   q: z.string().optional(),
   cliente: z.string().optional(),
   stato: z.string().optional(),
+  responsabileInternoId: z.coerce.number().int().positive().optional(),
   fromDate: z.string().regex(dateOnlyRegex, 'fromDate must be YYYY-MM-DD').optional(),
   toDate: z.string().regex(dateOnlyRegex, 'toDate must be YYYY-MM-DD').optional(),
   sortBy: z.enum(['rif', 'cliente', 'dataConsegna', 'stato']).default('dataConsegna'),
@@ -119,6 +124,10 @@ function buildListFilters(query: ListQuery) {
 
   if (query.stato) {
     filters.push(ilike(ordini.stato, `%${query.stato.trim()}%`))
+  }
+
+  if (query.responsabileInternoId) {
+    filters.push(eq(ordini.responsabileInternoId, query.responsabileInternoId))
   }
 
   if (query.fromDate) {
@@ -185,8 +194,14 @@ const consegnaInputSchema = z.object({
 const transitionSchema = z.object({
   toStatus: z.enum(allowedStatuses),
   note: z.string().optional(),
-  lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  disegnoSpeditoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoSpeditoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  disegnoMittenteId: z.number().int().positive().optional().nullable(),
   disegnoApprovatoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoApprovatoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  vettoreId: z.number().int().positive().optional().nullable(),
+  bilici: z.number().int().min(0).optional(),
+  accontoPagato: z.boolean().optional(),
   operaiIds: z.array(z.number().int().positive()).optional(),
   skipAssegnazione: z.boolean().optional().default(false),
   conclusiMode: z.enum(['week', 'date']).optional(),
@@ -1144,6 +1159,42 @@ router.get('/:id/attachments', requireAuth, async (req: AuthenticatedRequest, re
   }
 })
 
+router.post('/open-folder', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const { path: folderPath } = openFolderSchema.parse(req.body)
+    const normalizedPath = folderPath.trim()
+
+    if (!path.win32.isAbsolute(normalizedPath)) {
+      return res.status(400).json({ message: 'Percorso cartella non valido' })
+    }
+
+    try {
+      await fs.access(normalizedPath)
+    } catch {
+      return res.status(404).json({ message: 'Cartella non trovata' })
+    }
+
+    const foregroundScript = [
+      '$folderPath = $args[0]',
+      '$process = Start-Process -FilePath explorer.exe -ArgumentList @($folderPath) -PassThru',
+      'Start-Sleep -Milliseconds 250',
+      '$wshell = New-Object -ComObject WScript.Shell',
+      'try { [void]$wshell.AppActivate($process.Id) } catch { }',
+    ].join('; ')
+
+    const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', foregroundScript, normalizedPath], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    child.unref()
+
+    return res.status(204).send()
+  } catch (error) {
+    return next(error)
+  }
+})
+
 router.post('/:id/attachments', requireAuth, requireRole(['admin', 'operativo']), upload.single('file'), async (req: AuthenticatedRequest, res, next) => {
   try {
     const id = Number(req.params.id)
@@ -1310,12 +1361,6 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       return res.status(400).json({ message: 'Sospensione richiede un motivo' })
     }
 
-    if (payload.toStatus === 'PRONTI & AVVISATI' && !row.accontoPagato) {
-      return res.status(400).json({
-        message: "Impossibile avanzare a 'PRONTI & AVVISATI': acconto non ancora registrato come pagato.",
-      })
-    }
-
     if (payload.toStatus === 'ASSEGNATO' && !payload.skipAssegnazione) {
       if (!payload.lavorazioneAssegnataAt) {
         return res.status(400).json({ message: 'Data assegnazione obbligatoria per ASSEGNATO' })
@@ -1324,14 +1369,48 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         return res.status(400).json({ message: 'Seleziona almeno un operaio' })
       }
     }
-    if (payload.toStatus === 'CONCLUSI') {
+    if (payload.toStatus === 'CONCLUSI' || payload.toStatus === 'PRONTI & AVVISATI') {
       const conclusiMode = payload.conclusiMode ?? 'week'
       if (conclusiMode === 'week' && !payload.conclusiWeek) {
-        return res.status(400).json({ message: 'Settimana obbligatoria per CONCLUSI' })
+        return res.status(400).json({ message: 'Settimana obbligatoria per A.M.P.' })
       }
       if (conclusiMode === 'date' && !payload.conclusiDate) {
-        return res.status(400).json({ message: 'Data obbligatoria per CONCLUSI' })
+        return res.status(400).json({ message: 'Data obbligatoria per A.M.P.' })
       }
+    }
+
+    if (payload.toStatus === 'DISEGNO IN GESTIONE') {
+      if (!payload.disegnoSpeditoAt) {
+        return res.status(400).json({ message: 'Data spedizione disegno obbligatoria' })
+      }
+      if (!payload.disegnoMittenteId) {
+        return res.status(400).json({ message: 'Mittente disegno obbligatorio' })
+      }
+    }
+
+    if (payload.toStatus === 'DISEGNO APPROVATO' && !payload.disegnoApprovatoAt) {
+      return res.status(400).json({ message: 'Data approvazione disegno obbligatoria' })
+    }
+
+    if (payload.toStatus === 'CONSEGNA PIANIFICATA') {
+      if (!payload.consegnaDataEffettiva) {
+        return res.status(400).json({ message: 'Data consegna effettiva obbligatoria' })
+      }
+      if (!payload.vettoreId) {
+        return res.status(400).json({ message: 'Vettore obbligatorio' })
+      }
+      if (!Number.isFinite(payload.bilici ?? NaN) || Number(payload.bilici) < 0) {
+        return res.status(400).json({ message: 'Numero bilici obbligatorio' })
+      }
+      if (!(payload.accontoPagato ?? row.accontoPagato)) {
+        return res.status(400).json({
+          message: "Impossibile avanzare a 'CONSEGNA PIANIFICATA': acconto non ancora registrato come pagato.",
+        })
+      }
+    }
+
+    if (payload.toStatus === 'CONSEGNA EFFETTUATA' && !payload.consegnaDataEffettiva) {
+      return res.status(400).json({ message: 'Data consegna effettiva obbligatoria' })
     }
 
     const disegnoApprovatoAtValue =
@@ -1348,8 +1427,20 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       if (payload.toStatus === 'ASSEGNATO' && !payload.skipAssegnazione) {
         updateData.lavorazioneAssegnataAt = parseInputDate(payload.lavorazioneAssegnataAt!)
       }
+      if (payload.toStatus === 'DISEGNO IN GESTIONE') {
+        updateData.disegnoSpeditoAt = parseInputDate(payload.disegnoSpeditoAt!)
+        updateData.disegnoMittenteId = payload.disegnoMittenteId ?? null
+      }
       if (payload.toStatus === 'DISEGNO APPROVATO' && disegnoApprovatoAtValue) {
         updateData.disegnoApprovatoAt = disegnoApprovatoAtValue
+      }
+      if (payload.toStatus === 'CONSEGNA PIANIFICATA' || payload.toStatus === 'CONSEGNA EFFETTUATA') {
+        updateData.consegnaDataEffettiva = parseInputDate(payload.consegnaDataEffettiva!)
+      }
+      if (payload.toStatus === 'CONSEGNA PIANIFICATA') {
+        updateData.vettoreId = payload.vettoreId ?? null
+        updateData.bilici = payload.bilici ?? 0
+        updateData.accontoPagato = payload.accontoPagato ?? row.accontoPagato
       }
 
       const [result] = await tx.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
@@ -1360,23 +1451,39 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
     })
 
     const transitionDetails =
-      payload.toStatus === 'ASSEGNATO'
+      payload.toStatus === 'DISEGNO IN GESTIONE'
         ? {
-          lavorazioneAssegnataAt: payload.lavorazioneAssegnataAt,
-          operaiIds: payload.operaiIds ?? [],
-          skipAssegnazione: payload.skipAssegnazione ?? false,
+          disegnoSpeditoAt: payload.disegnoSpeditoAt,
+          disegnoMittenteId: payload.disegnoMittenteId ?? null,
         }
         : payload.toStatus === 'DISEGNO APPROVATO'
           ? {
             disegnoApprovatoAt: disegnoApprovatoAtValue ? disegnoApprovatoAtValue.toISOString().slice(0, 10) : null,
           }
-        : payload.toStatus === 'CONCLUSI'
+        : payload.toStatus === 'ASSEGNATO'
+          ? {
+            lavorazioneAssegnataAt: payload.lavorazioneAssegnataAt,
+            operaiIds: payload.operaiIds ?? [],
+            skipAssegnazione: payload.skipAssegnazione ?? false,
+          }
+        : payload.toStatus === 'CONCLUSI' || payload.toStatus === 'PRONTI & AVVISATI'
           ? {
             conclusiMode: payload.conclusiMode ?? 'week',
             conclusiWeek: (payload.conclusiMode ?? 'week') === 'week' ? payload.conclusiWeek ?? null : null,
             conclusiDate: (payload.conclusiMode ?? 'week') === 'date' ? payload.conclusiDate ?? null : null,
           }
-          : null
+        : payload.toStatus === 'CONSEGNA PIANIFICATA'
+          ? {
+            consegnaDataEffettiva: payload.consegnaDataEffettiva,
+            vettoreId: payload.vettoreId ?? null,
+            bilici: payload.bilici ?? 0,
+            accontoPagato: payload.accontoPagato ?? row.accontoPagato,
+          }
+        : payload.toStatus === 'CONSEGNA EFFETTUATA'
+          ? {
+            consegnaDataEffettiva: payload.consegnaDataEffettiva,
+          }
+        : null
 
     await addOrderEvent({
       orderId: id,
@@ -1967,6 +2074,27 @@ router.delete('/:id', requireAuth, requireRole(['admin', 'operativo']), async (r
 
     if (!Number.isFinite(id)) {
       return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const [existing] = await db
+      .select({ id: ordini.id, rif: ordini.rifto, cliente: ordini.cliente, stato: ordini.stato })
+      .from(ordini)
+      .where(eq(ordini.id, id))
+      .limit(1)
+
+    if (!existing) {
+      return res.status(404).json({ message: 'Consegna not found' })
+    }
+
+    req.auditMeta = {
+      action: 'ORDER_DELETED',
+      entity: 'consegna',
+      entityId: id,
+      details: {
+        rif: existing.rif,
+        cliente: existing.cliente,
+        stato: existing.stato,
+      },
     }
 
     const [deleted] = await db.delete(ordini).where(eq(ordini.id, id)).returning({ id: ordini.id })

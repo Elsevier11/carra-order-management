@@ -1,17 +1,3 @@
-<section class="kanban-toolbar">
-  <div class="kanban-kpi">
-    <span class="sla-badge late sla-badge--total">Totale ritardi: {{ app.totalLateCount }}</span>
-    @for (status of app.statusFlow; track status) {
-      @if (app.lateCountByStatus(status) > 0) {
-        <span class="status-chip" [ngClass]="app.columnClass(status)">{{ status }}: {{ app.lateCountByStatus(status) }}</span>
-      }
-    }
-  </div>
-  <div class="kanban-toolbar-actions">
-    <button type="button" class="ghost" (click)="app.exportXlsx()">Export Excel</button>
-  </div>
-</section>
-
 <div class="kanban-hero">
   <div class="kanban-hero__top">
     <div class="kanban-page-header-left">
@@ -39,17 +25,6 @@
         }
       </div>
     </div>
-    <div class="kanban-header-actions">
-      <button type="button" class="ghost" (click)="app.toggleFiltersPanel()">
-        {{ app.showFiltersPanel ? 'Nascondi filtri' : 'Filtri avanzati' }}
-      </button>
-      @if (app.canWrite) {
-        <button type="button" (click)="app.openCreate()">Nuovo ordine</button>
-      }
-      @if (app.canWrite) {
-        <button type="button" class="ghost" (click)="app.openSqlImportModal()">Importa da ERP</button>
-      }
-    </div>
   </div>
 
   <div class="kanban-hero__filters">
@@ -61,27 +36,19 @@
           <option [value]="cliente">{{ cliente }}</option>
         }
       </select>
+      <select [(ngModel)]="app.filters.responsabileInternoId" (ngModelChange)="app.onFilterSelectChange()">
+        <option value="">Tutti i responsabili</option>
+        @for (responsabile of app.responsabiliRows; track responsabile.id) {
+          <option [value]="responsabile.id">{{ responsabile.nome }}</option>
+        }
+      </select>
     </div>
+    @if (app.canWrite) {
+      <button type="button" (click)="app.openCreate()">Nuovo ordine</button>
+      <button type="button" class="ghost" (click)="app.openSqlImportModal()">Importa da ERP</button>
+    }
+    <button type="button" class="ghost" (click)="app.exportXlsx()">Export Excel</button>
   </div>
-  @if (app.showFiltersPanel) {
-    <div class="kanban-hero__advanced-filters">
-      <label class="date-filter-label">
-        <span>Dal</span>
-        <input type="date" [(ngModel)]="app.filters.fromDate" (ngModelChange)="app.onFilterSelectChange()" />
-      </label>
-      <label class="date-filter-label">
-        <span>Al</span>
-        <input type="date" [(ngModel)]="app.filters.toDate" (ngModelChange)="app.onFilterSelectChange()" />
-      </label>
-      <label class="kanban-toggle kanban-toggle--inline">
-        <input type="checkbox" [(ngModel)]="app.showOnlyLateInKanban" />
-        <span>Solo ritardi</span>
-      </label>
-      @if (app.activeFiltersCount > 0) {
-        <button type="button" class="ghost kanban-reset-btn" (click)="app.resetFilters()">Azzera filtri</button>
-      }
-    </div>
-  }
 </div>
 
 <div class="kanban-scroll-wrap" #kanbanMainScroll (scroll)="onMainScroll()">
@@ -97,41 +64,96 @@
     } @else {
       @for (column of app.boardColumns; track column.status) {
         @if (app.isColumnVisible(column.status)) {
-        <article class="kanban-column" [ngClass]="app.columnClass(column.status)">
-          <header>
-            <h2>{{ column.status }}</h2>
-            <div class="kanban-header-meta">
-              <span>{{ app.visibleKanbanCount(column.items) }}</span>
-              @if (app.lateCount(column.items) > 0) {
-                <span class="sla-badge late">{{ app.lateCount(column.items) }} ritardi</span>
-              }
-            </div>
-          </header>
-          <div
-            class="kanban-items"
-            cdkDropList
-            [id]="app.dropListId(column.status)"
-            [cdkDropListData]="column.items"
-            [cdkDropListConnectedTo]="app.boardDropListIds"
-            [cdkDropListDisabled]="app.showOnlyLateInKanban"
-            (cdkDropListDropped)="app.onKanbanDrop($event, column.status)"
-          >
-            @if (app.filteredKanbanItems(column.items).length === 0) {
-              <div class="kanban-empty">
-                @if (app.showOnlyLateInKanban) { Nessun ritardo } @else { Nessun ordine }
+          <article class="kanban-column" [ngClass]="app.columnClass(column.status)">
+            <header>
+              <h2>{{ column.status }}</h2>
+              <div class="kanban-header-meta">
+                <span>{{ app.visibleKanbanCount(column.items) }}</span>
               </div>
-            }
-            @if (column.status === 'CONSEGNA PIANIFICATA' || column.status === 'CONSEGNA EFFETTUATA') {
-              @for (group of app.weekGroups(column.items); track group.key) {
-                <div class="kanban-week-separator">{{ group.label }}</div>
-                @for (item of group.items; track item.id) {
+            </header>
+            <div
+              class="kanban-items"
+              cdkDropList
+              [id]="app.dropListId(column.status)"
+              [cdkDropListData]="column.items"
+              [cdkDropListConnectedTo]="app.boardDropListIds"
+              (cdkDropListDropped)="app.onKanbanDrop($event, column.status)"
+            >
+              @if (app.filteredKanbanItems(column.items).length === 0) {
+                <div class="kanban-empty">
+                  Nessun ordine
+                </div>
+              }
+              @if (column.status === 'CONSEGNA PIANIFICATA' || column.status === 'CONSEGNA EFFETTUATA') {
+                @for (group of app.weekGroups(column.items); track group.key) {
+                  <div class="kanban-week-separator">{{ group.label }}</div>
+                  @for (item of group.items; track item.id) {
+                    <div class="kanban-card-wrap">
+                      <button
+                      type="button"
+                      class="kanban-card"
+                      [class.kanban-card--compact]="app.kanbanCompactMode"
+                      cdkDrag
+                      [disabled]="!app.canWrite"
+                      (click)="app.selectFromBoard(item)"
+                    >
+                        <strong>{{ item.rif }}</strong>
+                        <span class="kanban-card-cliente">{{ item.cliente }}</span>
+                        @if (item.tipoImpianto) {
+                          <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
+                        }
+                        <div class="kanban-card-meta">
+                          <span class="kanban-card-meta__order">Ordine {{ item.dataOrdine ? (item.dataOrdine | date:'dd/MM/yy') : '—' }}</span>
+                          <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
+                        </div>
+                        @if (app.orderWarnings(item); as warnings) {
+                          @if (warnings.length) {
+                            <div class="kanban-card-alerts">
+                              @for (warning of warnings; track warning) {
+                                <span class="kanban-card-alert">{{ warning }}</span>
+                              }
+                            </div>
+                          }
+                        }
+                        @if (app.boardOperaiWarning(item); as operaiWarning) {
+                          <div class="kanban-card-alerts">
+                            <span class="kanban-card-alert">{{ operaiWarning }}</span>
+                          </div>
+                        } @else if (app.boardOperaiSummary(item).length) {
+                          <div class="kanban-card-alerts kanban-card-alerts--operai">
+                            @for (operaio of app.boardOperaiSummary(item); track operaio) {
+                              <span class="kanban-card-alert">{{ operaio }}</span>
+                            }
+                          </div>
+                        }
+                        @if (app.boardConclusiBadge(item); as conclusiBadge) {
+                          <div class="kanban-card-alerts kanban-card-alerts--conclusi">
+                            <span class="kanban-card-alert kanban-card-alert--conclusi">{{ conclusiBadge }}</span>
+                          </div>
+                        }
+                        @if (app.boardCementiSummary(item).length) {
+                          <div class="kanban-card-alerts kanban-card-alerts--cementi">
+                            @for (cemento of app.boardCementiSummary(item); track cemento.nome) {
+                              <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
+                            }
+                          </div>
+                        }
+                      </button>
+                      <button type="button" class="kanban-history-btn" aria-label="Percorso ordine" title="Percorso ordine" (click)="app.openHistoryModal(item)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      </button>
+                    </div>
+                  }
+                }
+              } @else {
+                @for (item of app.filteredKanbanItems(column.items); track item.id) {
                   <div class="kanban-card-wrap">
                     <button
                       type="button"
                       class="kanban-card"
                       [class.kanban-card--compact]="app.kanbanCompactMode"
                       cdkDrag
-                      [disabled]="!app.canWrite || app.showOnlyLateInKanban"
+                      [disabled]="!app.canWrite"
                       (click)="app.selectFromBoard(item)"
                     >
                       <strong>{{ item.rif }}</strong>
@@ -175,9 +197,6 @@
                           }
                         </div>
                       }
-                      @if (app.isLate(item)) {
-                        <span class="sla-badge late">Ritardo {{ app.lateDays(item) }}g</span>
-                      }
                     </button>
                     <button type="button" class="kanban-history-btn" aria-label="Percorso ordine" title="Percorso ordine" (click)="app.openHistoryModal(item)">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -185,70 +204,8 @@
                   </div>
                 }
               }
-            } @else {
-              @for (item of app.filteredKanbanItems(column.items); track item.id) {
-                <div class="kanban-card-wrap">
-                  <button
-                    type="button"
-                    class="kanban-card"
-                    [class.kanban-card--compact]="app.kanbanCompactMode"
-                    cdkDrag
-                    [disabled]="!app.canWrite || app.showOnlyLateInKanban"
-                    (click)="app.selectFromBoard(item)"
-                  >
-                    <strong>{{ item.rif }}</strong>
-                    <span class="kanban-card-cliente">{{ item.cliente }}</span>
-                    @if (item.tipoImpianto) {
-                      <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
-                    }
-                    <div class="kanban-card-meta">
-                      <span class="kanban-card-meta__order">Ordine {{ item.dataOrdine ? (item.dataOrdine | date:'dd/MM/yy') : '—' }}</span>
-                      <span class="kanban-card-meta__date">{{ item.dataConsegna ? (item.dataConsegna | date:'dd/MM/yy') : '—' }}</span>
-                    </div>
-                    @if (app.orderWarnings(item); as warnings) {
-                      @if (warnings.length) {
-                        <div class="kanban-card-alerts">
-                          @for (warning of warnings; track warning) {
-                            <span class="kanban-card-alert">{{ warning }}</span>
-                          }
-                        </div>
-                      }
-                    }
-                    @if (app.boardOperaiWarning(item); as operaiWarning) {
-                      <div class="kanban-card-alerts">
-                        <span class="kanban-card-alert">{{ operaiWarning }}</span>
-                      </div>
-                    } @else if (app.boardOperaiSummary(item).length) {
-                      <div class="kanban-card-alerts kanban-card-alerts--operai">
-                        @for (operaio of app.boardOperaiSummary(item); track operaio) {
-                          <span class="kanban-card-alert">{{ operaio }}</span>
-                        }
-                      </div>
-                    }
-                    @if (app.boardConclusiBadge(item); as conclusiBadge) {
-                      <div class="kanban-card-alerts kanban-card-alerts--conclusi">
-                        <span class="kanban-card-alert kanban-card-alert--conclusi">{{ conclusiBadge }}</span>
-                      </div>
-                    }
-                    @if (app.boardCementiSummary(item).length) {
-                      <div class="kanban-card-alerts kanban-card-alerts--cementi">
-                        @for (cemento of app.boardCementiSummary(item); track cemento.nome) {
-                          <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
-                        }
-                      </div>
-                    }
-                    @if (app.isLate(item)) {
-                      <span class="sla-badge late">Ritardo {{ app.lateDays(item) }}g</span>
-                    }
-                  </button>
-                  <button type="button" class="kanban-history-btn" aria-label="Percorso ordine" title="Percorso ordine" (click)="app.openHistoryModal(item)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  </button>
-                </div>
-              }
-            }
-          </div>
-        </article>
+            </div>
+          </article>
         }
       }
     }

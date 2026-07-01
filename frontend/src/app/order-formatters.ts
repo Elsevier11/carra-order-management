@@ -2,14 +2,13 @@ import type { ConsegnaRecord } from './consegne.types';
 
 export function orderWarnings(item: ConsegnaRecord, isLate: (order: ConsegnaRecord) => boolean, lateDays: (order: ConsegnaRecord) => number): string[] {
   const warnings: string[] = [];
-  if (isLate(item)) warnings.push(`Ritardo ${lateDays(item)}g`);
   if (!item.dataConsegna) warnings.push('Data consegna mancante');
   if (!item.responsabileInternoId) warnings.push('Resp. mancante');
   return warnings;
 }
 
 export function boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }> {
-  if (item.stato !== 'DISEGNO APPROVATO' || !item.cementi?.length) return [];
+  if (!['DISEGNO APPROVATO', 'DA ASSEGNARE'].includes(item.stato) || !item.cementi?.length) return [];
   return item.cementi
     .filter((cemento) => cemento !== null && cemento !== undefined)
     .map((cemento) => ({
@@ -47,6 +46,7 @@ export function detailMissingItems(item: ConsegnaRecord): string[] {
     if (!item.consegnaDataEffettiva) missing.push('Data consegna effettiva');
     if (!item.vettoreId) missing.push('Vettore');
     if (!item.ddtPronti) missing.push('DDT pronti');
+    if (!item.accontoPagato) missing.push('Acconto pagato');
   }
   return missing;
 }

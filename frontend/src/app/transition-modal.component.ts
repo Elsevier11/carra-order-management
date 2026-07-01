@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Operaio } from './consegne.types';
+import { MittenteDisegno, Operaio, Vettore } from './consegne.types';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
 import { validateTransitionState } from '../../../src/shared/transition-validation';
 
@@ -10,12 +10,19 @@ export interface TransitionModalModel {
   order: { id: number; rif: string } | null;
   fromStatus: ConsegnaStatus | '';
   toStatus: ConsegnaStatus | '';
+  disegnoSpeditoAt: string;
+  disegnoMittenteId: number | null;
+  disegnoApprovatoAt: string;
   lavorazioneAssegnataAt: string;
+  consegnaDataEffettiva: string;
+  vettoreId: number | null;
+  bilici: number | null;
   operaiIds: number[];
   skipAssegnazione: boolean;
   conclusiMode: 'week' | 'date';
   conclusiWeek: string;
   conclusiDate: string;
+  accontoPagato: boolean;
   note: string;
   error: string;
 }
@@ -33,7 +40,9 @@ export interface TransitionConfirmRequest {
 })
 export class TransitionModalComponent {
   @Input({ required: true }) modal!: TransitionModalModel;
+  @Input() mittentiDisegno: MittenteDisegno[] = [];
   @Input() operaiList: Operaio[] = [];
+  @Input() vettoriList: Vettore[] = [];
   @Input() pendingTransitionId: number | null = null;
 
   @Output() confirm = new EventEmitter<TransitionConfirmRequest>();
@@ -53,7 +62,7 @@ export class TransitionModalComponent {
   }
 
   toggleConclusiMode(mode: 'week' | 'date'): void {
-    if (!this.modal.open || this.modal.toStatus !== 'CONCLUSI') return;
+    if (!this.modal.open || !['CONCLUSI', 'PRONTI & AVVISATI'].includes(this.modal.toStatus)) return;
     this.modal.conclusiMode = mode;
     if (mode === 'week' && !this.modal.conclusiWeek) {
       this.modal.conclusiWeek = this.todayIsoWeek();

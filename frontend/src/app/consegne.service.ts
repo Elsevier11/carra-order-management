@@ -56,12 +56,18 @@ export class ConsegneService {
     id: number,
     toStatus: string,
     note?: string,
-      payload?: {
-        lavorazioneAssegnataAt?: string | null;
-        disegnoApprovatoAt?: string | null;
-        operaiIds?: number[];
-        skipAssegnazione?: boolean;
-        conclusiMode?: 'week' | 'date';
+    payload?: {
+      disegnoSpeditoAt?: string | null;
+      disegnoMittenteId?: number | null;
+      disegnoApprovatoAt?: string | null;
+      lavorazioneAssegnataAt?: string | null;
+      consegnaDataEffettiva?: string | null;
+      vettoreId?: number | null;
+      bilici?: number | null;
+      accontoPagato?: boolean | null;
+      operaiIds?: number[];
+      skipAssegnazione?: boolean;
+      conclusiMode?: 'week' | 'date';
       conclusiWeek?: string | null;
       conclusiDate?: string | null;
     },
@@ -108,6 +114,10 @@ export class ConsegneService {
 
   deleteAttachment(orderId: number, attachmentId: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${orderId}/attachments/${attachmentId}`);
+  }
+
+  openFolder(path: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/open-folder`, { path });
   }
 
   listAudit(query: { page: number; pageSize: number; username?: string; action?: string; entity?: string; fromDate?: string; toDate?: string; success?: string }): Observable<AuditLogResponse> {

@@ -29,8 +29,8 @@ try {
     $handlerScript = @'
 # Handler interno - non modificare
 param([string]$Url)
-$path = [uri]::UnescapeDataString($Url.Substring(13))   # rimuove "carra-folder:"
-Start-Process explorer.exe -ArgumentList $path
+$path = [uri]::UnescapeDataString(($Url -replace '^carra-folder:(//)?', ''))
+Start-Process -FilePath explorer.exe -ArgumentList @($path)
 '@
     Set-Content -Path $handlerFile -Value $handlerScript -Encoding UTF8
 

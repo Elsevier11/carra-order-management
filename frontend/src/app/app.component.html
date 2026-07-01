@@ -710,14 +710,14 @@
           <div class="settings-card">
             <h2 class="settings-card-title">Funzione tecnica: apertura cartelle da browser</h2>
             <p class="settings-desc">
-              Per aprire le cartelle degli ordini con un click, ogni PC deve installare il protocollo
-              <code>carra-folder://</code> una volta sola.
+              Il pulsante nelle schede usa già l'apertura diretta della cartella. Il protocollo
+              <code>carra-folder://</code> resta disponibile come opzione alternativa su PC dedicati.
             </p>
             <ol class="settings-install-steps">
               <li>Scarica lo script qui sotto</li>
               <li>Clicca con il tasto destro sul file scaricato → <strong>Esegui con PowerShell</strong></li>
               <li>Conferma la richiesta di amministratore</li>
-              <li>Al termine, il bottone "Apri cartella" funzionerà su questo PC</li>
+              <li>Al termine, anche il protocollo esterno sarà disponibile su questo PC</li>
             </ol>
             <div class="settings-actions">
               <a class="btn" href="/installa-carra-folder.ps1" download="installa-carra-folder.ps1">
@@ -890,7 +890,9 @@
 
   <app-transition-modal
     [modal]="dropTransitionModal"
+    [mittentiDisegno]="mittentiDisegno"
     [operaiList]="operaiList"
+    [vettoriList]="vettoriList"
     [pendingTransitionId]="pendingTransitionId"
     (confirm)="confirmDropTransition($event.skipAssegnazione)"
     (decideLater)="confirmDropTransition(true)"

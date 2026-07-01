@@ -10,7 +10,26 @@
         Il cambio stato aggiorna il Kanban e viene registrato nello storico dell'ordine.
       </p>
       <div class="modal-grid">
-        @if (modal.toStatus === 'ASSEGNATO') {
+        @if (modal.toStatus === 'DISEGNO IN GESTIONE') {
+          <label class="form-field">
+            <span>Data spedizione disegno</span>
+            <input type="date" [(ngModel)]="modal.disegnoSpeditoAt" />
+          </label>
+          <label class="form-field">
+            <span>Mittente</span>
+            <select [(ngModel)]="modal.disegnoMittenteId">
+              <option [ngValue]="null">Seleziona mittente</option>
+              @for (mittente of mittentiDisegno; track mittente.id) {
+                <option [ngValue]="mittente.id">{{ mittente.nome }}</option>
+              }
+            </select>
+          </label>
+        } @else if (modal.toStatus === 'DISEGNO APPROVATO') {
+          <label class="form-field">
+            <span>Data approvazione disegno</span>
+            <input type="date" [(ngModel)]="modal.disegnoApprovatoAt" />
+          </label>
+        } @else if (modal.toStatus === 'ASSEGNATO') {
           <label class="form-field">
             <span>Data assegnazione</span>
             <input type="date" [(ngModel)]="modal.lavorazioneAssegnataAt" />
@@ -34,9 +53,9 @@
               }
             </div>
           </div>
-        } @else if (modal.toStatus === 'CONCLUSI') {
+        } @else if (modal.toStatus === 'CONCLUSI' || modal.toStatus === 'PRONTI & AVVISATI') {
           <div class="form-field" style="grid-column: 1 / -1;">
-            <span>Chiusura ordine</span>
+            <span>A.M.P.</span>
             <div class="transition-mode-switch">
               <button
                 type="button"
@@ -52,7 +71,7 @@
                 [class.active]="modal.conclusiMode === 'date'"
                 (click)="toggleConclusiMode('date')"
               >
-                DATA
+                Data
               </button>
             </div>
             @if (modal.conclusiMode === 'week') {
@@ -61,6 +80,33 @@
               <input type="date" [(ngModel)]="modal.conclusiDate" />
             }
           </div>
+        } @else if (modal.toStatus === 'CONSEGNA PIANIFICATA') {
+          <label class="form-field">
+            <span>Data consegna effettiva</span>
+            <input type="date" [(ngModel)]="modal.consegnaDataEffettiva" />
+          </label>
+          <label class="form-field">
+            <span>N° bilici</span>
+            <input type="number" min="0" step="1" [(ngModel)]="modal.bilici" />
+          </label>
+          <label class="form-field">
+            <span>Vettore</span>
+            <select [(ngModel)]="modal.vettoreId">
+              <option [ngValue]="null">Seleziona vettore</option>
+              @for (vettore of vettoriList; track vettore.id) {
+                <option [ngValue]="vettore.id">{{ vettore.nome }}</option>
+              }
+            </select>
+          </label>
+          <label class="form-field form-field--inline">
+            <input type="checkbox" [(ngModel)]="modal.accontoPagato" />
+            <span>Acconto pagato</span>
+          </label>
+        } @else if (modal.toStatus === 'CONSEGNA EFFETTUATA') {
+          <label class="form-field">
+            <span>Data consegna effettiva</span>
+            <input type="date" [(ngModel)]="modal.consegnaDataEffettiva" />
+          </label>
         }
         <input
           type="text"
