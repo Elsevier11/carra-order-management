@@ -342,8 +342,10 @@ describe.runIf(runDbTests)('Consegne API', () => {
     const deleted = await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
     expect(deleted.status).toBe(204)
 
-    const check = await db.select().from(ordini).where(eq(ordini.id, id))
-    expect(check).toHaveLength(0)
+    const check = await db.select({ deletedAt: ordini.deletedAt, deletedBy: ordini.deletedBy }).from(ordini).where(eq(ordini.id, id))
+    expect(check).toHaveLength(1)
+    expect(check[0].deletedAt).toBeTruthy()
+    expect(check[0].deletedBy).toBe('admin')
   })
 
   it('blocks duplicate creation on same cliente and tipoImpianto unless forced', async () => {

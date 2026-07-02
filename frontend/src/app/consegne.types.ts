@@ -93,6 +93,8 @@ export interface ConsegnaRecord {
   caricoVerificato: boolean;
   camSiNo: boolean;
   cementiNote: string | null;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
   conclusiMode?: 'week' | 'date' | null;
   conclusiWeek?: string | null;
   conclusiDate?: string | null;
@@ -245,6 +247,63 @@ export interface AuditLogRecord {
   createdAt: string;
 }
 
+export interface OrderActivityRecord {
+  id: number;
+  orderId: number;
+  rif: string;
+  cliente: string;
+  eventType: string;
+  activityKind: 'ORDER_CREATED' | 'ORDER_IMPORTED' | 'STATUS_CHANGED' | 'ORDER_UPDATED' | 'ORDER_DELETED';
+  actionLabel: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  note: string | null;
+  actor: string | null;
+  deletedAt: string | null;
+  deletedBy: string | null;
+  details: Record<string, unknown> | null;
+  summary: string;
+  createdAt: string;
+}
+
+export interface OrderActivityResponse {
+  data: OrderActivityRecord[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  summary: {
+    total: number;
+    actors: number;
+    orders: number;
+    deleted: number;
+    statusChanges: number;
+  };
+}
+
+export interface OrderActivityOptions {
+  actions: Array<{ value: string; label: string; count: number }>;
+  actors: Array<{ value: string; label: string; count: number }>;
+  orders: Array<{ value: string; label: string; count: number; deleted: boolean }>;
+  clients: Array<{ value: string; label: string; count: number }>;
+}
+
+export interface AuditLogSummary {
+  total: number;
+  orderDeleted: number;
+  statusChanged: number;
+  errors: number;
+  technical: number;
+  recent24h: number;
+  recent7d: number;
+  byAction: Array<{ label: string; count: number }>;
+  byActor: Array<{ label: string; count: number }>;
+  byEntity: Array<{ label: string; count: number }>;
+  byOrder: Array<{ label: string; count: number }>;
+}
+
 export interface AuditLogResponse {
   data: AuditLogRecord[];
   pagination: {
@@ -253,6 +312,7 @@ export interface AuditLogResponse {
     total: number;
     totalPages: number;
   };
+  summary?: AuditLogSummary;
 }
 
 export interface AppUserRecord {

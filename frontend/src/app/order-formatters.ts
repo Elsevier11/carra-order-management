@@ -1,6 +1,6 @@
 import type { ConsegnaRecord } from './consegne.types';
 
-export function orderWarnings(item: ConsegnaRecord, isLate: (order: ConsegnaRecord) => boolean, lateDays: (order: ConsegnaRecord) => number): string[] {
+export function orderWarnings(item: ConsegnaRecord, _isLate: (order: ConsegnaRecord) => boolean, _lateDays: (order: ConsegnaRecord) => number): string[] {
   const warnings: string[] = [];
   if (!item.dataConsegna) warnings.push('Data consegna mancante');
   if (!item.responsabileInternoId) warnings.push('Resp. mancante');

@@ -38,7 +38,7 @@
         @if (isAdmin) {
           <div class="sidebar-nav-group">
             <span class="sidebar-nav-group__label">Amministrazione</span>
-            <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Registro attività</button>
+            <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Storico ordini</button>
             <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
             <button type="button" [class.active]="activeView === 'settings'" (click)="changeView('settings')">Impostazioni</button>
           </div>
@@ -61,7 +61,7 @@
       @if (activeView === 'audit' || activeView === 'anagrafiche') {
         <div class="content-header">
           <h1 class="content-title">
-            @if (activeView === 'audit') { Registro attività }
+            @if (activeView === 'audit') { Storico ordini }
             @else if (activeView === 'anagrafiche') { Anagrafiche }
           </h1>
         </div>
@@ -82,135 +82,163 @@
       }
 
     @if (activeView === 'audit') {
-      <section class="filters">
-        <input type="text" [(ngModel)]="auditFilters.username" placeholder="Utente" />
-        <input type="text" [(ngModel)]="auditFilters.action" placeholder="Azione" />
-        <input type="text" [(ngModel)]="auditFilters.entity" placeholder="Entità" />
-        <select [(ngModel)]="auditFilters.success">
-          <option value="">Esito: tutti</option>
-          <option value="true">Successo</option>
-          <option value="false">Errore</option>
-        </select>
-        <input type="date" [(ngModel)]="auditFilters.fromDate" />
-        <input type="date" [(ngModel)]="auditFilters.toDate" />
-        <button type="button" (click)="loadAudit(1)">Filtra</button>
-        <button type="button" class="ghost" (click)="resetAuditFilters()">Azzera</button>
+      <section class="audit-hero audit-hero--simple">
+        <div class="audit-hero__copy">
+          <span class="audit-kicker">Storico ordini</span>
+          <h1>Chi ha fatto cosa, su quale ordine e quando</h1>
+          <p>Vista semplificata: solo eventi ordine leggibili, con cancellazioni incluse e filtri a scelta guidata.</p>
+        </div>
+        <div class="audit-stats audit-stats--compact">
+          @for (card of activityKeyCards; track card.label) {
+            <article class="audit-stat-card" [ngClass]="'audit-stat-card--' + card.tone">
+              <span class="audit-stat-card__label">{{ card.label }}</span>
+              <strong class="audit-stat-card__value">{{ card.value }}</strong>
+              <span class="audit-stat-card__hint">{{ card.hint }}</span>
+            </article>
+          }
+        </div>
+        <div class="audit-view-switch">
+          <button type="button" class="ghost" [class.active]="activityMode === 'user'" (click)="setActivityMode('user')">Per utente</button>
+          <button type="button" class="ghost" [class.active]="activityMode === 'order'" (click)="setActivityMode('order')">Per ordine</button>
+        </div>
+      </section>
+
+      <section class="filters audit-filters audit-filters--activity">
+        <label class="audit-filter-field">
+          <span>Utente</span>
+          <select [(ngModel)]="activityFilters.actor">
+            <option value="">Tutti gli utenti</option>
+            @for (item of activityOptions.actors; track item.value) {
+              <option [value]="item.value">{{ item.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="audit-filter-field">
+          <span>Ordine</span>
+          <input type="text" [(ngModel)]="activityFilters.orderId" list="activity-order-list" placeholder="Cerca ordine" />
+          <datalist id="activity-order-list">
+            @for (item of activityOptions.orders; track item.value) {
+              <option [value]="item.value">{{ item.label }}</option>
+            }
+          </datalist>
+        </label>
+        <label class="audit-filter-field">
+          <span>Cliente</span>
+          <input type="text" [(ngModel)]="activityFilters.cliente" list="activity-client-list" placeholder="Tutti i clienti" />
+          <datalist id="activity-client-list">
+            @for (item of activityOptions.clients; track item.value) {
+              <option [value]="item.value">{{ item.label }}</option>
+            }
+          </datalist>
+        </label>
+        <label class="audit-filter-field">
+          <span>Azione</span>
+          <select [(ngModel)]="activityFilters.action">
+            <option value="">Tutte le azioni</option>
+            @for (item of activityOptions.actions; track item.value) {
+              <option [value]="item.value">{{ item.label }} ({{ item.count }})</option>
+            }
+          </select>
+        </label>
+        <label class="audit-filter-field">
+          <span>Da</span>
+          <input type="date" [(ngModel)]="activityFilters.fromDate" />
+        </label>
+        <label class="audit-filter-field">
+          <span>A</span>
+          <input type="date" [(ngModel)]="activityFilters.toDate" />
+        </label>
+        <button type="button" (click)="loadActivity(1)">Filtra</button>
+        <button type="button" class="ghost" (click)="resetActivityFilters()">Azzera</button>
         <button type="button" class="ghost" (click)="exportAuditCsv()">Esporta CSV</button>
       </section>
 
-      <section class="table-card">
-        @if (auditLoading) {
-          <p>Caricamento audit...</p>
-        } @else {
-          <table class="audit-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Data</th>
-                <th>Utente</th>
-                <th>Azione</th>
-                <th>Entità</th>
-                <th>Esito</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of auditRows; track item.id) {
-                <tr (click)="selectAuditRow(item)" [class.active]="selectedAuditRow?.id === item.id">
-                  <td>{{ item.id }}</td>
-                  <td>{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
-                  <td>{{ item.username || '-' }}</td>
-                  <td><span class="audit-action-badge" [ngClass]="auditActionClass(item.action)">{{ auditActionLabel(item.action) }}</span></td>
-                  <td>
-                    @if (item.entityId && item.entity === 'consegna') {
-                      <button type="button" class="link-btn" (click)="$event.stopPropagation(); openOrderFromAudit(item.entityId!)">{{ item.entity }} #{{ item.entityId }}</button>
-                    } @else {
-                      {{ item.entity || '-' }}{{ item.entityId ? ' #' + item.entityId : '' }}
-                    }
-                  </td>
-                  <td [class.cell-ok]="item.success" [class.cell-ko]="!item.success">{{ item.success ? 'OK' : 'KO' }} ({{ item.statusCode }})</td>
-                </tr>
+      <section class="audit-layout">
+        <div class="audit-feed">
+          <div class="audit-section-title">
+            <h2>
+              @if (activityMode === 'user') { Eventi per utente }
+              @else { Eventi per ordine }
+            </h2>
+            <span>{{ activityTotal }} eventi trovati</span>
+          </div>
+          @if (activityLoading) {
+            <p>Caricamento storico...</p>
+          } @else if (!activityRows.length) {
+            <div class="audit-empty">Nessun evento con i filtri correnti.</div>
+          } @else {
+            <div class="audit-feed-list">
+              @for (item of activityRows; track item.id) {
+                <button type="button" class="audit-card" [class.audit-card--active]="activitySelectedRow?.id === item.id" (click)="selectActivityRow(item)">
+                  <div class="audit-card__top">
+                    <span class="audit-action-badge" [ngClass]="activityBadgeClass(item.activityKind)">{{ item.actionLabel }}</span>
+                    <span class="audit-card__time">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+                  </div>
+                  <h3>{{ activityOrderLabel(item) }}</h3>
+                  <p class="audit-card__meta">{{ activityMeta(item) }}</p>
+                  <div class="audit-card__footer">
+                    <span class="audit-card__entity">{{ item.summary }}</span>
+                  </div>
+                </button>
               }
-            </tbody>
-          </table>
-          <div class="audit-footer">
-            <span>{{ auditTotal }} record</span>
-            <button type="button" class="ghost" [disabled]="auditPage <= 1" (click)="loadAudit(auditPage - 1)">Prev</button>
-            <span>Pag {{ auditPage }}</span>
-            <button type="button" class="ghost" [disabled]="auditPage * auditPageSize >= auditTotal" (click)="loadAudit(auditPage + 1)">Next</button>
-          </div>
-        }
-      </section>
-
-      <section class="detail-card">
-        <h2>Dettaglio audit</h2>
-        @if (!selectedAuditRow) {
-          <p>Seleziona una riga audit per vedere il dettaglio completo.</p>
-        } @else {
-          <div class="audit-detail-header">
-            <span class="audit-action-badge" [ngClass]="auditActionClass(selectedAuditRow.action)">
-              {{ auditActionLabel(selectedAuditRow.action) }}
-            </span>
-            <span [class.cell-ok]="selectedAuditRow.success" [class.cell-ko]="!selectedAuditRow.success">
-              {{ selectedAuditRow.success ? '✓ Riuscita' : '✗ Errore' }} ({{ selectedAuditRow.statusCode }})
-            </span>
-            <span class="audit-detail-ts">{{ selectedAuditRow.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</span>
-          </div>
-
-          @if (auditReadableSummary(selectedAuditRow)) {
-            <p class="audit-detail-summary">{{ auditReadableSummary(selectedAuditRow) }}</p>
-          }
-
-          <div class="audit-detail-grid">
-            <div class="audit-detail-field">
-              <span class="audit-field-label">Utente</span>
-              <span class="audit-field-value">
-                {{ selectedAuditRow.username || 'Sistema (automatico)' }}
-                @if (selectedAuditRow.role) {
-                  <span class="audit-role-chip">{{ selectedAuditRow.role }}</span>
-                }
-              </span>
             </div>
-            @if (selectedAuditRow.entity) {
+          }
+          <div class="audit-footer audit-footer--feed">
+            <span>{{ activityTotal }} record filtrati</span>
+            <button type="button" class="ghost" [disabled]="activityPage <= 1" (click)="loadActivity(activityPage - 1)">Prev</button>
+            <span>Pagina {{ activityPage }}</span>
+            <button type="button" class="ghost" [disabled]="activityPage * activityPageSize >= activityTotal" (click)="loadActivity(activityPage + 1)">Next</button>
+          </div>
+        </div>
+
+        <aside class="audit-detail-panel">
+          <div class="audit-section-title">
+            <h2>Dettaglio chiaro</h2>
+          </div>
+          @if (!activitySelectedRow) {
+            <div class="audit-empty">Seleziona un evento per vedere chi ha fatto cosa e quando.</div>
+          } @else {
+            <div class="audit-detail-header">
+              <span class="audit-action-badge" [ngClass]="activityBadgeClass(activitySelectedRow.activityKind)">{{ activitySelectedRow.actionLabel }}</span>
+              @if (activitySelectedRow.deletedAt) {
+                <span class="audit-role-chip">Cancellato</span>
+              }
+            </div>
+
+            <p class="audit-detail-summary">{{ activitySelectedRow.summary }}</p>
+
+            <div class="audit-detail-grid">
               <div class="audit-detail-field">
-                <span class="audit-field-label">Oggetto</span>
+                <span class="audit-field-label">Chi</span>
+                <span class="audit-field-value">{{ activitySelectedRow.actor || 'Sistema' }}</span>
+              </div>
+              <div class="audit-detail-field">
+                <span class="audit-field-label">Quando</span>
+                <span class="audit-field-value">{{ activitySelectedRow.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+              </div>
+              <div class="audit-detail-field">
+                <span class="audit-field-label">Ordine</span>
                 <span class="audit-field-value">
-                  @if (selectedAuditRow.entityId && selectedAuditRow.entity === 'consegna') {
-                    <button type="button" class="link-btn" (click)="openOrderFromAudit(selectedAuditRow.entityId!)">
-                      {{ selectedAuditRow.entity }} #{{ selectedAuditRow.entityId }}
-                    </button>
-                  } @else {
-                    {{ selectedAuditRow.entity }}{{ selectedAuditRow.entityId ? ' #' + selectedAuditRow.entityId : '' }}
-                  }
+                  <button type="button" class="link-btn" (click)="loadDetail(activitySelectedRow.orderId)">Apri ordine #{{ activitySelectedRow.orderId }}</button>
                 </span>
               </div>
-            }
-            <div class="audit-detail-field">
-              <span class="audit-field-label">IP</span>
-              <span class="audit-field-value">{{ selectedAuditRow.ipAddress || '-' }}</span>
+              <div class="audit-detail-field">
+                <span class="audit-field-label">Cliente</span>
+                <span class="audit-field-value">{{ activitySelectedRow.cliente || '-' }}</span>
+              </div>
             </div>
-          </div>
 
-          @if (selectedAuditRow.details) {
-            <div class="audit-detail-json">
-              <span class="audit-field-label">Dati aggiuntivi</span>
-              <pre>{{ auditDetailsAsJson(selectedAuditRow) }}</pre>
+            <div class="audit-activity-lines">
+              @for (line of activityDetailLines(activitySelectedRow); track line) {
+                <div class="audit-activity-line">{{ line }}</div>
+              }
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="ghost" (click)="activitySelectedRow = null">Chiudi dettaglio</button>
             </div>
           }
-
-          <details class="audit-technical">
-            <summary>Informazioni tecniche</summary>
-            <div class="audit-technical-grid">
-              <span class="audit-field-label">ID</span><span>{{ selectedAuditRow.id }}</span>
-              <span class="audit-field-label">Metodo</span><span>{{ selectedAuditRow.method }}</span>
-              <span class="audit-field-label">Path</span><span class="audit-technical-path">{{ selectedAuditRow.path }}</span>
-              <span class="audit-field-label">Browser</span><span class="audit-technical-ua">{{ selectedAuditRow.userAgent || '-' }}</span>
-            </div>
-          </details>
-
-          <div class="modal-actions">
-            <button type="button" class="ghost" (click)="closeAuditDetail()">Chiudi dettaglio</button>
-          </div>
-        }
+        </aside>
       </section>
     } @else if (activeView === 'anagrafiche') {
       <section class="detail-card">

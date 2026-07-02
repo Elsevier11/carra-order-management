@@ -12,6 +12,7 @@ import {
   AppUserRecord,
   AttachmentRecord,
   AuditLogRecord,
+  AuditLogSummary,
   AuthUser,
   BoardColumn,
   CementoTipo,
@@ -25,6 +26,8 @@ import {
   MittenteDisegno,
   Operaio,
   OrderAccessorio,
+  OrderActivityOptions,
+  OrderActivityRecord,
   OrderCemento,
   OrderEvent,
   ResponsabileRecord,
@@ -221,18 +224,64 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   auditRows: AuditLogRecord[] = [];
+  auditSummary: AuditLogSummary = {
+    total: 0,
+    orderDeleted: 0,
+    statusChanged: 0,
+    errors: 0,
+    technical: 0,
+    recent24h: 0,
+    recent7d: 0,
+    byAction: [],
+    byActor: [],
+    byEntity: [],
+    byOrder: [],
+  };
   auditLoading = false;
   auditPage = 1;
-  auditPageSize = 20;
+  auditPageSize = 100;
   auditTotal = 0;
   selectedAuditRow: AuditLogRecord | null = null;
-  auditFilters: { username: string; action: string; entity: string; success: string; fromDate: string; toDate: string } = {
+  auditViewMode: 'overview' | 'orders' | 'actors' = 'overview';
+  auditPeriodMode: 'all' | '24h' | '7d' | 'custom' = 'all';
+  auditOrderSearch = '';
+  auditFilters: { username: string; action: string; entity: string; entityId: string; success: string; fromDate: string; toDate: string } = {
     username: '',
     action: '',
     entity: '',
+    entityId: '',
     success: '',
     fromDate: '',
     toDate: '',
+  };
+  activityRows: OrderActivityRecord[] = [];
+  activityLoading = false;
+  activityPage = 1;
+  activityPageSize = 20;
+  activityTotal = 0;
+  activitySelectedRow: OrderActivityRecord | null = null;
+  activityMode: 'user' | 'order' = 'user';
+  activityFilters: { actor: string; orderId: string; cliente: string; action: string; fromDate: string; toDate: string } = {
+    actor: '',
+    orderId: '',
+    cliente: '',
+    action: '',
+    fromDate: '',
+    toDate: '',
+  };
+  activityOptions: OrderActivityOptions = {
+    actions: [],
+    actors: [],
+    orders: [],
+    clients: [],
+  };
+  activityOptionsLoaded = false;
+  activitySummary = {
+    total: 0,
+    actors: 0,
+    orders: 0,
+    deleted: 0,
+    statusChanges: 0,
   };
   detailModalOpen = false;
   deleteConfirmOpen = false;
@@ -720,7 +769,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (view === 'kanban') {
       this.loadBoard();
     } else if (view === 'audit') {
-      this.loadAudit(1);
+      this.activityMode = 'user';
+      this.loadActivityOptions();
+      this.loadActivity(1);
     } else if (view === 'anagrafiche') {
       this.loadActiveRegistryTab();
     }
@@ -1457,11 +1508,175 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  loadActivityOptions(): void {
+    if (this.activityOptionsLoaded) return;
+    this.consegneService.activityOptions().subscribe({
+      next: (options) => {
+        this.activityOptions = options;
+        this.activityOptionsLoaded = true;
+      },
+      error: () => {
+        this.activityOptionsLoaded = true;
+      },
+    });
+  }
+
+  loadActivity(page = this.activityPage): void {
+    if (!this.isAdmin) return;
+    this.activityLoading = true;
+    this.activityPage = page;
+    this.loadActivityOptions();
+    this.consegneService.activity({
+      page: this.activityPage,
+      pageSize: this.activityPageSize,
+      actor: this.activityFilters.actor || undefined,
+      orderId: this.activityFilters.orderId || undefined,
+      cliente: this.activityFilters.cliente || undefined,
+      action: this.activityFilters.action || undefined,
+      fromDate: this.activityFilters.fromDate || undefined,
+      toDate: this.activityFilters.toDate || undefined,
+    }).subscribe({
+      next: (response) => {
+        this.activityRows = response.data;
+        this.activityTotal = response.pagination.total;
+        this.activitySummary = response.summary;
+        if (this.activitySelectedRow) {
+          this.activitySelectedRow = this.activityRows.find((row) => row.id === this.activitySelectedRow?.id) ?? null;
+        }
+        if (!this.activitySelectedRow && this.activityRows.length) {
+          this.activitySelectedRow = this.activityRows[0];
+        }
+        this.activityLoading = false;
+      },
+      error: (error) => {
+        this.activityLoading = false;
+        this.operationError = error?.error?.message ?? 'Errore caricamento storico';
+      },
+    });
+  }
+
+  resetActivityFilters(): void {
+    this.activityFilters = {
+      actor: '',
+      orderId: '',
+      cliente: '',
+      action: '',
+      fromDate: '',
+      toDate: '',
+    };
+    this.activityMode = 'user';
+    this.activitySelectedRow = null;
+    this.activityPage = 1;
+    this.loadActivity(1);
+  }
+
+  setActivityMode(mode: 'user' | 'order'): void {
+    this.activityMode = mode;
+    this.activitySelectedRow = null;
+    if (mode === 'user') {
+      this.activityFilters.orderId = '';
+    } else {
+      this.activityFilters.actor = '';
+    }
+    this.loadActivity(1);
+  }
+
+  selectActivityRow(item: OrderActivityRecord): void {
+    this.activitySelectedRow = item;
+  }
+
+  activityBadgeClass(kind: string): string {
+    if (kind === 'ORDER_DELETED') return 'audit-badge--error';
+    if (kind === 'STATUS_CHANGED') return 'audit-badge--status';
+    if (kind === 'ORDER_CREATED') return 'audit-badge--created';
+    if (kind === 'ORDER_IMPORTED') return 'audit-badge--auth';
+    return 'audit-badge--updated';
+  }
+
+  activityOrderLabel(row: OrderActivityRecord): string {
+    return `${row.rif || `Ordine #${row.orderId}`}${row.deletedAt ? ' · cancellato' : ''}`;
+  }
+
+  activityMeta(row: OrderActivityRecord): string {
+    const parts = [row.actor || 'Sistema'];
+    if (row.cliente) parts.push(row.cliente);
+    parts.push(new Date(row.createdAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }));
+    return parts.join(' · ');
+  }
+
+  activityDetailLines(row: OrderActivityRecord): string[] {
+    const lines: string[] = []
+    if (row.summary) {
+      lines.push(row.summary)
+    }
+    const details = (row.details ?? {}) as Record<string, unknown>
+    const diff = details['diff'] as Record<string, { from?: unknown; to?: unknown }> | undefined
+    if (diff) {
+      for (const [field, change] of Object.entries(diff)) {
+        lines.push(`${this.activityReadableField(field)}: ${this.activityReadableValue(change?.from)} → ${this.activityReadableValue(change?.to)}`)
+      }
+    } else {
+      if (row.fromStatus || row.toStatus) {
+        lines.push(`Stato: ${row.fromStatus ?? '—'} → ${row.toStatus ?? '—'}`)
+      }
+      if (row.note?.trim()) {
+        lines.push(row.note.trim())
+      }
+    }
+    if (row.deletedBy) {
+      lines.push(`Cancellato da: ${row.deletedBy}`)
+    }
+    if (row.deletedAt) {
+      lines.push(`Cancellato il: ${new Date(row.deletedAt).toLocaleString('it-IT')}`)
+    }
+    return lines.filter(Boolean)
+  }
+
+  private activityReadableField(field: string): string {
+    const labels: Record<string, string> = {
+      rif: 'Riferimento',
+      cliente: 'Cliente',
+      tipoImpianto: 'Tipo impianto',
+      dataConsegna: 'Data consegna',
+      responsabileInternoId: 'Responsabile',
+      disegnoSpeditoAt: 'Data spedizione disegno',
+      disegnoMittenteId: 'Mittente disegno',
+      disegnoApprovatoAt: 'Data approvazione disegno',
+      lavorazioneAssegnataAt: 'Data assegnazione',
+      consegnaDataEffettiva: 'Data consegna effettiva',
+      vettoreId: 'Vettore',
+      bilici: 'N° bilici',
+      operai: 'Operai',
+      note: 'Note',
+      cementiNote: 'Nota cementi',
+      folderLinkDocumenti: 'Cartella documenti',
+      folderLinkFoto: 'Cartella foto',
+      deletedAt: 'Cancellato il',
+    };
+    return labels[field] ?? field;
+  }
+
+  private activityReadableValue(value: unknown): string {
+    if (value === null || value === undefined || value === '') return '—';
+    if (typeof value === 'boolean') return value ? 'Sì' : 'No';
+    return String(value);
+  }
+
+  get activityKeyCards(): Array<{ label: string; value: number; hint: string; tone: string }> {
+    return [
+      { label: 'Eventi filtrati', value: this.activitySummary.total, hint: 'nel registro storico', tone: 'primary' },
+      { label: 'Utenti coinvolti', value: this.activitySummary.actors, hint: 'persone che hanno agito', tone: 'info' },
+      { label: 'Ordini toccati', value: this.activitySummary.orders, hint: 'nei filtri correnti', tone: 'neutral' },
+      { label: 'Cancellazioni', value: this.activitySummary.deleted, hint: 'eventi sensibili', tone: 'danger' },
+    ];
+  }
+
   loadAudit(page = this.auditPage): void {
     if (!this.isAdmin) return;
     this.auditLoading = true;
     this.auditPage = page;
     this.saveAuditPreset();
+    const entityId = this.resolveAuditOrderId(this.auditOrderSearch);
     this.consegneService
       .listAudit({
         page: this.auditPage,
@@ -1469,6 +1684,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         username: this.auditFilters.username || undefined,
         action: this.auditFilters.action || undefined,
         entity: this.auditFilters.entity || undefined,
+        entityId: entityId ?? (this.auditFilters.entityId || undefined),
         success: this.auditFilters.success || undefined,
         fromDate: this.auditFilters.fromDate || undefined,
         toDate: this.auditFilters.toDate || undefined,
@@ -1476,9 +1692,25 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe({
         next: (response) => {
           this.auditRows = response.data;
+          this.auditSummary = {
+            total: response.summary?.total ?? response.pagination.total,
+            orderDeleted: response.summary?.orderDeleted ?? 0,
+            statusChanged: response.summary?.statusChanged ?? 0,
+            errors: response.summary?.errors ?? 0,
+            technical: response.summary?.technical ?? 0,
+            recent24h: response.summary?.recent24h ?? 0,
+            recent7d: response.summary?.recent7d ?? 0,
+            byAction: response.summary?.byAction ?? [],
+            byActor: response.summary?.byActor ?? [],
+            byEntity: response.summary?.byEntity ?? [],
+            byOrder: response.summary?.byOrder ?? [],
+          };
           this.auditTotal = response.pagination.total;
           if (this.selectedAuditRow) {
-            this.selectedAuditRow = this.auditRows.find((row) => row.id === this.selectedAuditRow?.id) ?? this.selectedAuditRow;
+            this.selectedAuditRow = this.auditVisibleRows.find((row) => row.id === this.selectedAuditRow?.id) ?? null;
+          }
+          if (!this.selectedAuditRow && this.auditVisibleRows.length) {
+            this.selectedAuditRow = this.auditVisibleRows[0];
           }
           this.auditLoading = false;
         },
@@ -1494,12 +1726,59 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       username: '',
       action: '',
       entity: '',
+      entityId: '',
       success: '',
       fromDate: '',
       toDate: '',
     };
+    this.auditOrderSearch = '';
+    this.auditPeriodMode = 'all';
     localStorage.removeItem(this.userScopedStorageKey('carra_audit_filters_preset'));
     this.selectedAuditRow = null;
+    this.auditViewMode = 'overview';
+    this.loadAudit(1);
+  }
+
+  setAuditPeriodMode(mode: 'all' | '24h' | '7d' | 'custom'): void {
+    this.auditPeriodMode = mode;
+    if (mode === 'all') {
+      this.auditFilters.fromDate = '';
+      this.auditFilters.toDate = '';
+    } else if (mode === '24h') {
+      const from = new Date();
+      from.setDate(from.getDate() - 1);
+      this.auditFilters.fromDate = from.toISOString().slice(0, 10);
+      this.auditFilters.toDate = new Date().toISOString().slice(0, 10);
+    } else if (mode === '7d') {
+      const from = new Date();
+      from.setDate(from.getDate() - 7);
+      this.auditFilters.fromDate = from.toISOString().slice(0, 10);
+      this.auditFilters.toDate = new Date().toISOString().slice(0, 10);
+    }
+    this.loadAudit(1);
+  }
+
+  applyAuditQuickPreset(preset: 'deletions' | '24h' | '7d' | 'all'): void {
+    if (preset === 'deletions') {
+      this.auditFilters.action = 'ORDER_DELETED';
+      this.auditFilters.entity = '';
+      this.auditFilters.success = '';
+      this.auditPeriodMode = 'all';
+      this.auditFilters.fromDate = '';
+      this.auditFilters.toDate = '';
+    } else if (preset === '24h') {
+      this.auditFilters.action = '';
+      this.setAuditPeriodMode('24h');
+      return;
+    } else if (preset === '7d') {
+      this.auditFilters.action = '';
+      this.setAuditPeriodMode('7d');
+      return;
+    } else {
+      this.auditFilters.action = '';
+      this.setAuditPeriodMode('all');
+      return;
+    }
     this.loadAudit(1);
   }
 
@@ -1750,6 +2029,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         username: this.auditFilters.username || undefined,
         action: this.auditFilters.action || undefined,
         entity: this.auditFilters.entity || undefined,
+        entityId: this.auditFilters.entityId || undefined,
         success: this.auditFilters.success || undefined,
         fromDate: this.auditFilters.fromDate || undefined,
         toDate: this.auditFilters.toDate || undefined,
@@ -2212,6 +2492,246 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'CONSEGNE_EXPORT': return 'Export CSV consegne eseguito';
       default: return '';
     }
+  }
+
+  private readonly auditOperationalActions = new Set([
+    'ORDER_CREATED',
+    'ORDER_UPDATED',
+    'ORDER_DELETED',
+    'STATUS_CHANGED',
+    'STATUS_SUSPENDED',
+    'ATTACHMENT_ADDED',
+    'ATTACHMENT_REMOVED',
+    'USER_CREATED',
+    'USER_UPDATED',
+    'USER_PASSWORD_RESET',
+    'AUTH_LOGIN_SUCCESS',
+    'AUTH_LOGIN_FAILED',
+    'CONSEGNE_EXPORT',
+    'CONSEGNE_EXPORT_XLSX',
+  ]);
+
+  setAuditViewMode(mode: 'overview' | 'orders' | 'actors'): void {
+    this.auditViewMode = mode;
+    if (!this.selectedAuditRow && this.auditVisibleRows.length) {
+      this.selectedAuditRow = this.auditVisibleRows[0];
+    }
+  }
+
+  get auditTechnicalRows(): AuditLogRecord[] {
+    return this.auditRows.filter((item) => !this.auditOperationalActions.has(item.action));
+  }
+
+  get auditOperationalRows(): AuditLogRecord[] {
+    return this.auditRows.filter((item) => this.auditOperationalActions.has(item.action));
+  }
+
+  get auditVisibleRows(): AuditLogRecord[] {
+    return this.auditOperationalRows;
+  }
+
+  get auditOverviewCards(): Array<{ key: string; label: string; value: number; hint: string; tone: string }> {
+    return [
+      { key: 'total', label: 'Eventi filtrati', value: this.auditTotal, hint: 'nel registro completo', tone: 'primary' },
+      { key: 'visible', label: 'Eventi operativi', value: this.auditVisibleRows.length, hint: 'leggibili in dashboard', tone: 'neutral' },
+      { key: 'deleted', label: 'Ordini eliminati', value: this.auditSummary.orderDeleted, hint: 'evento tracciato', tone: 'danger' },
+      { key: 'status', label: 'Cambi stato', value: this.auditSummary.statusChanged, hint: 'flusso ordini', tone: 'info' },
+      { key: 'errors', label: 'Errori', value: this.auditSummary.errors, hint: 'eventi falliti', tone: 'warning' },
+    ];
+  }
+
+  get auditActionCards(): Array<{ label: string; count: number }> {
+    return this.auditSummary.byAction.length
+      ? this.auditSummary.byAction.map((card) => ({ label: this.auditActionLabel(card.label), count: card.count }))
+      : this.countBuckets(this.auditVisibleRows, (item) => this.auditActionLabel(item.action));
+  }
+
+  get auditActorCards(): Array<{ label: string; count: number }> {
+    return this.auditSummary.byActor.length ? this.auditSummary.byActor : this.countBuckets(this.auditVisibleRows, (item) => this.auditActorLabel(item));
+  }
+
+  get auditEntityCards(): Array<{ label: string; count: number }> {
+    return this.auditSummary.byEntity.length
+      ? this.auditSummary.byEntity.map((card) => ({ label: this.auditEntityValueLabel(card.label), count: card.count }))
+      : this.countBuckets(this.auditVisibleRows, (item) => this.auditEntityLabel(item));
+  }
+
+  get auditOrderGroups(): Array<{ key: string; label: string; count: number; latest: AuditLogRecord; rows: AuditLogRecord[] }> {
+    const groups = new Map<string, AuditLogRecord[]>()
+    for (const row of this.auditVisibleRows) {
+      const key = row.entityId && row.entity === 'consegna' ? `ordine-${row.entityId}` : `evento-${row.id}`
+      const bucket = groups.get(key) ?? []
+      bucket.push(row)
+      groups.set(key, bucket)
+    }
+    return [...groups.entries()]
+      .map(([key, rows]) => {
+        const sorted = [...rows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || b.id - a.id)
+        const latest = sorted[0]
+        return {
+          key,
+          label: latest.entityId && latest.entity === 'consegna' ? `Ordine #${latest.entityId}` : this.auditEntityLabel(latest),
+          count: rows.length,
+          latest,
+          rows: sorted,
+        }
+      })
+      .sort((a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime() || b.count - a.count)
+      .slice(0, 12)
+  }
+
+  get auditActorGroups(): Array<{ key: string; label: string; count: number; latest: AuditLogRecord; rows: AuditLogRecord[] }> {
+    const groups = new Map<string, AuditLogRecord[]>()
+    for (const row of this.auditVisibleRows) {
+      const key = this.auditActorLabel(row)
+      const bucket = groups.get(key) ?? []
+      bucket.push(row)
+      groups.set(key, bucket)
+    }
+    return [...groups.entries()]
+      .map(([key, rows]) => {
+        const sorted = [...rows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || b.id - a.id)
+        const latest = sorted[0]
+        return {
+          key,
+          label: key,
+          count: rows.length,
+          latest,
+          rows: sorted,
+        }
+      })
+      .sort((a, b) => b.count - a.count || new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime())
+      .slice(0, 12)
+  }
+
+  get auditTechnicalRowsLimited(): AuditLogRecord[] {
+    return this.auditTechnicalRows.slice(0, 12)
+  }
+
+  get auditKeyCards(): Array<{ label: string; value: number; hint: string; tone: string }> {
+    return [
+      { label: 'Eventi visibili', value: this.auditVisibleRows.length, hint: 'in questa schermata', tone: 'primary' },
+      { label: 'Cambi stato', value: this.auditSummary.statusChanged, hint: 'da leggere subito', tone: 'info' },
+      { label: 'Ordini eliminati', value: this.auditSummary.orderDeleted, hint: 'evento sensibile', tone: 'danger' },
+    ];
+  }
+
+  get auditUsernameOptions(): Array<{ value: string; label: string }> {
+    const buckets = this.auditSummary.byActor.length ? this.auditSummary.byActor : this.countBuckets(this.auditVisibleRows, (item) => this.auditActorLabel(item));
+    return [
+      { value: '', label: 'Tutti gli utenti' },
+      ...buckets.map((item) => ({ value: item.label, label: `${item.label} (${item.count})` })),
+    ];
+  }
+
+  get auditActionOptions(): Array<{ value: string; label: string }> {
+    const buckets = this.auditSummary.byAction.length ? this.auditSummary.byAction : this.countBuckets(this.auditVisibleRows, (item) => item.action);
+    return [
+      { value: '', label: 'Tutte le azioni' },
+      ...buckets.map((item) => ({ value: item.label, label: `${this.auditActionLabel(item.label)} (${item.count})` })),
+    ];
+  }
+
+  get auditEntityOptions(): Array<{ value: string; label: string }> {
+    return [
+      { value: '', label: 'Tutte le entità' },
+      { value: 'consegna', label: 'Ordini' },
+      { value: 'auth', label: 'Autenticazione' },
+      { value: 'audit', label: 'Registro attività' },
+      { value: 'settings', label: 'Impostazioni' },
+    ];
+  }
+
+  get auditOrderOptions(): Array<{ value: string; label: string }> {
+    const buckets = this.auditSummary.byOrder.length
+      ? this.auditSummary.byOrder
+      : this.countBuckets(
+          this.auditVisibleRows.filter((item) => item.entity === 'consegna' && item.entityId != null),
+          (item) => `Ordine #${item.entityId}`,
+        );
+    return [
+      { value: '', label: 'Tutti gli ordini' },
+      ...buckets
+        .filter((item) => {
+          const term = this.auditOrderSearch.trim().toLowerCase();
+          return !term || item.label.toLowerCase().includes(term);
+        })
+        .map((item) => ({ value: item.label.replace(/^Ordine #/, ''), label: `${item.label} (${item.count})` })),
+    ];
+  }
+
+  get auditOrderSuggestions(): string[] {
+    return (this.auditSummary.byOrder.length ? this.auditSummary.byOrder : this.countBuckets(
+      this.auditVisibleRows.filter((item) => item.entity === 'consegna' && item.entityId != null),
+      (item) => `Ordine #${item.entityId}`,
+    ))
+      .map((item) => item.label)
+      .slice(0, 12);
+  }
+
+  get auditUsernameSuggestions(): string[] {
+    return (this.auditSummary.byActor.length ? this.auditSummary.byActor : this.countBuckets(this.auditVisibleRows, (item) => this.auditActorLabel(item)))
+      .map((item) => item.label)
+      .slice(0, 12);
+  }
+
+  private countBuckets(rows: AuditLogRecord[], mapper: (item: AuditLogRecord) => string): Array<{ label: string; count: number }> {
+    const counts = new Map<string, number>()
+    for (const row of rows) {
+      const key = mapper(row)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'it'))
+      .slice(0, 8)
+  }
+
+  private resolveAuditOrderId(value: string): string | undefined {
+    const match = value.match(/(\d+)/)
+    return match?.[1]
+  }
+
+  auditEntityLabel(item: AuditLogRecord): string {
+    if (item.entityId && item.entity === 'consegna') return `Ordine #${item.entityId}`;
+    if (item.entity === 'consegna') return 'Ordini';
+    if (item.entity === 'auth') return 'Autenticazione';
+    if (item.entity === 'audit') return 'Registro attività';
+    if (item.entity === 'settings') return 'Impostazioni';
+    return item.entity || 'Sistema';
+  }
+
+  private auditEntityValueLabel(value: string): string {
+    if (value === 'consegna') return 'Ordini';
+    if (value === 'auth') return 'Autenticazione';
+    if (value === 'audit') return 'Registro attività';
+    if (value === 'settings') return 'Impostazioni';
+    return value || 'Sistema';
+  }
+
+  auditActorLabel(item: AuditLogRecord): string {
+    return item.username || 'Sistema';
+  }
+
+  auditEventTitle(item: AuditLogRecord): string {
+    if (/^(GET|POST|PUT|PATCH|DELETE)\s+\/api\//.test(item.action)) return 'Operazione tecnica di sistema';
+    return this.auditReadableSummary(item) || this.auditActionLabel(item.action);
+  }
+
+  auditEventMeta(item: AuditLogRecord): string {
+    const parts = [this.auditActorLabel(item), this.auditEntityLabel(item)];
+    if (item.createdAt) {
+      parts.push(
+        new Date(item.createdAt).toLocaleString('it-IT', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      );
+    }
+    return parts.filter(Boolean).join(' · ');
   }
 
   private syncBoardCounts(): void {
@@ -2793,14 +3313,33 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private saveAuditPreset(): void {
-    localStorage.setItem(this.userScopedStorageKey('carra_audit_filters_preset'), JSON.stringify(this.auditFilters));
+    localStorage.setItem(this.userScopedStorageKey('carra_audit_filters_preset'), JSON.stringify({
+      filters: this.auditFilters,
+      orderSearch: this.auditOrderSearch,
+      periodMode: this.auditPeriodMode,
+    }));
   }
 
   private restoreAuditPreset(): void {
     try {
       const raw = localStorage.getItem(this.userScopedStorageKey('carra_audit_filters_preset'));
       if (!raw) return;
-      this.auditFilters = { ...this.auditFilters, ...(JSON.parse(raw) as typeof this.auditFilters) };
+      const parsed = JSON.parse(raw) as {
+        filters?: {
+          username?: string;
+          action?: string;
+          entity?: string;
+          entityId?: string;
+          success?: string;
+          fromDate?: string;
+          toDate?: string;
+        };
+        orderSearch?: string;
+        periodMode?: 'all' | '24h' | '7d' | 'custom';
+      };
+      this.auditFilters = { ...this.auditFilters, ...(parsed.filters ?? {}) };
+      this.auditOrderSearch = parsed.orderSearch ?? '';
+      this.auditPeriodMode = parsed.periodMode ?? 'all';
       const isValidDate = (value?: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
       if (!isValidDate(this.auditFilters.fromDate)) this.auditFilters.fromDate = '';
       if (!isValidDate(this.auditFilters.toDate)) this.auditFilters.toDate = '';

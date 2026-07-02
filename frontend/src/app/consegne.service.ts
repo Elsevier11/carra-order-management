@@ -2,13 +2,14 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AccessorioTipo, AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CementoTipo, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, DashboardAgingResponse, ErpOrderPreviewItem, FilterOptions, ImportConfig, MittenteDisegno, Operaio, OrderAccessorio, OrderCemento, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse, Vettore } from './consegne.types';
+import { AccessorioTipo, AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CementoTipo, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, DashboardAgingResponse, ErpOrderPreviewItem, FilterOptions, ImportConfig, MittenteDisegno, Operaio, OrderAccessorio, OrderActivityOptions, OrderActivityResponse, OrderCemento, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse, Vettore } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/consegne`;
   private readonly auditUrl = `${environment.apiUrl}/audit`;
+  private readonly activityUrl = `${environment.apiUrl}/consegne/activity`;
   private readonly usersUrl = `${environment.apiUrl}/users`;
   private readonly commercialiUrl = `${environment.apiUrl}/commerciali`;
   private readonly responsabiliUrl = `${environment.apiUrl}/responsabili`;
@@ -50,6 +51,20 @@ export class ConsegneService {
 
   history(id: number): Observable<{ data: OrderEvent[] }> {
     return this.http.get<{ data: OrderEvent[] }>(`${this.baseUrl}/${id}/history`);
+  }
+
+  activity(query: { page: number; pageSize: number; actor?: string; orderId?: string | number; cliente?: string; action?: string; fromDate?: string; toDate?: string }): Observable<OrderActivityResponse> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        params = params.set(key, String(value));
+      }
+    }
+    return this.http.get<OrderActivityResponse>(this.activityUrl, { params });
+  }
+
+  activityOptions(): Observable<OrderActivityOptions> {
+    return this.http.get<OrderActivityOptions>(`${this.activityUrl}/options`);
   }
 
   transition(
@@ -120,7 +135,7 @@ export class ConsegneService {
     return this.http.post<void>(`${this.baseUrl}/open-folder`, { path });
   }
 
-  listAudit(query: { page: number; pageSize: number; username?: string; action?: string; entity?: string; fromDate?: string; toDate?: string; success?: string }): Observable<AuditLogResponse> {
+  listAudit(query: { page: number; pageSize: number; username?: string; action?: string; entity?: string; entityId?: string; fromDate?: string; toDate?: string; success?: string }): Observable<AuditLogResponse> {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && String(value).trim() !== '') {
@@ -130,7 +145,7 @@ export class ConsegneService {
     return this.http.get<AuditLogResponse>(this.auditUrl, { params });
   }
 
-  exportAuditCsv(query: { username?: string; action?: string; entity?: string; fromDate?: string; toDate?: string; success?: string }): Observable<string> {
+  exportAuditCsv(query: { username?: string; action?: string; entity?: string; entityId?: string; fromDate?: string; toDate?: string; success?: string }): Observable<string> {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && String(value).trim() !== '') {

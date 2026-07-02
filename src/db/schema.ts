@@ -97,6 +97,8 @@ export const ordini = pgTable('ordini', {
   // tab C.A.M.
   camSiNo: boolean('cam_si_no').notNull().default(false),
   cementiNote: text('cementi_note'),
+  deletedAt: timestamp('deleted_at'),
+  deletedBy: text('deleted_by'),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 

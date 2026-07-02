@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Router } from 'express'
-import { and, asc, count, desc, eq, gte, ilike, lt, lte, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, ilike, lt, lte, or, sql, type SQL } from 'drizzle-orm'
 import multer from 'multer'
 import XLSX from 'xlsx'
 import { z } from 'zod'
@@ -104,7 +104,7 @@ const listQuerySchema = z.object({
 type ListQuery = z.infer<typeof listQuerySchema>
 
 function buildListFilters(query: ListQuery) {
-  const filters = []
+  const filters: SQL[] = [activeOrderFilter()]
 
   if (query.q) {
     const pattern = `%${query.q.trim()}%`
@@ -328,8 +328,138 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     // tab C.A.M.
     camSiNo: row.camSiNo ?? false,
     cementiNote: row.cementiNote ?? null,
+    deletedAt: toIsoDate(row.deletedAt),
+    deletedBy: row.deletedBy ?? null,
     createdAt: row.createdAt,
   }
+}
+
+function activeOrderFilter(extra?: SQL): SQL {
+  return extra ? and(sql`${ordini.deletedAt} is null`, extra) : sql`${ordini.deletedAt} is null`
+}
+
+const readableActivityKinds = {
+  ORDER_CREATED: 'Ordine creato',
+  ORDER_IMPORTED: 'Ordine importato',
+  STATUS_CHANGED: 'Stato cambiato',
+  STATUS_SUSPENDED: 'Stato cambiato',
+  ORDER_UPDATED: 'Ordine aggiornato',
+  ORDER_DELETED: 'Ordine cancellato',
+  OPERAI_UPDATED: 'Ordine aggiornato',
+  CEMENTI_UPDATED: 'Ordine aggiornato',
+  ACCESSORI_UPDATED: 'Ordine aggiornato',
+  ATTACHMENT_ADDED: 'Ordine aggiornato',
+  ATTACHMENT_REMOVED: 'Ordine aggiornato',
+} as const
+
+type ActivityKind = keyof typeof readableActivityKinds
+
+type ActivityRecord = {
+  id: number
+  orderId: number
+  rif: string | null
+  cliente: string | null
+  eventType: string
+  activityKind: string
+  actionLabel: string
+  fromStatus: string | null
+  toStatus: string | null
+  note: string | null
+  actor: string | null
+  deletedAt: string | null
+  deletedBy: string | null
+  details: Record<string, unknown> | null
+  summary: string
+  createdAt: string
+}
+
+function readableFieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    rif: 'Riferimento',
+    cliente: 'Cliente',
+    tipoImpianto: 'Tipo impianto',
+    dataConsegna: 'Data consegna',
+    cantiere: 'Cantiere',
+    dataOrdine: 'Data ordine',
+    referente: 'Referente',
+    telefono: 'Telefono',
+    referente2: 'Secondo referente',
+    telefono2: 'Secondo telefono',
+    scarico: 'Scarico',
+    vascheCav: 'Vasche/CAV',
+    accessori: 'Accessori',
+    operai: 'Operai',
+    note: 'Note',
+    trasporto: 'Trasporto',
+    scaricoCarico: 'Scarico/carico',
+    accontoPagato: 'Acconto pagato',
+    commercialeId: 'Commerciale',
+    responsabileInternoId: 'Responsabile',
+    folderLinkDocumenti: 'Cartella documenti',
+    folderLinkFoto: 'Cartella foto',
+    disegnoSpeditoAt: 'Data spedizione disegno',
+    disegnoMittenteId: 'Mittente disegno',
+    disegnoNote: 'Note disegno',
+    disegnoApprovatoAt: 'Data approvazione disegno',
+    massicciataNota: 'Nota massicciata',
+    tipoCariciNota: 'Nota tipo carichi',
+    lavorazioneAssegnataAt: 'Data assegnazione',
+    consegnaDataEffettiva: 'Data consegna effettiva',
+    vettoreId: 'Vettore',
+    bilici: 'N° bilici',
+    ddtPronti: 'DDT pronti',
+    bancale: 'Bancale',
+    chiusini: 'Chiusini',
+    caricoVerificato: 'Carico verificato',
+    camSiNo: 'C.A.M.',
+    cementiNote: 'Nota cementi',
+    deletedAt: 'Cancellato il',
+    deletedBy: 'Cancellato da',
+  }
+  return labels[field] ?? field
+}
+
+function summarizeActivityEvent(eventType: string, fromStatus: string | null, toStatus: string | null, details: Record<string, unknown> | null, note: string | null): string {
+  if (eventType === 'STATUS_CHANGED' || eventType === 'STATUS_SUSPENDED') {
+    return fromStatus || toStatus ? `Stato: ${fromStatus ?? '—'} → ${toStatus ?? '—'}` : 'Cambio stato'
+  }
+  if (eventType === 'ORDER_DELETED') {
+    return 'Ordine cancellato'
+  }
+  if (eventType === 'ORDER_CREATED') {
+    return 'Ordine creato manualmente'
+  }
+  if (eventType === 'ORDER_IMPORTED') {
+    return 'Ordine importato dal gestionale'
+  }
+  if (details?.['diff'] && typeof details['diff'] === 'object' && !Array.isArray(details['diff'])) {
+    const diff = details['diff'] as Record<string, { from?: unknown; to?: unknown }>
+    const entries = Object.entries(diff)
+    if (entries.length > 0) {
+      const [field, change] = entries[0]
+      const fromValue = change?.from == null || change.from === '' ? '—' : String(change.from)
+      const toValue = change?.to == null || change.to === '' ? '—' : String(change.to)
+      return `${readableFieldLabel(field)}: ${fromValue} → ${toValue}`
+    }
+  }
+  if (eventType === 'OPERAI_UPDATED') return 'Operai assegnati o modificati'
+  if (eventType === 'CEMENTI_UPDATED') return 'Cementi aggiornati'
+  if (eventType === 'ACCESSORI_UPDATED') return 'Accessori aggiornati'
+  if (eventType === 'ATTACHMENT_ADDED') return `Allegato aggiunto${details?.['fileName'] ? `: ${details['fileName']}` : ''}`
+  if (eventType === 'ATTACHMENT_REMOVED') return `Allegato rimosso${details?.['fileName'] ? `: ${details['fileName']}` : ''}`
+  return note?.trim() || ''
+}
+
+function activityCategory(eventType: string): string {
+  if (eventType === 'ORDER_CREATED') return 'ORDER_CREATED'
+  if (eventType === 'ORDER_IMPORTED') return 'ORDER_IMPORTED'
+  if (eventType === 'ORDER_DELETED') return 'ORDER_DELETED'
+  if (eventType === 'STATUS_CHANGED' || eventType === 'STATUS_SUSPENDED') return 'STATUS_CHANGED'
+  return 'ORDER_UPDATED'
+}
+
+function activityCategoryLabel(eventType: string): string {
+  return readableActivityKinds[activityCategory(eventType) as ActivityKind]
 }
 
 function parseEventDetails(details: unknown): Record<string, unknown> | null {
@@ -551,7 +681,7 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
 router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const [orders, commercialiRows, responsabiliRows, mittentiRows, vettoriRows, operaiRows, cementiRows, accessoriRows, attachmentRows] = await Promise.all([
-      db.select().from(ordini),
+      db.select().from(ordini).where(sql`${ordini.deletedAt} is null`),
       db.select({ id: commerciali.id, nome: commerciali.nome }).from(commerciali),
       db.select({ id: responsabiliInterni.id, nome: responsabiliInterni.nome }).from(responsabiliInterni),
       db.select({ id: mittentiDisegno.id, nome: mittentiDisegno.nome }).from(mittentiDisegno),
@@ -930,7 +1060,8 @@ router.get('/stats', async (_req, res, next) => {
 
     const eightWeeksOut = new Date(startOfToday.getTime() + 8 * 7 * 24 * 60 * 60 * 1000)
 
-    const activeFilter = sql`upper(coalesce(${ordini.stato}, 'IN CORSO')) not in ('CONCLUSI')`
+    const activeOrderClause = sql`${ordini.deletedAt} is null`
+    const activeFilter = and(activeOrderClause, sql`upper(coalesce(${ordini.stato}, 'IN CORSO')) not in ('CONCLUSI')`)
 
     const [
       weekRows,
@@ -952,12 +1083,13 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ count: count() })
         .from(ordini)
-        .where(and(gte(ordini.dataConsegna, startOfWeek), lte(ordini.dataConsegna, endOfWeek))),
+        .where(and(activeOrderClause, gte(ordini.dataConsegna, startOfWeek), lte(ordini.dataConsegna, endOfWeek))),
       db
         .select({ count: count() })
         .from(ordini)
         .where(
           and(
+            activeOrderClause,
             lte(ordini.dataConsegna, now),
             or(sql`${ordini.stato} is null`, sql`upper(${ordini.stato}) not in ('CONSEGNATO', 'CHIUSO')`),
           ),
@@ -968,6 +1100,7 @@ router.get('/stats', async (_req, res, next) => {
           count: count(),
         })
         .from(ordini)
+        .where(activeOrderClause)
         .groupBy(sql`coalesce(${ordini.stato}, 'IN CORSO')`)
         .orderBy(desc(count())),
       db
@@ -976,7 +1109,7 @@ router.get('/stats', async (_req, res, next) => {
           count: count(),
         })
         .from(ordini)
-        .where(sql`${ordini.dataConsegna} is not null`)
+        .where(and(activeOrderClause, sql`${ordini.dataConsegna} is not null`))
         .groupBy(sql`date_trunc('week', ${ordini.dataConsegna})`)
         .orderBy(sql`date_trunc('week', ${ordini.dataConsegna}) desc`)
         .limit(8),
@@ -1016,6 +1149,7 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ stato: sql<string>`coalesce(${ordini.stato}, 'IN CORSO')`, total: count() })
         .from(ordini)
+        .where(activeOrderClause)
         .groupBy(sql`coalesce(${ordini.stato}, 'IN CORSO')`),
       // pipeline: ritardi per stato (data consegna passata, non conclusi)
       db
@@ -1044,7 +1178,7 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ cliente: ordini.cliente, count: count() })
         .from(ordini)
-        .where(and(sql`${ordini.cliente} is not null`, activeFilter))
+        .where(and(sql`${ordini.cliente} is not null`, activeOrderClause, activeFilter))
         .groupBy(ordini.cliente)
         .orderBy(desc(count()))
         .limit(10),
@@ -1083,8 +1217,8 @@ router.get('/stats', async (_req, res, next) => {
 router.get('/filters', async (_req, res, next) => {
   try {
     const [clienti, stati] = await Promise.all([
-      db.selectDistinct({ value: ordini.cliente }).from(ordini).where(sql`${ordini.cliente} is not null`),
-      db.selectDistinct({ value: ordini.stato }).from(ordini).where(sql`${ordini.stato} is not null`),
+      db.selectDistinct({ value: ordini.cliente }).from(ordini).where(and(sql`${ordini.cliente} is not null`, sql`${ordini.deletedAt} is null`)),
+      db.selectDistinct({ value: ordini.stato }).from(ordini).where(and(sql`${ordini.stato} is not null`, sql`${ordini.deletedAt} is null`)),
     ])
 
     res.json({
@@ -1093,6 +1227,242 @@ router.get('/filters', async (_req, res, next) => {
     })
   } catch (error) {
     next(error)
+  }
+})
+
+router.get('/activity/options', async (_req, res, next) => {
+  try {
+    const [actorsResult, actionsResult, ordersResult, clientsResult] = await Promise.all([
+      db.execute(sql`
+        select
+          coalesce(actor, 'Sistema') as label,
+          count(*)::int as count
+        from order_events
+        where coalesce(actor, '') <> ''
+        group by coalesce(actor, 'Sistema')
+        order by count(*) desc, label asc
+      `),
+      db.execute(sql`
+        select
+          event_type as "eventType",
+          count(*)::int as count
+        from order_events
+        group by event_type
+        order by count(*) desc, event_type asc
+      `),
+      db.execute(sql`
+        select
+          o.id,
+          coalesce(o.rifto, '') as rif,
+          coalesce(o.cliente, '') as cliente,
+          coalesce(o.stato, 'IN CORSO') as stato,
+          o.deleted_at as "deletedAt",
+          count(oe.id)::int as count
+        from ordini o
+        left join order_events oe on oe.order_id = o.id
+        group by o.id
+        order by o.created_at desc, o.id desc
+        limit 500
+      `),
+      db.execute(sql`
+        select
+          coalesce(cliente, '') as label,
+          count(*)::int as count
+        from ordini
+        where coalesce(cliente, '') <> ''
+        group by coalesce(cliente, '')
+        order by count(*) desc, label asc
+        limit 200
+      `),
+    ])
+
+    const actionsByKind = new Map<string, number>()
+    for (const row of actionsResult as Array<{ eventType: string; count: number }>) {
+      const kind = activityCategory(row.eventType)
+      actionsByKind.set(kind, (actionsByKind.get(kind) ?? 0) + Number(row.count ?? 0))
+    }
+
+    const actions = Object.entries(readableActivityKinds)
+      .filter(([key]) => key === 'ORDER_CREATED' || key === 'ORDER_IMPORTED' || key === 'STATUS_CHANGED' || key === 'ORDER_UPDATED' || key === 'ORDER_DELETED')
+      .map(([value, label]) => ({
+        value,
+        label,
+        count: actionsByKind.get(value) ?? 0,
+      }))
+
+    const actors = (actorsResult as Array<{ label: string; count: number }>).map((row) => ({
+      value: row.label,
+      label: `${row.label} (${row.count})`,
+      count: Number(row.count ?? 0),
+    }))
+
+    const orders = (ordersResult as Array<{ id: number; rif: string; cliente: string; stato: string; deletedAt: string | null; count: number }>).map((row) => ({
+      value: String(row.id),
+      label: `${row.rif || `Ordine #${row.id}`} - ${row.cliente || 'Senza cliente'}${row.deletedAt ? ' (cancellato)' : ''} (${row.count})`,
+      count: Number(row.count ?? 0),
+      deleted: Boolean(row.deletedAt),
+    }))
+
+    const clients = (clientsResult as Array<{ label: string; count: number }>).map((row) => ({
+      value: row.label,
+      label: `${row.label} (${row.count})`,
+      count: Number(row.count ?? 0),
+    }))
+
+    return res.json({
+      actions,
+      actors,
+      orders,
+      clients,
+    })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/activity', async (req, res, next) => {
+  try {
+    const querySchema = z.object({
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      actor: z.string().optional(),
+      orderId: z.string().optional(),
+      cliente: z.string().optional(),
+      action: z.string().optional(),
+      fromDate: z.string().optional(),
+      toDate: z.string().optional(),
+    })
+
+    const query = querySchema.parse(req.query)
+    const offset = (query.page - 1) * query.pageSize
+    const filters: SQL[] = []
+
+    if (query.actor) {
+      filters.push(ilike(sql`coalesce(oe.actor, 'Sistema')`, `%${query.actor.trim()}%`))
+    }
+    if (query.orderId) {
+      const term = query.orderId.trim()
+      if (/^\d+$/.test(term)) {
+        filters.push(eq(sql`oe.order_id`, Number(term)))
+      } else {
+        filters.push(
+          or(
+            ilike(sql`coalesce(o.rifto, '')`, `%${term}%`),
+            ilike(sql`coalesce(o.cliente, '')`, `%${term}%`),
+            ilike(sql`cast(oe.order_id as text)`, `%${term}%`),
+          ),
+        )
+      }
+    }
+    if (query.cliente) {
+      filters.push(ilike(sql`coalesce(o.cliente, '')`, `%${query.cliente.trim()}%`))
+    }
+    if (query.action) {
+      if (query.action === 'STATUS_CHANGED') {
+        filters.push(sql`oe.event_type in ('STATUS_CHANGED', 'STATUS_SUSPENDED')`)
+      } else if (query.action === 'ORDER_UPDATED') {
+        filters.push(sql`oe.event_type in ('ORDER_UPDATED', 'OPERAI_UPDATED', 'CEMENTI_UPDATED', 'ACCESSORI_UPDATED', 'ATTACHMENT_ADDED', 'ATTACHMENT_REMOVED')`)
+      } else {
+        filters.push(eq(sql`oe.event_type`, query.action))
+      }
+    }
+    if (query.fromDate) {
+      filters.push(gte(sql`oe.created_at`, new Date(query.fromDate)))
+    }
+    if (query.toDate) {
+      const to = new Date(query.toDate)
+      to.setHours(23, 59, 59, 999)
+      filters.push(lte(sql`oe.created_at`, to))
+    }
+
+    const whereClause = filters.length ? and(...filters) : undefined
+
+    const [rowsResult, summaryResult] = await Promise.all([
+      db.execute(sql`
+        select
+          oe.id,
+          oe.order_id as "orderId",
+          coalesce(o.rifto, '') as rif,
+          coalesce(o.cliente, '') as cliente,
+          oe.event_type as "eventType",
+          oe.from_status as "fromStatus",
+          oe.to_status as "toStatus",
+          oe.note,
+          oe.actor,
+          o.deleted_at as "deletedAt",
+          o.deleted_by as "deletedBy",
+          oe.details,
+          to_char(oe.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt"
+        from order_events oe
+        left join ordini o on o.id = oe.order_id
+        ${whereClause ? sql`where ${whereClause}` : sql``}
+        order by oe.created_at desc, oe.id desc
+        limit ${query.pageSize} offset ${offset}
+      `),
+      db.execute(sql`
+        select
+          count(*)::int as total,
+          count(distinct case when coalesce(oe.actor, '') <> '' then coalesce(oe.actor, 'Sistema') end)::int as actors,
+          count(distinct oe.order_id)::int as orders,
+          coalesce(sum(case when oe.event_type = 'ORDER_DELETED' then 1 else 0 end), 0)::int as deleted,
+          coalesce(sum(case when oe.event_type in ('STATUS_CHANGED', 'STATUS_SUSPENDED') then 1 else 0 end), 0)::int as status_changes
+        from order_events oe
+        left join ordini o on o.id = oe.order_id
+        ${whereClause ? sql`where ${whereClause}` : sql``}
+      `),
+    ])
+
+    const rows = (rowsResult as Array<{
+      id: number
+      orderId: number
+      rif: string
+      cliente: string
+      eventType: string
+      fromStatus: string | null
+      toStatus: string | null
+      note: string | null
+      actor: string | null
+      deletedAt: string | null
+      deletedBy: string | null
+      details: unknown
+      createdAt: string
+    }>).map((row) => {
+      const details = parseEventDetails(row.details)
+      return {
+        ...row,
+        activityKind: activityCategory(row.eventType),
+        actionLabel: activityCategoryLabel(row.eventType),
+        summary: summarizeActivityEvent(row.eventType, row.fromStatus, row.toStatus, details, row.note),
+        details,
+      } as ActivityRecord
+    })
+
+    const summary = summaryResult[0] as {
+      total?: number
+      actors?: number
+      orders?: number
+      deleted?: number
+      status_changes?: number
+    } | undefined
+
+    return res.json({
+      data: rows,
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: Number(summary?.total ?? 0),
+        totalPages: Math.ceil(Number(summary?.total ?? 0) / query.pageSize),
+      },
+      summary: {
+        total: Number(summary?.total ?? 0),
+        actors: Number(summary?.actors ?? 0),
+        orders: Number(summary?.orders ?? 0),
+        deleted: Number(summary?.deleted ?? 0),
+        statusChanges: Number(summary?.status_changes ?? 0),
+      },
+    })
+  } catch (error) {
+    return next(error)
   }
 })
 
@@ -1202,7 +1572,7 @@ router.post('/:id/attachments', requireAuth, requireRole(['admin', 'operativo'])
       return res.status(400).json({ message: 'Invalid id' })
     }
 
-    const [row] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    const [row] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!row) {
       return res.status(404).json({ message: 'Consegna not found' })
     }
@@ -1339,7 +1709,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
     }
 
     const payload = transitionSchema.parse(req.body)
-    const [row] = await db.select().from(ordini).where(eq(ordini.id, id)).limit(1)
+    const [row] = await db.select().from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
 
     if (!row) {
       return res.status(404).json({ message: 'Consegna not found' })
@@ -1379,19 +1749,6 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       }
     }
 
-    if (payload.toStatus === 'DISEGNO IN GESTIONE') {
-      if (!payload.disegnoSpeditoAt) {
-        return res.status(400).json({ message: 'Data spedizione disegno obbligatoria' })
-      }
-      if (!payload.disegnoMittenteId) {
-        return res.status(400).json({ message: 'Mittente disegno obbligatorio' })
-      }
-    }
-
-    if (payload.toStatus === 'DISEGNO APPROVATO' && !payload.disegnoApprovatoAt) {
-      return res.status(400).json({ message: 'Data approvazione disegno obbligatoria' })
-    }
-
     if (payload.toStatus === 'CONSEGNA PIANIFICATA') {
       if (!payload.consegnaDataEffettiva) {
         return res.status(400).json({ message: 'Data consegna effettiva obbligatoria' })
@@ -1428,8 +1785,8 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         updateData.lavorazioneAssegnataAt = parseInputDate(payload.lavorazioneAssegnataAt!)
       }
       if (payload.toStatus === 'DISEGNO IN GESTIONE') {
-        updateData.disegnoSpeditoAt = parseInputDate(payload.disegnoSpeditoAt!)
-        updateData.disegnoMittenteId = payload.disegnoMittenteId ?? null
+        updateData.disegnoSpeditoAt = payload.disegnoSpeditoAt ? parseInputDate(payload.disegnoSpeditoAt) : new Date()
+        updateData.disegnoMittenteId = payload.disegnoMittenteId ?? row.disegnoMittenteId ?? null
       }
       if (payload.toStatus === 'DISEGNO APPROVATO' && disegnoApprovatoAtValue) {
         updateData.disegnoApprovatoAt = disegnoApprovatoAtValue
@@ -1443,7 +1800,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         updateData.accontoPagato = payload.accontoPagato ?? row.accontoPagato
       }
 
-      const [result] = await tx.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
+      const [result] = await tx.update(ordini).set(updateData).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).returning()
       if (payload.toStatus === 'ASSEGNATO' && !payload.skipAssegnazione) {
         await replaceOrderOperai(tx, id, payload.operaiIds ?? [])
       }
@@ -1529,6 +1886,7 @@ router.get('/dashboard/aging', async (_req, res, next) => {
         limit 1
       ) s on true
       where coalesce(o.stato, 'IN CORSO') in ('DISEGNO IN GESTIONE', 'PRONTI & AVVISATI')
+        and o.deleted_at is null
       order by "enteredAt" asc, o.id desc
     `)
 
@@ -1574,7 +1932,7 @@ router.get('/:id', async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid id' })
     }
 
-    const [row] = await db.select().from(ordini).where(eq(ordini.id, id)).limit(1)
+    const [row] = await db.select().from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!row) {
       return res.status(404).json({ message: 'Consegna not found' })
     }
@@ -1733,7 +2091,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     }
 
     const payload = consegnaInputSchema.partial().parse(req.body)
-    const [existing] = await db.select().from(ordini).where(eq(ordini.id, id)).limit(1)
+    const [existing] = await db.select().from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!existing) {
       return res.status(404).json({ message: 'Consegna not found' })
     }
@@ -1842,7 +2200,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('camSiNo' in payload) diffBool('camSiNo', existing.camSiNo, payload.camSiNo)
     if ('cementiNote' in payload) diffStr('cementiNote', existing.cementiNote, payload.cementiNote)
 
-    const [updated] = await db.update(ordini).set(updateData).where(eq(ordini.id, id)).returning()
+    const [updated] = await db.update(ordini).set(updateData).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).returning()
 
     if (Object.keys(diff).length > 0) {
       await addOrderEvent({
@@ -1894,7 +2252,7 @@ router.put('/:id/operai', requireAuth, requireRole(['admin', 'operativo']), asyn
     const bodySchema = z.object({ operaiIds: z.array(z.number().int().positive()) })
     const { operaiIds } = bodySchema.parse(req.body)
 
-    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
     await db.transaction(async (tx) => {
@@ -1956,7 +2314,7 @@ router.put('/:id/cementi', requireAuth, requireRole(['admin', 'operativo']), asy
     const itemSchema = z.object({ tipoId: z.number().int().positive(), ordinata: z.boolean(), fatta: z.boolean() })
     const items = z.array(itemSchema).parse(req.body)
 
-    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
     await db.transaction(async (tx) => {
@@ -2028,7 +2386,7 @@ router.put('/:id/accessori', requireAuth, requireRole(['admin', 'operativo']), a
     const itemSchema = z.object({ tipoId: z.number().int().positive(), ordinata: z.boolean(), fatta: z.boolean() })
     const items = z.array(itemSchema).parse(req.body)
 
-    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.id, id)).limit(1)
+    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
     await db.transaction(async (tx) => {
@@ -2079,7 +2437,7 @@ router.delete('/:id', requireAuth, requireRole(['admin', 'operativo']), async (r
     const [existing] = await db
       .select({ id: ordini.id, rif: ordini.rifto, cliente: ordini.cliente, stato: ordini.stato })
       .from(ordini)
-      .where(eq(ordini.id, id))
+      .where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`))
       .limit(1)
 
     if (!existing) {
@@ -2097,11 +2455,34 @@ router.delete('/:id', requireAuth, requireRole(['admin', 'operativo']), async (r
       },
     }
 
-    const [deleted] = await db.delete(ordini).where(eq(ordini.id, id)).returning({ id: ordini.id })
-
-    if (!deleted) {
-      return res.status(404).json({ message: 'Consegna not found' })
-    }
+    const deletedAt = new Date()
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
+        values (
+          ${id},
+          ${'ORDER_DELETED'},
+          ${existing.stato ?? null},
+          ${null},
+          ${null},
+          ${req.user?.username ?? null},
+          ${JSON.stringify({
+            rif: existing.rif,
+            cliente: existing.cliente,
+            stato: existing.stato,
+            deletedAt: deletedAt.toISOString(),
+          })}
+        )
+      `)
+      await tx
+        .update(ordini)
+        .set({
+          deletedAt,
+          deletedBy: req.user?.username ?? null,
+          updatedAt: deletedAt,
+        })
+        .where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`))
+    })
 
     res.status(204).send()
   } catch (error) {
