@@ -42,7 +42,10 @@ import { KanbanBoardComponent, type KanbanBoardHost } from './kanban-board.compo
 import { OrderDetailModalComponent } from './order-detail-modal.component';
 import {
   boardCementiSummary as boardCementiSummaryHelper,
+  boardConsegnaPianificataBadges as boardConsegnaPianificataBadgesHelper,
   boardConclusiBadge as boardConclusiBadgeHelper,
+  boardResiduiLavorazioneBadges as boardResiduiLavorazioneBadgesHelper,
+  boardProntiAvvisatiBadge as boardProntiAvvisatiBadgeHelper,
   boardOperaiSummary as boardOperaiSummaryHelper,
   boardOperaiWarning as boardOperaiWarningHelper,
   cementoBadgeClass as cementoBadgeClassHelper,
@@ -194,6 +197,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     q: '',
     cliente: '',
     stato: '',
+    commercialeId: '',
     responsabileInternoId: '',
     fromDate: '',
     toDate: '',
@@ -463,7 +467,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get activeFiltersCount(): number {
-    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.responsabileInternoId, this.filters.fromDate, this.filters.toDate, this.showOnlyLateInKanban]
+    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.commercialeId, this.filters.responsabileInternoId, this.filters.fromDate, this.filters.toDate, this.showOnlyLateInKanban]
       .filter((v) => !!v).length;
   }
 
@@ -703,6 +707,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       massicciataNota: this.selectedDetail?.massicciataNota ?? '',
       tipoCariciNota: this.selectedDetail?.tipoCariciNota ?? '',
       lavorazioneAssegnataAt: this.selectedDetail?.lavorazioneAssegnataAt ?? '',
+      lavorazioneParziale: !!this.selectedDetail?.lavorazioneParziale,
+      attesaMateriale: !!this.selectedDetail?.attesaMateriale,
+      residuiLavorazioneNote: this.selectedDetail?.residuiLavorazioneNote ?? '',
       consegnaDataEffettiva: this.selectedDetail?.consegnaDataEffettiva ?? '',
       vettoreId: this.selectedDetail?.vettoreId ?? null,
       bilici: this.selectedDetail?.bilici ?? 0,
@@ -710,6 +717,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       bancale: !!this.selectedDetail?.bancale,
       chiusini: !!this.selectedDetail?.chiusini,
       caricoVerificato: !!this.selectedDetail?.caricoVerificato,
+      conclusiMode: this.selectedDetail?.conclusiMode ?? '',
+      conclusiWeek: this.selectedDetail?.conclusiWeek ?? '',
+      conclusiDate: this.selectedDetail?.conclusiDate ?? '',
       camSiNo: !!this.selectedDetail?.camSiNo,
       cementiNote: this.selectedDetail?.cementiNote ?? '',
     });
@@ -987,8 +997,36 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return boardOperaiWarningHelper(item);
   }
 
+  boardResiduiLavorazioneBadges(item: ConsegnaRecord) {
+    return boardResiduiLavorazioneBadgesHelper(item);
+  }
+
+  boardConsegnaPianificataBadges(item: ConsegnaRecord) {
+    return boardConsegnaPianificataBadgesHelper(item, (id) => this.nomeVettore(id));
+  }
+
+  showKanbanMeta(item: ConsegnaRecord): boolean {
+    return !['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'].includes(item.stato);
+  }
+
+  showKanbanEstimatedDelivery(item: ConsegnaRecord): boolean {
+    return !!item.dataConsegna && !this.orderWarnings(item).includes('Data consegna mancante');
+  }
+
+  boardInfoBadgeClass(tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet'): string {
+    if (tone === 'positive') return 'kanban-card-alert--positive';
+    if (tone === 'info') return 'kanban-card-alert--info';
+    if (tone === 'muted') return 'kanban-card-alert--muted';
+    if (tone === 'violet') return 'kanban-card-alert--violet';
+    return '';
+  }
+
   boardConclusiBadge(item: ConsegnaRecord): string | null {
     return boardConclusiBadgeHelper(item, (value) => this.conclusiWeekLabel(value));
+  }
+
+  boardProntiAvvisatiBadge(item: ConsegnaRecord): string | null {
+    return boardProntiAvvisatiBadgeHelper(item);
   }
 
   detailMissingItems(item: ConsegnaRecord): string[] {
@@ -1157,6 +1195,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       q: '',
       cliente: '',
       stato: '',
+      commercialeId: '',
       responsabileInternoId: '',
       fromDate: '',
       toDate: '',
@@ -1440,6 +1479,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${year}-W${String(week).padStart(2, '0')}`;
   }
 
+  setAmpMode(mode: 'week' | 'date'): void {
+    if (!this.selectedDetail || !this.canWrite || !this.editMode) return;
+    this.selectedDetail.conclusiMode = mode;
+    if (mode === 'week') {
+      this.selectedDetail.conclusiWeek = this.selectedDetail.conclusiWeek || this.todayIsoWeek();
+      this.selectedDetail.conclusiDate = null;
+      return;
+    }
+    this.selectedDetail.conclusiDate = this.selectedDetail.conclusiDate || this.todayIsoDate();
+    this.selectedDetail.conclusiWeek = null;
+  }
+
   onAttachmentSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.selectedUploadFile = input.files?.[0] ?? null;
@@ -1643,6 +1694,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoMittenteId: 'Mittente disegno',
       disegnoApprovatoAt: 'Data approvazione disegno',
       lavorazioneAssegnataAt: 'Data assegnazione',
+      lavorazioneParziale: 'Lavorazione parziale',
+      attesaMateriale: 'In attesa materiale',
+      residuiLavorazioneNote: 'Residui lavorazione',
       consegnaDataEffettiva: 'Data consegna effettiva',
       vettoreId: 'Vettore',
       bilici: 'N° bilici',
@@ -2055,6 +2109,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.consegneService.listCommerciali().subscribe({
       next: (response) => {
         this.commercialiRows = response.data;
+        this.normalizeFiltersAgainstAvailableOptions();
         this.commercialiLoading = false;
       },
       error: (error) => {
@@ -3019,6 +3074,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return operai?.length ? operai.map((o) => o.nome).join(', ') : '—';
   }
 
+  shouldShowResiduiLavorazione(detail: ConsegnaRecord): boolean {
+    if (detail.lavorazioneParziale || detail.attesaMateriale || !!detail.residuiLavorazioneNote?.trim()) return true;
+    return ['ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'].includes(detail.stato);
+  }
+
   conclusiWeekLabel(value: string | null | undefined): string {
     if (!value) return '—';
     const match = /^(\d{4})-W(\d{2})$/.exec(value);
@@ -3183,6 +3243,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         massicciataNota: this.selectedDetail.massicciataNota || null,
         tipoCariciNota: this.selectedDetail.tipoCariciNota || null,
         lavorazioneAssegnataAt: this.selectedDetail.lavorazioneAssegnataAt || null,
+        lavorazioneParziale: this.selectedDetail.lavorazioneParziale,
+        attesaMateriale: this.selectedDetail.attesaMateriale,
+        residuiLavorazioneNote: this.selectedDetail.residuiLavorazioneNote || null,
         consegnaDataEffettiva: this.selectedDetail.consegnaDataEffettiva || null,
         vettoreId: this.selectedDetail.vettoreId || null,
         bilici: this.selectedDetail.bilici,
@@ -3190,6 +3253,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         bancale: this.selectedDetail.bancale,
         chiusini: this.selectedDetail.chiusini,
         caricoVerificato: this.selectedDetail.caricoVerificato,
+        conclusiMode: this.selectedDetail.conclusiMode || null,
+        conclusiWeek: this.selectedDetail.conclusiWeek || null,
+        conclusiDate: this.selectedDetail.conclusiDate || null,
         camSiNo: this.selectedDetail.camSiNo,
         cementiNote: this.selectedDetail.cementiNote || null,
       });
@@ -3243,7 +3309,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         this.operaiSnapshot = this.serializeOperaiSelection();
         if (cementiDirty) this.cementiSnapshot = this.serializeCementi();
         if (accessoriDirty) this.accessoriSnapshot = this.serializeAccessori();
-        if (cementiDirty || accessoriDirty) this.loadBoard();
+        this.loadBoard();
         if (this.editMode) this.editMode = false;
         this.operationSuccess = 'Modifiche salvate';
         setTimeout(() => { this.operationSuccess = ''; }, 3000);
@@ -3260,6 +3326,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   pasteFolderPath(field: 'documenti' | 'foto'): void {
+    if (!this.editMode) return;
     navigator.clipboard.readText().then(text => {
       const trimmed = text?.trim();
       if (trimmed) this.saveFolderPath(field, trimmed);
@@ -3270,18 +3337,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveFolderPath(field: 'documenti' | 'foto', path: string): void {
-    if (!this.selectedDetail) return;
+    if (!this.editMode) return;
     const trimmedPath = path?.trim() || null;
     if (field === 'documenti') {
-      this.selectedDetail.folderLinkDocumenti = trimmedPath;
       this.formModel.folderLinkDocumenti = trimmedPath ?? '';
     } else {
-      this.selectedDetail.folderLinkFoto = trimmedPath;
       this.formModel.folderLinkFoto = trimmedPath ?? '';
     }
   }
 
   clearFolderPath(field: 'documenti' | 'foto'): void {
+    if (!this.editMode) return;
+    const label = field === 'documenti' ? 'la cartella documenti' : 'la cartella foto';
+    if (!window.confirm(`Confermi di voler rimuovere ${label}?`)) return;
     this.saveFolderPath(field, '');
   }
 
@@ -3370,6 +3438,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private normalizeFiltersAgainstAvailableOptions(): void {
     if (this.filters.cliente && !this.availableFilters.clienti.includes(this.filters.cliente)) this.filters.cliente = '';
     if (this.filters.stato && !this.availableFilters.stati.includes(this.filters.stato)) this.filters.stato = '';
+    if (this.filters.commercialeId) {
+      const id = Number(this.filters.commercialeId);
+      if (!Number.isFinite(id) || id <= 0 || (this.commercialiRows.length > 0 && !this.commercialiRows.some((item) => item.id === id))) {
+        this.filters.commercialeId = '';
+      }
+    }
     if (this.filters.responsabileInternoId) {
       const id = Number(this.filters.responsabileInternoId);
       if (!Number.isFinite(id) || id <= 0 || (this.responsabiliRows.length > 0 && !this.responsabiliRows.some((item) => item.id === id))) {

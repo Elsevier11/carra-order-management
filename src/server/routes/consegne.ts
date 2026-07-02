@@ -94,6 +94,7 @@ const listQuerySchema = z.object({
   q: z.string().optional(),
   cliente: z.string().optional(),
   stato: z.string().optional(),
+  commercialeId: z.coerce.number().int().positive().optional(),
   responsabileInternoId: z.coerce.number().int().positive().optional(),
   fromDate: z.string().regex(dateOnlyRegex, 'fromDate must be YYYY-MM-DD').optional(),
   toDate: z.string().regex(dateOnlyRegex, 'toDate must be YYYY-MM-DD').optional(),
@@ -124,6 +125,10 @@ function buildListFilters(query: ListQuery) {
 
   if (query.stato) {
     filters.push(ilike(ordini.stato, `%${query.stato.trim()}%`))
+  }
+
+  if (query.commercialeId) {
+    filters.push(eq(ordini.commercialeId, query.commercialeId))
   }
 
   if (query.responsabileInternoId) {
@@ -177,6 +182,9 @@ const consegnaInputSchema = z.object({
   tipoCariciNota: z.string().optional().nullable(),
   // campi ASSEGNATO
   lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  lavorazioneParziale: z.boolean().optional().default(false),
+  attesaMateriale: z.boolean().optional().default(false),
+  residuiLavorazioneNote: z.string().optional().nullable(),
   // campi CONSEGNA PIANIFICATA
   consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   vettoreId: z.number().int().positive().optional().nullable(),
@@ -185,6 +193,10 @@ const consegnaInputSchema = z.object({
   bancale: z.boolean().optional().default(false),
   chiusini: z.boolean().optional().default(false),
   caricoVerificato: z.boolean().optional().default(false),
+  // A.M.P.
+  conclusiMode: z.enum(['week', 'date']).optional().nullable(),
+  conclusiWeek: z.string().regex(/^\d{4}-W\d{2}$/, 'conclusiWeek must be YYYY-Www').optional().nullable(),
+  conclusiDate: z.string().regex(dateOrDateTimeRegex, 'conclusiDate must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   // tab C.A.M.
   camSiNo: z.boolean().optional().default(false),
   cementiNote: z.string().optional().nullable(),
@@ -208,6 +220,12 @@ const transitionSchema = z.object({
   conclusiWeek: z.string().regex(/^\d{4}-W\d{2}$/, 'conclusiWeek must be YYYY-Www').optional().nullable(),
   conclusiDate: z.string().regex(dateOrDateTimeRegex, 'conclusiDate must be YYYY-MM-DD or ISO datetime').optional().nullable(),
 })
+
+type AmpDetails = {
+  conclusiMode: 'week' | 'date' | null
+  conclusiWeek: string | null
+  conclusiDate: string | null
+}
 
 type DuplicateOrderCandidate = {
   id: number
@@ -317,6 +335,9 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     tipoCariciNota: row.tipoCariciNota ?? null,
     // campi ASSEGNATO
     lavorazioneAssegnataAt: toIsoDate(row.lavorazioneAssegnataAt),
+    lavorazioneParziale: row.lavorazioneParziale ?? false,
+    attesaMateriale: row.attesaMateriale ?? false,
+    residuiLavorazioneNote: row.residuiLavorazioneNote ?? null,
     // campi CONSEGNA PIANIFICATA
     consegnaDataEffettiva: toIsoDate(row.consegnaDataEffettiva),
     vettoreId: row.vettoreId ?? null,
@@ -404,6 +425,9 @@ function readableFieldLabel(field: string): string {
     massicciataNota: 'Nota massicciata',
     tipoCariciNota: 'Nota tipo carichi',
     lavorazioneAssegnataAt: 'Data assegnazione',
+    lavorazioneParziale: 'Lavorazione parziale',
+    attesaMateriale: 'In attesa materiale',
+    residuiLavorazioneNote: 'Residui lavorazione',
     consegnaDataEffettiva: 'Data consegna effettiva',
     vettoreId: 'Vettore',
     bilici: 'N° bilici',
@@ -475,6 +499,16 @@ function parseEventDetails(details: unknown): Record<string, unknown> | null {
   return typeof details === 'object' && !Array.isArray(details) ? (details as Record<string, unknown>) : null
 }
 
+function parseAmpDetails(details: unknown): AmpDetails | null {
+  const parsed = parseEventDetails(details)
+  if (!parsed) return null
+  const conclusiMode = parsed.conclusiMode === 'week' || parsed.conclusiMode === 'date' ? parsed.conclusiMode : null
+  const conclusiWeek = typeof parsed.conclusiWeek === 'string' ? parsed.conclusiWeek : null
+  const conclusiDate = typeof parsed.conclusiDate === 'string' ? parsed.conclusiDate : null
+  if (!conclusiMode && !conclusiWeek && !conclusiDate) return null
+  return { conclusiMode, conclusiWeek, conclusiDate }
+}
+
 function compareNullableDatesDesc(a: Date | null | undefined, b: Date | null | undefined): number {
   const aTime = a?.getTime() ?? Number.NEGATIVE_INFINITY
   const bTime = b?.getTime() ?? Number.NEGATIVE_INFINITY
@@ -486,10 +520,12 @@ function sortBoardItems(
   rows: typeof ordini.$inferSelect[],
   lastModifiedByOrder: Map<number, Date | null>,
 ): typeof ordini.$inferSelect[] {
-  if (status === 'IN CORSO') {
+  if (status === 'IN CORSO' || status === 'DISEGNO IN GESTIONE') {
     return [...rows].sort((a, b) => {
       const byOrderDate = compareNullableDatesDesc(a.dataOrdine, b.dataOrdine)
       if (byOrderDate !== 0) return byOrderDate
+      const byLastModified = compareNullableDatesDesc(lastModifiedByOrder.get(a.id), lastModifiedByOrder.get(b.id))
+      if (byLastModified !== 0) return byLastModified
       return compareNullableDatesDesc(a.createdAt, b.createdAt)
     })
   }
@@ -775,6 +811,9 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         'Massicciata nota': row.massicciataNota ?? '',
         'Tipo carici nota': row.tipoCariciNota ?? '',
         'Lavorazione assegnata il': formatItalianDate(row.lavorazioneAssegnataAt),
+        'Lavorazione parziale': yesNo(row.lavorazioneParziale),
+        'In attesa materiale': yesNo(row.attesaMateriale),
+        'Residui lavorazione': row.residuiLavorazioneNote ?? '',
         'Consegna effettiva il': formatItalianDate(row.consegnaDataEffettiva),
         Vettore: vettore,
         'DDT pronti': yesNo(row.ddtPronti),
@@ -953,12 +992,21 @@ router.get('/board', async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query)
     const whereClause = buildListFilters(query)
-    const [rows, cementiRows, lastModifiedRows, conclusiRows] = await Promise.all([
+    const [rows, operaiRows, cementiRows, lastModifiedRows, conclusiRows, prontiRows] = await Promise.all([
       db
         .select()
         .from(ordini)
         .where(whereClause)
         .orderBy(desc(ordini.dataConsegna), desc(ordini.createdAt)),
+      db
+        .select({
+          orderId: orderOperai.orderId,
+          id: operaiTable.id,
+          nome: operaiTable.nome,
+        })
+        .from(orderOperai)
+        .innerJoin(operaiTable, eq(orderOperai.operaioId, operaiTable.id))
+        .orderBy(asc(orderOperai.orderId), asc(operaiTable.nome)),
       db
         .select({
           orderId: orderCementi.orderId,
@@ -983,10 +1031,25 @@ router.get('/board', async (req, res, next) => {
           order_id as "orderId",
           details
         from order_events
-        where to_status = 'CONCLUSI'
+        where details is not null
+        order by order_id asc, created_at desc, id desc
+      `),
+      db.execute(sql`
+        select
+          order_id as "orderId",
+          created_at as "prontiAvvisatiAt"
+        from order_events
+        where to_status = 'PRONTI & AVVISATI'
         order by created_at desc, id desc
       `),
     ])
+    const operaiByOrder = new Map<number, Array<{ id: number; nome: string }>>()
+    for (const row of operaiRows) {
+      const current = operaiByOrder.get(row.orderId) ?? []
+      current.push({ id: row.id, nome: row.nome })
+      operaiByOrder.set(row.orderId, current)
+    }
+
     const cementiByOrder = new Map<number, typeof cementiRows>()
     for (const row of cementiRows) {
       const current = cementiByOrder.get(row.orderId) ?? []
@@ -999,16 +1062,21 @@ router.get('/board', async (req, res, next) => {
       lastModifiedByOrder.set(row.orderId, row.lastModifiedAt ? new Date(row.lastModifiedAt) : null)
     }
 
-    const conclusiByOrder = new Map<number, { conclusiMode: 'week' | 'date' | null; conclusiWeek: string | null; conclusiDate: string | null }>()
+    const conclusiByOrder = new Map<number, AmpDetails>()
     for (const row of conclusiRows as Array<{ orderId: number; details: unknown }>) {
       if (conclusiByOrder.has(row.orderId)) continue
-      const details = parseEventDetails(row.details)
+      const details = parseAmpDetails(row.details)
       if (!details) continue
-      conclusiByOrder.set(row.orderId, {
-        conclusiMode: (details.conclusiMode as 'week' | 'date' | undefined) ?? null,
-        conclusiWeek: (details.conclusiWeek as string | undefined) ?? null,
-        conclusiDate: (details.conclusiDate as string | undefined) ?? null,
-      })
+      conclusiByOrder.set(row.orderId, details)
+    }
+
+    const prontiAvvisatiByOrder = new Map<number, string | null>()
+    for (const row of prontiRows as Array<{ orderId: number; prontiAvvisatiAt: string | Date | null }>) {
+      if (prontiAvvisatiByOrder.has(row.orderId)) continue
+      prontiAvvisatiByOrder.set(
+        row.orderId,
+        row.prontiAvvisatiAt ? new Date(row.prontiAvvisatiAt).toISOString() : null,
+      )
     }
 
     const columns = allowedStatuses.map((status) => ({
@@ -1020,9 +1088,11 @@ router.get('/board', async (req, res, next) => {
         lastModifiedByOrder,
       ).map((row) => ({
         ...normalizeRow(row),
+        operaiAssegnati: operaiByOrder.get(row.id) ?? [],
         conclusiMode: conclusiByOrder.get(row.id)?.conclusiMode ?? null,
         conclusiWeek: conclusiByOrder.get(row.id)?.conclusiWeek ?? null,
         conclusiDate: conclusiByOrder.get(row.id)?.conclusiDate ?? null,
+        prontiAvvisatiAt: prontiAvvisatiByOrder.get(row.id) ?? null,
         cementi: (cementiByOrder.get(row.id) ?? []).map((cemento) => ({
           tipoId: cemento.tipoId,
           nome: cemento.nome,
@@ -1544,18 +1614,10 @@ router.post('/open-folder', requireAuth, async (req: AuthenticatedRequest, res, 
       return res.status(404).json({ message: 'Cartella non trovata' })
     }
 
-    const foregroundScript = [
-      '$folderPath = $args[0]',
-      '$process = Start-Process -FilePath explorer.exe -ArgumentList @($folderPath) -PassThru',
-      'Start-Sleep -Milliseconds 250',
-      '$wshell = New-Object -ComObject WScript.Shell',
-      'try { [void]$wshell.AppActivate($process.Id) } catch { }',
-    ].join('; ')
-
-    const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', foregroundScript, normalizedPath], {
+    const child = spawn('explorer.exe', [normalizedPath], {
       detached: true,
       stdio: 'ignore',
-      windowsHide: true,
+      windowsHide: false,
     })
     child.unref()
 
@@ -1852,7 +1914,12 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       details: transitionDetails,
     })
 
-    return res.json(normalizeRow(updated))
+    return res.json({
+      ...normalizeRow(updated),
+      conclusiMode: transitionDetails && 'conclusiMode' in transitionDetails ? transitionDetails.conclusiMode ?? null : null,
+      conclusiWeek: transitionDetails && 'conclusiWeek' in transitionDetails ? transitionDetails.conclusiWeek ?? null : null,
+      conclusiDate: transitionDetails && 'conclusiDate' in transitionDetails ? transitionDetails.conclusiDate ?? null : null,
+    })
   } catch (error) {
     return next(error)
   }
@@ -1969,25 +2036,25 @@ router.get('/:id', async (req, res, next) => {
         .orderBy(accessoriTipi.ordine),
     ])
 
-    const [conclusiEvent] = await db.execute(sql`
+    const ampEvents = await db.execute(sql`
       select details
       from order_events
-      where order_id = ${id} and to_status = 'CONCLUSI'
+      where order_id = ${id} and details is not null
       order by created_at desc, id desc
-      limit 1
     `)
-    const conclusiDetails = conclusiEvent && typeof (conclusiEvent as { details?: unknown }).details === 'string'
-      ? JSON.parse(String((conclusiEvent as { details: string }).details))
-      : (conclusiEvent as { details?: Record<string, unknown> } | undefined)?.details ?? null
+    const ampDetails =
+      (ampEvents as Array<{ details?: unknown }>)
+        .map((event) => parseAmpDetails(event.details))
+        .find((details): details is AmpDetails => details !== null) ?? null
 
     return res.json({
       ...normalizeRow(row),
       operaiAssegnati: operaiRows,
       cementi: cementiRows,
       accessori: accessoriRows,
-      conclusiMode: (conclusiDetails?.conclusiMode as 'week' | 'date' | undefined) ?? null,
-      conclusiWeek: (conclusiDetails?.conclusiWeek as string | undefined) ?? null,
-      conclusiDate: (conclusiDetails?.conclusiDate as string | undefined) ?? null,
+      conclusiMode: ampDetails?.conclusiMode ?? null,
+      conclusiWeek: ampDetails?.conclusiWeek ?? null,
+      conclusiDate: ampDetails?.conclusiDate ?? null,
     })
   } catch (error) {
     return next(error)
@@ -2041,6 +2108,9 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
           responsabileInternoId: payload.responsabileInternoId ?? null,
           bilici: payload.bilici ?? 0,
           chiusini: payload.chiusini ?? false,
+          lavorazioneParziale: payload.lavorazioneParziale ?? false,
+          attesaMateriale: payload.attesaMateriale ?? false,
+          residuiLavorazioneNote: payload.residuiLavorazioneNote ?? null,
           cementiNote: payload.cementiNote ?? null,
         })
         .returning()
@@ -2095,6 +2165,20 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if (!existing) {
       return res.status(404).json({ message: 'Consegna not found' })
     }
+    const ampEvents = await db.execute(sql`
+      select details
+      from order_events
+      where order_id = ${id} and details is not null
+      order by created_at desc, id desc
+    `)
+    const existingAmp =
+      (ampEvents as Array<{ details?: unknown }>)
+        .map((event) => parseAmpDetails(event.details))
+        .find((details): details is AmpDetails => details !== null) ?? {
+      conclusiMode: null,
+      conclusiWeek: null,
+      conclusiDate: null,
+    }
     const updateData: Partial<typeof ordini.$inferInsert> = {}
 
     if ('rif' in payload) updateData.rifto = payload.rif
@@ -2128,6 +2212,9 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('massicciataNota' in payload) updateData.massicciataNota = payload.massicciataNota ?? null
     if ('tipoCariciNota' in payload) updateData.tipoCariciNota = payload.tipoCariciNota ?? null
     if ('lavorazioneAssegnataAt' in payload) updateData.lavorazioneAssegnataAt = payload.lavorazioneAssegnataAt ? parseInputDate(payload.lavorazioneAssegnataAt) : null
+    if ('lavorazioneParziale' in payload) updateData.lavorazioneParziale = payload.lavorazioneParziale ?? false
+    if ('attesaMateriale' in payload) updateData.attesaMateriale = payload.attesaMateriale ?? false
+    if ('residuiLavorazioneNote' in payload) updateData.residuiLavorazioneNote = payload.residuiLavorazioneNote ?? null
     if ('consegnaDataEffettiva' in payload) updateData.consegnaDataEffettiva = payload.consegnaDataEffettiva ? parseInputDate(payload.consegnaDataEffettiva) : null
     if ('vettoreId' in payload) updateData.vettoreId = payload.vettoreId ?? null
     if ('bilici' in payload) updateData.bilici = payload.bilici ?? 0
@@ -2137,6 +2224,24 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('caricoVerificato' in payload) updateData.caricoVerificato = payload.caricoVerificato ?? false
     if ('camSiNo' in payload) updateData.camSiNo = payload.camSiNo ?? false
     if ('cementiNote' in payload) updateData.cementiNote = payload.cementiNote ?? null
+    const ampTouched = 'conclusiMode' in payload || 'conclusiWeek' in payload || 'conclusiDate' in payload
+    const nextAmp: AmpDetails = ampTouched
+      ? {
+          conclusiMode: payload.conclusiMode ?? existingAmp.conclusiMode ?? 'week',
+          conclusiWeek: payload.conclusiWeek ?? existingAmp.conclusiWeek ?? null,
+          conclusiDate: payload.conclusiDate ?? existingAmp.conclusiDate ?? null,
+        }
+      : existingAmp
+    if (ampTouched) {
+      if (nextAmp.conclusiMode === 'week' && !nextAmp.conclusiWeek) {
+        return res.status(400).json({ message: 'Settimana obbligatoria per A.M.P.' })
+      }
+      if (nextAmp.conclusiMode === 'date' && !nextAmp.conclusiDate) {
+        return res.status(400).json({ message: 'Data obbligatoria per A.M.P.' })
+      }
+      if (nextAmp.conclusiMode === 'week') nextAmp.conclusiDate = null
+      if (nextAmp.conclusiMode === 'date') nextAmp.conclusiWeek = null
+    }
     const autoDisegnoApprovatoAt =
       payload.stato === 'DISEGNO APPROVATO' && existing.stato !== 'DISEGNO APPROVATO' && !('disegnoApprovatoAt' in payload)
         ? new Date()
@@ -2190,6 +2295,9 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('massicciataNota' in payload) diffStr('massicciataNota', existing.massicciataNota, payload.massicciataNota)
     if ('tipoCariciNota' in payload) diffStr('tipoCariciNota', existing.tipoCariciNota, payload.tipoCariciNota)
     if ('lavorazioneAssegnataAt' in payload) diffStr('lavorazioneAssegnataAt', normDate(existing.lavorazioneAssegnataAt), payload.lavorazioneAssegnataAt)
+    if ('lavorazioneParziale' in payload) diffBool('lavorazioneParziale', existing.lavorazioneParziale, payload.lavorazioneParziale)
+    if ('attesaMateriale' in payload) diffBool('attesaMateriale', existing.attesaMateriale, payload.attesaMateriale)
+    if ('residuiLavorazioneNote' in payload) diffStr('residuiLavorazioneNote', existing.residuiLavorazioneNote, payload.residuiLavorazioneNote)
     if ('consegnaDataEffettiva' in payload) diffStr('consegnaDataEffettiva', normDate(existing.consegnaDataEffettiva), payload.consegnaDataEffettiva)
     if ('vettoreId' in payload) diffNum('vettoreId', existing.vettoreId, payload.vettoreId)
     if ('bilici' in payload) diffNum('bilici', existing.bilici, payload.bilici)
@@ -2199,10 +2307,15 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('caricoVerificato' in payload) diffBool('caricoVerificato', existing.caricoVerificato, payload.caricoVerificato)
     if ('camSiNo' in payload) diffBool('camSiNo', existing.camSiNo, payload.camSiNo)
     if ('cementiNote' in payload) diffStr('cementiNote', existing.cementiNote, payload.cementiNote)
+    if (ampTouched && existingAmp.conclusiMode !== nextAmp.conclusiMode) diff.conclusiMode = { from: existingAmp.conclusiMode, to: nextAmp.conclusiMode }
+    if (ampTouched && existingAmp.conclusiWeek !== nextAmp.conclusiWeek) diff.conclusiWeek = { from: existingAmp.conclusiWeek, to: nextAmp.conclusiWeek }
+    if (ampTouched && existingAmp.conclusiDate !== nextAmp.conclusiDate) diff.conclusiDate = { from: existingAmp.conclusiDate, to: nextAmp.conclusiDate }
 
-    const [updated] = await db.update(ordini).set(updateData).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).returning()
+    const [updated] = Object.keys(updateData).length > 0
+      ? await db.update(ordini).set(updateData).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).returning()
+      : [existing]
 
-    if (Object.keys(diff).length > 0) {
+    if (Object.keys(diff).length > 0 || ampTouched) {
       await addOrderEvent({
         orderId: id,
         eventType: diff.stato ? 'STATUS_CHANGED' : 'ORDER_UPDATED',
@@ -2210,7 +2323,16 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
         toStatus: diff.stato ? String(diff.stato.to ?? '') || null : null,
         note: null,
         actor: req.user?.username ?? null,
-        details: { diff },
+        details: {
+          ...(Object.keys(diff).length > 0 ? { diff } : {}),
+          ...(ampTouched
+            ? {
+                conclusiMode: nextAmp.conclusiMode,
+                conclusiWeek: nextAmp.conclusiWeek,
+                conclusiDate: nextAmp.conclusiDate,
+              }
+            : {}),
+        },
       })
     }
 
@@ -2218,10 +2340,26 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
       action: diff.stato ? 'STATUS_CHANGED' : 'ORDER_UPDATED',
       entity: 'consegna',
       entityId: id,
-      details: Object.keys(diff).length > 0 ? { diff } : undefined,
+      details: Object.keys(diff).length > 0 || ampTouched
+        ? {
+            ...(Object.keys(diff).length > 0 ? { diff } : {}),
+            ...(ampTouched
+              ? {
+                  conclusiMode: nextAmp.conclusiMode,
+                  conclusiWeek: nextAmp.conclusiWeek,
+                  conclusiDate: nextAmp.conclusiDate,
+                }
+              : {}),
+          }
+        : undefined,
     }
 
-    res.json(normalizeRow(updated))
+    res.json({
+      ...normalizeRow(updated),
+      conclusiMode: nextAmp.conclusiMode,
+      conclusiWeek: nextAmp.conclusiWeek,
+      conclusiDate: nextAmp.conclusiDate,
+    })
   } catch (error) {
     next(error)
   }

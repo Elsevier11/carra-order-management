@@ -827,31 +827,26 @@
   }
 }
 
-.detail-toast {
-  position: absolute;
-  top: 14px;
-  right: 18px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.82rem;
+.detail-feedback {
+  margin: 6px 0 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 0.78rem;
   font-weight: 600;
-  z-index: var(--z-detail-toast);
-  pointer-events: none;
-  animation: toast-fadeout 0.35s ease 2.65s forwards;
+  line-height: 1.35;
+  border: 1px solid transparent;
 }
 
-.detail-toast--success {
-  background: var(--success);
-  color: #fff;
+.detail-feedback--success {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.16);
 }
 
-.detail-toast--error {
-  background: var(--alert);
-  color: #fff;
-}
-
-@keyframes toast-fadeout {
-  to { opacity: 0; }
+.detail-feedback--error {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.16);
 }
 
 .detail-tab-body {
@@ -1016,7 +1011,7 @@
 .kanban-card-alerts {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-top: 8px;
   max-width: 100%;
   min-width: 0;
@@ -1026,14 +1021,16 @@
 .kanban-card-alert {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   max-width: 100%;
   min-width: 0;
+  min-height: 24px;
   padding: 3px 10px;
   border-radius: 999px;
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #f59e0b;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 800;
   line-height: 1.2;
   overflow: hidden;
@@ -1044,7 +1041,7 @@
 .kanban-card-alerts--cementi {
   display: grid;
   grid-auto-flow: row;
-  gap: 4px;
+  gap: 6px;
   margin-top: 8px;
 }
 
@@ -1053,22 +1050,67 @@
   max-width: 100%;
 }
 
+.kanban-card-alerts--operai .kanban-card-alert {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.kanban-card-alert--multiline {
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+  white-space: normal;
+  text-overflow: clip;
+  overflow: visible;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.kanban-card-alert__line {
+  display: block;
+  width: 100%;
+}
+
+.kanban-card-alert--positive {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+  border-color: rgba(13, 148, 136, 0.28);
+}
+
+.kanban-card-alert--info {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+.kanban-card-alert--muted {
+  background: rgba(100, 116, 139, 0.1);
+  color: #64748b;
+  border-color: rgba(100, 116, 139, 0.22);
+}
+
+.kanban-card-alert--violet {
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+  border-color: rgba(124, 58, 237, 0.26);
+}
+
 .kanban-card-alert.cemento-badge--rosso {
   background: rgba(248, 113, 113, 0.12);
   color: #b91c1c;
-  border-color: rgba(248, 113, 113, 0.22);
+  border-color: rgba(248, 113, 113, 0.5);
 }
 
 .kanban-card-alert.cemento-badge--arancione {
   background: rgba(251, 146, 60, 0.14);
   color: #c2410c;
-  border-color: rgba(251, 146, 60, 0.24);
+  border-color: rgba(251, 146, 60, 0.5);
 }
 
 .kanban-card-alert.cemento-badge--verde {
   background: rgba(74, 222, 128, 0.14);
   color: #15803d;
-  border-color: rgba(74, 222, 128, 0.24);
+  border-color: rgba(74, 222, 128, 0.5);
 }
 
 .kanban-card-alert--conclusi {
@@ -1874,6 +1916,10 @@ tr.selected-row:hover {
   grid-template-columns: repeat(4, 1fr);
   gap: 8px 14px;
 
+  > .detail-section {
+    grid-column: 1 / -1;
+  }
+
   // Inputs e select più compatti dentro il form
   input:not([type='checkbox']):not([type='radio']):not([type='file']),
   select {
@@ -2129,8 +2175,9 @@ tr.selected-row:hover {
   min-width: 0;
   font-size: 0.82rem;
   font-family: monospace;
-  height: 28px;
-  padding: 0 8px;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 10px;
 }
 
 // ── Attachment grid ────────────────────────────────────────────────────────────

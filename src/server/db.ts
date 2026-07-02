@@ -107,6 +107,9 @@ export async function ensureDatabaseObjects() {
       massicciata_nota text,
       tipo_carici_nota text,
       lavorazione_assegnata_at timestamp,
+      lavorazione_parziale boolean not null default false,
+      attesa_materiale boolean not null default false,
+      residui_lavorazione_note text,
       consegna_data_effettiva timestamp,
       vettore_id integer references vettori(id) on delete set null,
       bilici integer not null default 0,
@@ -261,6 +264,9 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists chiusini boolean not null default false;`)
   await pgClient.unsafe(`alter table ordini add column if not exists disegno_approvato_at timestamp;`)
   await pgClient.unsafe(`alter table ordini add column if not exists cementi_note text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists lavorazione_parziale boolean not null default false;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists attesa_materiale boolean not null default false;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists residui_lavorazione_note text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists deleted_at timestamp;`)
   await pgClient.unsafe(`alter table ordini add column if not exists deleted_by text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists updated_at timestamp not null default now();`)

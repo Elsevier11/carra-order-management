@@ -3,6 +3,7 @@ import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
 import { Component, ElementRef, HostListener, Input, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BoardColumn, ConsegnaFilters, ConsegnaRecord } from './consegne.types';
+import type { BoardInfoBadge, BoardInfoBadgeTone } from './order-formatters';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
 
 export interface KanbanBoardHost {
@@ -10,12 +11,19 @@ export interface KanbanBoardHost {
   availableFilters: { clienti: string[]; stati: string[] };
   boardColumns: BoardColumn[];
   boardConclusiBadge(item: ConsegnaRecord): string | null;
+  boardConsegnaPianificataBadges(item: ConsegnaRecord): BoardInfoBadge[];
+  showKanbanMeta(item: ConsegnaRecord): boolean;
+  showKanbanEstimatedDelivery(item: ConsegnaRecord): boolean;
+  boardInfoBadgeClass(tone: BoardInfoBadgeTone): string;
+  boardProntiAvvisatiBadge(item: ConsegnaRecord): string | null;
   boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }>;
+  boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBadge[];
   boardDropListIds: string[];
   canWrite: boolean;
   cementoBadgeClassFromFlags(sel: { ordinata: boolean; fatta: boolean }): string;
   columnClass(status: string): string;
   columnShortLabel(status: ConsegnaStatus): string;
+  commercialiRows: Array<{ id: number; nome: string }>;
   dropListId(status: string): string;
   filteredKanbanItems(items: ConsegnaRecord[]): ConsegnaRecord[];
   filters: ConsegnaFilters;

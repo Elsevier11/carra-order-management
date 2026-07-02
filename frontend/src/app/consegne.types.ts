@@ -83,6 +83,9 @@ export interface ConsegnaRecord {
   tipoCariciNota: string | null;
   // Lavorazione
   lavorazioneAssegnataAt: string | null;
+  lavorazioneParziale: boolean;
+  attesaMateriale: boolean;
+  residuiLavorazioneNote: string | null;
   // Consegna
   consegnaDataEffettiva: string | null;
   vettoreId: number | null;
@@ -98,6 +101,7 @@ export interface ConsegnaRecord {
   conclusiMode?: 'week' | 'date' | null;
   conclusiWeek?: string | null;
   conclusiDate?: string | null;
+  prontiAvvisatiAt?: string | null;
   // Relazioni
   operaiAssegnati: { id: number; nome: string }[];
   cementi: OrderCemento[];
@@ -137,6 +141,7 @@ export interface ConsegnaFilters {
   q?: string;
   cliente?: string;
   stato?: string;
+  commercialeId?: number | string;
   responsabileInternoId?: number | string;
   fromDate?: string;
   toDate?: string;

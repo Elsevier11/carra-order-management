@@ -39,8 +39,8 @@
             </div>
           </div>
 
-          <div class="detail-toast detail-toast--success" *ngIf="app.operationSuccess">OK {{ app.operationSuccess }}</div>
-          <div class="detail-toast detail-toast--error" *ngIf="app.operationError">{{ app.operationError }}</div>
+          <div class="detail-feedback detail-feedback--success" *ngIf="app.operationSuccess">OK {{ app.operationSuccess }}</div>
+          <div class="detail-feedback detail-feedback--error" *ngIf="app.operationError">{{ app.operationError }}</div>
 
           <div class="detail-tabs">
             <button type="button" class="detail-tab" [class.active]="app.activeDetailTab === 'dettagli'" (click)="app.setDetailTab('dettagli')">Dettagli</button>

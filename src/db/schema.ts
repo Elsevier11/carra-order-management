@@ -86,6 +86,9 @@ export const ordini = pgTable('ordini', {
   tipoCariciNota: text('tipo_carici_nota'),
   // campi ASSEGNATO
   lavorazioneAssegnataAt: timestamp('lavorazione_assegnata_at'),
+  lavorazioneParziale: boolean('lavorazione_parziale').notNull().default(false),
+  attesaMateriale: boolean('attesa_materiale').notNull().default(false),
+  residuiLavorazioneNote: text('residui_lavorazione_note'),
   // campi CONSEGNA PIANIFICATA
   consegnaDataEffettiva: timestamp('consegna_data_effettiva'),
   vettoreId: integer('vettore_id').references(() => vettori.id, { onDelete: 'set null' }),

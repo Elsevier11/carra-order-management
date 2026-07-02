@@ -273,6 +273,45 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(Array.isArray(res.body.stati)).toBe(true)
   })
 
+  it('GET /api/consegne filters by commercialeId', async () => {
+    const commerciale = await request(app)
+      .post('/api/commerciali')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nome: '__TEST__COMM-FILTER' })
+    expect(commerciale.status).toBe(201)
+
+    const matching = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__COMM-001',
+      cliente: 'Cliente Comm Uno',
+      tipoImpianto: 'CF-1',
+      dataConsegna: '2026-07-12',
+      dataOrdine: '2026-07-01',
+      stato: 'IN CORSO',
+      commercialeId: commerciale.body.id,
+    })
+    expect(matching.status).toBe(201)
+
+    const other = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__COMM-002',
+      cliente: 'Cliente Comm Due',
+      tipoImpianto: 'CF-2',
+      dataConsegna: '2026-07-13',
+      dataOrdine: '2026-07-02',
+      stato: 'IN CORSO',
+    })
+    expect(other.status).toBe(201)
+
+    const res = await request(app).get(`/api/consegne?commercialeId=${commerciale.body.id}`)
+    expect(res.status).toBe(200)
+    const refs = res.body.data.map((item: { rif: string }) => item.rif)
+    expect(refs).toContain('__TEST__COMM-001')
+    expect(refs).not.toContain('__TEST__COMM-002')
+
+    await request(app).delete(`/api/consegne/${matching.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/consegne/${other.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/commerciali/${commerciale.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
   it('GET /api/consegne/board returns grouped columns by status', async () => {
     const [recentlyTouched] = await db.select({ id: ordini.id }).from(ordini).where(eq(ordini.rifto, '__TEST__A-002')).limit(1)
     expect(recentlyTouched).toBeTruthy()
@@ -300,6 +339,44 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(conclusiOrderIds.indexOf('__TEST__A-002')).toBeLessThan(conclusiOrderIds.indexOf('__TEST__C-003'))
   })
 
+  it('GET /api/consegne/board sorts DISEGNO IN GESTIONE by latest order date', async () => {
+    const older = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__DG-001',
+      cliente: 'Cliente Disegno Uno',
+      tipoImpianto: 'DG-1',
+      dataConsegna: '2026-08-10',
+      dataOrdine: '2026-05-01',
+      stato: 'DISEGNO IN GESTIONE',
+    })
+    expect(older.status).toBe(201)
+
+    const newer = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__DG-002',
+      cliente: 'Cliente Disegno Due',
+      tipoImpianto: 'DG-2',
+      dataConsegna: '2026-08-11',
+      dataOrdine: '2026-06-15',
+      stato: 'DISEGNO IN GESTIONE',
+    })
+    expect(newer.status).toBe(201)
+
+    await request(app)
+      .put(`/api/consegne/${older.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ note: 'tocco ordine vecchio dopo quello recente' })
+
+    const res = await request(app).get('/api/consegne/board')
+    expect(res.status).toBe(200)
+    const disegno = res.body.columns.find((x: { status: string; items: Array<{ rif: string }> }) => x.status === 'DISEGNO IN GESTIONE')
+    const refs = (disegno?.items ?? []).map((item: { rif: string }) => item.rif)
+    expect(refs.indexOf('__TEST__DG-002')).toBeGreaterThanOrEqual(0)
+    expect(refs.indexOf('__TEST__DG-001')).toBeGreaterThanOrEqual(0)
+    expect(refs.indexOf('__TEST__DG-002')).toBeLessThan(refs.indexOf('__TEST__DG-001'))
+
+    await request(app).delete(`/api/consegne/${older.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/consegne/${newer.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
   it('POST + PUT + DELETE lifecycle works', async () => {
     const created = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
       rif: '__TEST__C-777',
@@ -312,6 +389,9 @@ describe.runIf(runDbTests)('Consegne API', () => {
       referente2: 'Luca Bianchi',
       telefono2: '02 123456',
       cementiNote: 'Prima tranche solo vasca A',
+      lavorazioneParziale: true,
+      attesaMateriale: true,
+      residuiLavorazioneNote: 'Manca una finitura appena arriva materiale',
     })
     expect(created.status).toBe(201)
     const id = created.body.id as number
@@ -320,6 +400,9 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(created.body.referente2).toBe('Luca Bianchi')
     expect(created.body.telefono2).toBe('02 123456')
     expect(created.body.cementiNote).toBe('Prima tranche solo vasca A')
+    expect(created.body.lavorazioneParziale).toBe(true)
+    expect(created.body.attesaMateriale).toBe(true)
+    expect(created.body.residuiLavorazioneNote).toBe('Manca una finitura appena arriva materiale')
 
     const updated = await request(app).put(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`).send({
       stato: 'CONCLUSI',
@@ -329,6 +412,9 @@ describe.runIf(runDbTests)('Consegne API', () => {
       referente2: 'Paolo Verdi',
       telefono2: '348 0000000',
       cementiNote: 'Aggiornata per seconda tranche',
+      lavorazioneParziale: false,
+      attesaMateriale: true,
+      residuiLavorazioneNote: 'Residuo minimo da chiudere',
     })
     expect(updated.status).toBe(200)
     expect(updated.body.stato).toBe('CONCLUSI')
@@ -338,6 +424,9 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(updated.body.referente2).toBe('Paolo Verdi')
     expect(updated.body.telefono2).toBe('348 0000000')
     expect(updated.body.cementiNote).toBe('Aggiornata per seconda tranche')
+    expect(updated.body.lavorazioneParziale).toBe(false)
+    expect(updated.body.attesaMateriale).toBe(true)
+    expect(updated.body.residuiLavorazioneNote).toBe('Residuo minimo da chiudere')
 
     const deleted = await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
     expect(deleted.status).toBe(204)
@@ -545,6 +634,89 @@ describe.runIf(runDbTests)('Consegne API', () => {
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })
 
+  it('GET /api/consegne/board exposes the real date when an order entered PRONTI & AVVISATI', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__PAV-001',
+      cliente: 'Cliente Avvisato',
+      stato: 'DA ASSEGNARE',
+      dataConsegna: '2026-05-25',
+      dataOrdine: '2026-05-05',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const toAssegnato = await request(app).post(`/api/consegne/${id}/transition`).set('Authorization', `Bearer ${token}`).send({
+      toStatus: 'ASSEGNATO',
+      skipAssegnazione: true,
+      note: 'skip assegnazione',
+    })
+    expect(toAssegnato.status).toBe(200)
+
+    const toConclusi = await request(app).post(`/api/consegne/${id}/transition`).set('Authorization', `Bearer ${token}`).send({
+      toStatus: 'CONCLUSI',
+      note: 'chiuso',
+      conclusiMode: 'date',
+      conclusiDate: '2026-05-20',
+    })
+    expect(toConclusi.status).toBe(200)
+
+    const toPronti = await request(app).post(`/api/consegne/${id}/transition`).set('Authorization', `Bearer ${token}`).send({
+      toStatus: 'PRONTI & AVVISATI',
+      note: 'cliente avvisato',
+      conclusiMode: 'date',
+      conclusiDate: '2026-05-20',
+    })
+    expect(toPronti.status).toBe(200)
+
+    await db.execute(sql`
+      update order_events
+      set created_at = ${'2026-05-22T00:00:00.000Z'}
+      where order_id = ${id} and to_status = 'PRONTI & AVVISATI'
+    `)
+
+    const board = await request(app).get('/api/consegne/board')
+    expect(board.status).toBe(200)
+    const pronti = board.body.columns.find((x: { status: string; items: Array<{ rif: string; prontiAvvisatiAt?: string | null }> }) => x.status === 'PRONTI & AVVISATI')
+    const item = (pronti?.items ?? []).find((row: { rif: string }) => row.rif === '__TEST__PAV-001')
+    expect(item?.prontiAvvisatiAt).toBeTruthy()
+    expect(new Date(item!.prontiAvvisatiAt!).toLocaleDateString('it-IT')).toBe('22/05/2026')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('GET /api/consegne/board includes assigned workers for ASSEGNATO items', async () => {
+    const operaio = await request(app)
+      .post('/api/operai')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nome: '__TEST__OP-BOARD' })
+    expect(operaio.status).toBe(201)
+
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__ASS-OPERAI',
+      cliente: 'Cliente Operai',
+      stato: 'ASSEGNATO',
+      dataConsegna: '2026-07-20',
+      dataOrdine: '2026-07-02',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const assign = await request(app)
+      .put(`/api/consegne/${id}/operai`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ operaiIds: [operaio.body.id] })
+    expect(assign.status).toBe(200)
+
+    const board = await request(app).get('/api/consegne/board')
+    expect(board.status).toBe(200)
+    const assegnato = board.body.columns.find((x: { status: string; items: Array<{ rif: string; operaiAssegnati?: Array<{ nome: string }> }> }) => x.status === 'ASSEGNATO')
+    const item = (assegnato?.items ?? []).find((row: { rif: string }) => row.rif === '__TEST__ASS-OPERAI')
+    expect(item?.operaiAssegnati?.map((row: { nome: string }) => row.nome)).toContain('__TEST__OP-BOARD')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/operai/${operaio.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
   it('POST /api/consegne/:id/transition updates status and writes history', async () => {
     const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
       rif: '__TEST__D-900',
@@ -600,6 +772,110 @@ describe.runIf(runDbTests)('Consegne API', () => {
     })
     expect(invalidJump.status).toBe(400)
     expect(String(invalidJump.body.message)).toContain('Transizione non consentita')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('POST /api/consegne/:id/transition persists CONSEGNA PIANIFICATA modal fields', async () => {
+    const vettore = await request(app)
+      .post('/api/vettori')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nome: '__TEST__VETTORE-PIAN' })
+    expect(vettore.status).toBe(201)
+
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__CP-001',
+      cliente: 'Cliente Consegna Pianificata',
+      stato: 'PRONTI & AVVISATI',
+      dataConsegna: '2026-07-15',
+      dataOrdine: '2026-07-01',
+      accontoPagato: false,
+      note: 'nota base',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const transition = await request(app)
+      .post(`/api/consegne/${id}/transition`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        toStatus: 'CONSEGNA PIANIFICATA',
+        consegnaDataEffettiva: '2026-07-13',
+        bilici: 4,
+        vettoreId: vettore.body.id,
+        accontoPagato: true,
+        note: 'nota da modal',
+      })
+    expect(transition.status).toBe(200)
+    expect(transition.body.stato).toBe('CONSEGNA PIANIFICATA')
+    expect(transition.body.consegnaDataEffettiva).toBeTruthy()
+    expect(new Date(transition.body.consegnaDataEffettiva).toLocaleDateString('it-IT')).toBe('13/07/2026')
+    expect(transition.body.bilici).toBe(4)
+    expect(transition.body.vettoreId).toBe(vettore.body.id)
+    expect(transition.body.accontoPagato).toBe(true)
+    expect(String(transition.body.note)).toContain('nota da modal')
+
+    const detail = await request(app).get(`/api/consegne/${id}`)
+    expect(detail.status).toBe(200)
+    expect(new Date(detail.body.consegnaDataEffettiva).toLocaleDateString('it-IT')).toBe('13/07/2026')
+    expect(detail.body.bilici).toBe(4)
+    expect(detail.body.vettoreId).toBe(vettore.body.id)
+    expect(detail.body.accontoPagato).toBe(true)
+    expect(String(detail.body.note)).toContain('nota base')
+    expect(String(detail.body.note)).toContain('nota da modal')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/vettori/${vettore.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('PUT /api/consegne/:id updates A.M.P. values for PRONTI & AVVISATI and exposes them on detail and board', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__AMP-001',
+      cliente: 'Cliente AMP',
+      stato: 'CONCLUSI',
+      dataConsegna: '2026-07-20',
+      dataOrdine: '2026-07-01',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const toPronti = await request(app)
+      .post(`/api/consegne/${id}/transition`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        toStatus: 'PRONTI & AVVISATI',
+        conclusiMode: 'week',
+        conclusiWeek: '2026-W29',
+      })
+    expect(toPronti.status).toBe(200)
+    expect(toPronti.body.conclusiMode).toBe('week')
+    expect(toPronti.body.conclusiWeek).toBe('2026-W29')
+
+    const updateAmp = await request(app)
+      .put(`/api/consegne/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        conclusiMode: 'date',
+        conclusiDate: '2026-07-22',
+      })
+    expect(updateAmp.status).toBe(200)
+    expect(updateAmp.body.conclusiMode).toBe('date')
+    expect(updateAmp.body.conclusiWeek).toBeNull()
+    expect(updateAmp.body.conclusiDate).toBe('2026-07-22')
+
+    const detail = await request(app).get(`/api/consegne/${id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.conclusiMode).toBe('date')
+    expect(detail.body.conclusiWeek).toBeNull()
+    expect(detail.body.conclusiDate).toBe('2026-07-22')
+
+    const board = await request(app).get('/api/consegne/board')
+    expect(board.status).toBe(200)
+    const pronti = board.body.columns.find((column: { status: string; items: Array<{ id: number; conclusiMode?: string | null; conclusiWeek?: string | null; conclusiDate?: string | null }> }) => column.status === 'PRONTI & AVVISATI')
+    const item = pronti?.items.find((row: { id: number }) => row.id === id)
+    expect(item?.conclusiMode).toBe('date')
+    expect(item?.conclusiWeek ?? null).toBeNull()
+    expect(item?.conclusiDate).toBe('2026-07-22')
 
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })
