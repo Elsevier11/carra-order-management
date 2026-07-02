@@ -56,7 +56,7 @@ import {
   orderWarnings as orderWarningsHelper,
 } from './order-formatters';
 import { SettingsService } from './settings.service';
-import { ORDER_STATUS_FLOW, allowedNextStatuses, statusClass, statusShortLabel, type ConsegnaStatus } from '../../../src/shared/order-flow';
+import { ORDER_STATUS_FLOW, allowedNextStatuses, statusClass, type ConsegnaStatus } from '../../../src/shared/order-flow';
 import { validateTransitionState } from '../../../src/shared/transition-validation';
 
 type EditableConsegna = {
@@ -853,7 +853,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   columnShortLabel(status: ConsegnaStatus): string {
-    return statusShortLabel(status);
+    return status;
   }
 
   isColumnVisible(status: ConsegnaStatus): boolean {

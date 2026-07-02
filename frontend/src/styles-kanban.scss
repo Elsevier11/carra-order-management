@@ -10,14 +10,14 @@
 }
 
 .kanban-hero__top {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
+  justify-content: start;
 }
 
-.kanban-page-header-left {
+.kanban-page-header-title {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -29,17 +29,21 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-left: auto;
+  flex-wrap: nowrap;
+  justify-self: start;
+  align-self: center;
+  white-space: nowrap;
+  margin-left: 10px;
 }
 
 .kanban-top-action {
-  min-height: 34px;
+  min-height: 40px;
   min-width: 0;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 10px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .kanban-active-filters-badge {
@@ -93,24 +97,48 @@
   max-width: none;
 }
 
+.kanban-col-toggles--inline {
+  display: grid;
+  grid-template-columns: repeat(5, 134px);
+  grid-auto-rows: minmax(30px, auto);
+  gap: 8px;
+  align-content: center;
+  justify-content: start;
+  min-width: 0;
+}
+
 @media (max-width: 1380px) {
   .kanban-filters {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
+
+  .kanban-top-action {
+    padding: 0 9px;
+    font-size: 0.76rem;
+  }
+
+  .kanban-col-toggles--inline {
+    grid-template-columns: repeat(5, 128px);
+  }
 }
 
 @media (max-width: 920px) {
-  .kanban-top-actions {
-    margin-left: 0;
-    width: 100%;
+  .kanban-hero__top {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
-  .kanban-top-action {
-    flex: 1 1 180px;
+  .kanban-top-actions {
+    justify-self: start;
+    margin-left: 0;
   }
 
   .kanban-filters {
     grid-template-columns: 1fr;
+  }
+
+  .kanban-col-toggles--inline {
+    grid-template-columns: repeat(2, max-content);
   }
 }
 
@@ -763,6 +791,10 @@
 .kanban-col-chip {
   cursor: pointer;
   transition: opacity 0.18s, filter 0.18s;
+  width: 100%;
+  justify-content: center;
+  padding-left: 12px;
+  padding-right: 12px;
 
   &.kanban-col-chip--off {
     opacity: 0.3;

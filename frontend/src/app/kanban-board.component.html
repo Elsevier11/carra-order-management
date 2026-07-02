@@ -1,6 +1,6 @@
 <div class="kanban-hero">
   <div class="kanban-hero__top">
-    <div class="kanban-page-header-left">
+    <div class="kanban-page-header-title">
       <h1 class="content-title">Ordini</h1>
       @if (app.isReadOnly) {
         <span class="read-only-badge">Sola lettura</span>
@@ -8,29 +8,29 @@
       @if (app.activeFiltersCount > 0) {
         <span class="kanban-active-filters-badge">{{ app.activeFiltersCount }} filtri attivi</span>
       }
-      <div class="kanban-col-toggles kanban-col-toggles--inline">
-        @for (status of app.statusFlow; track status) {
-          <button
-            type="button"
-            class="status-chip kanban-col-chip"
-            [class.kanban-col-chip--off]="!app.isColumnVisible(status)"
-            [ngClass]="app.columnClass(status)"
-            (click)="app.toggleColumnVisibility(status)"
-            [attr.aria-pressed]="app.isColumnVisible(status)"
-            [title]="status"
-          >
-            <span class="kanban-col-chip__flag" [class.kanban-col-chip__flag--on]="app.isColumnVisible(status)" aria-hidden="true"></span>
-            <span class="kanban-col-chip__label">{{ app.columnShortLabel(status) }}</span>
-          </button>
-        }
-      </div>
-      <div class="kanban-top-actions">
-        @if (app.canWrite) {
-          <button type="button" class="kanban-top-action" (click)="app.openCreate()">Nuovo ordine</button>
-          <button type="button" class="ghost kanban-top-action" (click)="app.openSqlImportModal()">Importa da ERP</button>
-        }
-        <button type="button" class="ghost kanban-top-action" (click)="app.exportXlsx()">Export Excel</button>
-      </div>
+    </div>
+    <div class="kanban-col-toggles kanban-col-toggles--inline">
+      @for (status of app.statusFlow; track status) {
+        <button
+          type="button"
+          class="status-chip kanban-col-chip"
+          [class.kanban-col-chip--off]="!app.isColumnVisible(status)"
+          [ngClass]="app.columnClass(status)"
+          (click)="app.toggleColumnVisibility(status)"
+          [attr.aria-pressed]="app.isColumnVisible(status)"
+          [title]="status"
+        >
+          <span class="kanban-col-chip__flag" [class.kanban-col-chip__flag--on]="app.isColumnVisible(status)" aria-hidden="true"></span>
+          <span class="kanban-col-chip__label">{{ app.columnShortLabel(status) }}</span>
+        </button>
+      }
+    </div>
+    <div class="kanban-top-actions">
+      @if (app.canWrite) {
+        <button type="button" class="kanban-top-action" (click)="app.openCreate()">Nuovo ordine</button>
+        <button type="button" class="ghost kanban-top-action" (click)="app.openSqlImportModal()">Importa da ERP</button>
+      }
+      <button type="button" class="ghost kanban-top-action" (click)="app.exportXlsx()">Export Excel</button>
     </div>
   </div>
 
