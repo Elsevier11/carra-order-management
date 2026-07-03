@@ -38,7 +38,7 @@
           <label class="kv-label">Data approvazione disegno</label>
           <input *ngIf="app.canWrite && app.editMode; else disegnoApprovatoRead" type="date" [(ngModel)]="detail.disegnoApprovatoAt" />
           <ng-template #disegnoApprovatoRead>
-            <span class="kv-value">{{ detail.disegnoApprovatoAt ? (detail.disegnoApprovatoAt | date:'dd/MM/yyyy') : '—' }}</span>
+            <span class="kv-value">{{ detail.disegnoApprovatoAt ? (detail.disegnoApprovatoAt | date:'dd/MM/yyyy') : 'Data non impostata' }}</span>
           </ng-template>
         </div>
         <div class="detail-kv detail-kv--full">
@@ -160,17 +160,17 @@
     </ng-container>
   </ng-container>
 
-  <div class="detail-section" *ngIf="detail.stato === 'PRONTI & AVVISATI' || (detail.stato !== 'CONCLUSI' && detail.conclusiMode)">
+  <div class="detail-section" *ngIf="detail.stato === 'PRONTI & AVVISATI' || detail.stato === 'CONSEGNA PIANIFICATA' || (detail.stato !== 'CONCLUSI' && detail.conclusiMode)">
     <div class="detail-section-title">A.M.P.</div>
     <div class="detail-kv-grid">
-      <div class="detail-kv detail-kv--full" *ngIf="detail.stato === 'PRONTI & AVVISATI' && app.canWrite && app.editMode; else ampReadOnlyBlock">
+      <div class="detail-kv detail-kv--full" *ngIf="(detail.stato === 'PRONTI & AVVISATI' || detail.stato === 'CONSEGNA PIANIFICATA') && app.canWrite && app.editMode; else ampReadOnlyBlock">
         <label class="kv-label">Tipo A.M.P.</label>
         <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
           <button type="button" class="segmented-toggle-btn" [class.active]="detail.conclusiMode !== 'date'" (click)="app.setAmpMode('week')">Settimana</button>
           <button type="button" class="segmented-toggle-btn" [class.active]="detail.conclusiMode === 'date'" (click)="app.setAmpMode('date')">Data</button>
         </div>
       </div>
-      <div class="detail-kv" *ngIf="detail.stato === 'PRONTI & AVVISATI' && app.canWrite && app.editMode">
+      <div class="detail-kv" *ngIf="(detail.stato === 'PRONTI & AVVISATI' || detail.stato === 'CONSEGNA PIANIFICATA') && app.canWrite && app.editMode">
         <label class="kv-label">{{ detail.conclusiMode === 'date' ? 'Data' : 'Settimana' }}</label>
         <input *ngIf="detail.conclusiMode !== 'date'; else ampDateEdit" type="week" [(ngModel)]="detail.conclusiWeek" />
         <ng-template #ampDateEdit>
@@ -189,7 +189,7 @@
       </ng-template>
     </div>
     <p class="tab-save-hint">
-      {{ detail.stato === 'PRONTI & AVVISATI' && app.canWrite && app.editMode
+      {{ (detail.stato === 'PRONTI & AVVISATI' || detail.stato === 'CONSEGNA PIANIFICATA') && app.canWrite && app.editMode
         ? 'Le modifiche vengono salvate con il pulsante Salva in alto.'
         : 'Questo dato viene confermato nel passaggio da CONCLUSI a PRONTI & AVVISATI e resta visibile negli stati successivi.' }}
     </p>

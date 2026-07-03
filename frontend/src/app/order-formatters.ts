@@ -25,6 +25,17 @@ export function boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string;
     }));
 }
 
+export function boardAccessoriSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }> {
+  if (!['DISEGNO APPROVATO', 'DA ASSEGNARE'].includes(item.stato) || !item.accessori?.length) return [];
+  return item.accessori
+    .filter((accessorio) => accessorio !== null && accessorio !== undefined)
+    .map((accessorio) => ({
+      nome: (accessorio as { nome?: string; tipo?: string }).nome ?? accessorio.tipo,
+      ordinata: !!accessorio.ordinata,
+      fatta: !!accessorio.fatta,
+    }));
+}
+
 export function boardOperaiSummary(item: ConsegnaRecord): string[] {
   if (['PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'].includes(item.stato)) {
     return [];
@@ -49,10 +60,10 @@ export function boardConsegnaPianificataBadges(
   item: ConsegnaRecord,
   nomeVettore?: (id: number | null | undefined) => string,
 ): BoardInfoBadge[] {
-  if (item.stato !== 'CONSEGNA PIANIFICATA') return [];
+  if (!['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(item.stato)) return [];
   const dataEffettivaText = item.consegnaDataEffettiva
-    ? `Data consegna effettiva ${new Date(item.consegnaDataEffettiva).toLocaleDateString('it-IT')}`
-    : 'Data consegna effettiva';
+    ? `Cons. effettiva ${new Date(item.consegnaDataEffettiva).toLocaleDateString('it-IT')}`
+    : 'Cons. effettiva';
   const biliciText = `N° bilici ${item.bilici ?? 0}`;
   const vettoreNome = nomeVettore?.(item.vettoreId) ?? '';
   const vettoreText = vettoreNome && vettoreNome !== '—' ? `Vettore ${vettoreNome}` : 'Vettore';

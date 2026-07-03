@@ -49,6 +49,13 @@
   color: var(--primary-deep);
 }
 
+.transition-week-input {
+  width: 240px !important;
+  max-width: 100%;
+  align-self: flex-start;
+  display: block;
+}
+
 .transition-worker {
   display: inline-flex;
   align-items: center;

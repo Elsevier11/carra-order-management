@@ -29,6 +29,7 @@ const allowedAttachmentMimeTypes = (process.env.ATTACHMENTS_ALLOWED_MIME ?? 'app
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean)
 const completedStatuses = new Set(['CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA EFFETTUATA'])
+const ampRelevantStatuses = new Set(['CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'])
 const openFolderSchema = z.object({
   path: z.string().min(1),
 })
@@ -992,7 +993,7 @@ router.get('/board', async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query)
     const whereClause = buildListFilters(query)
-    const [rows, operaiRows, cementiRows, lastModifiedRows, conclusiRows, prontiRows] = await Promise.all([
+    const [rows, operaiRows, cementiRows, accessoriRows, lastModifiedRows, conclusiRows, prontiRows] = await Promise.all([
       db
         .select()
         .from(ordini)
@@ -1019,6 +1020,18 @@ router.get('/board', async (req, res, next) => {
         .from(orderCementi)
         .innerJoin(cementiTipi, eq(orderCementi.tipoId, cementiTipi.id))
         .orderBy(asc(orderCementi.orderId), asc(cementiTipi.ordine)),
+      db
+        .select({
+          orderId: orderAccessori.orderId,
+          tipoId: orderAccessori.tipoId,
+          nome: accessoriTipi.nome,
+          ordine: accessoriTipi.ordine,
+          ordinata: orderAccessori.ordinata,
+          fatta: orderAccessori.fatta,
+        })
+        .from(orderAccessori)
+        .innerJoin(accessoriTipi, eq(orderAccessori.tipoId, accessoriTipi.id))
+        .orderBy(asc(orderAccessori.orderId), asc(accessoriTipi.ordine)),
       db.execute(sql`
         select
           order_id as "orderId",
@@ -1055,6 +1068,13 @@ router.get('/board', async (req, res, next) => {
       const current = cementiByOrder.get(row.orderId) ?? []
       current.push(row)
       cementiByOrder.set(row.orderId, current)
+    }
+
+    const accessoriByOrder = new Map<number, typeof accessoriRows>()
+    for (const row of accessoriRows) {
+      const current = accessoriByOrder.get(row.orderId) ?? []
+      current.push(row)
+      accessoriByOrder.set(row.orderId, current)
     }
 
     const lastModifiedByOrder = new Map<number, Date | null>()
@@ -1099,6 +1119,13 @@ router.get('/board', async (req, res, next) => {
           ordine: cemento.ordine,
           ordinata: cemento.ordinata,
           fatta: cemento.fatta,
+        })),
+        accessori: (accessoriByOrder.get(row.id) ?? []).map((accessorio) => ({
+          tipoId: accessorio.tipoId,
+          nome: accessorio.nome,
+          ordine: accessorio.ordine,
+          ordinata: accessorio.ordinata,
+          fatta: accessorio.fatta,
         })),
       })),
     }))
@@ -2224,7 +2251,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('caricoVerificato' in payload) updateData.caricoVerificato = payload.caricoVerificato ?? false
     if ('camSiNo' in payload) updateData.camSiNo = payload.camSiNo ?? false
     if ('cementiNote' in payload) updateData.cementiNote = payload.cementiNote ?? null
-    const ampTouched = 'conclusiMode' in payload || 'conclusiWeek' in payload || 'conclusiDate' in payload
+    const effectiveStatus = payload.stato ?? existing.stato ?? 'IN CORSO'
+    const ampTouched = ('conclusiMode' in payload || 'conclusiWeek' in payload || 'conclusiDate' in payload) && ampRelevantStatuses.has(effectiveStatus)
     const nextAmp: AmpDetails = ampTouched
       ? {
           conclusiMode: payload.conclusiMode ?? existingAmp.conclusiMode ?? 'week',

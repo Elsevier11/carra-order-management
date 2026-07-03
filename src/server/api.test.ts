@@ -10,6 +10,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
   let pgClient: (typeof import('./db'))['pgClient']
   let ensureDatabaseObjects: (typeof import('./db'))['ensureDatabaseObjects']
   let ordini: (typeof import('../db/schema'))['ordini']
+  let accessoriTipi: (typeof import('../db/schema'))['accessoriTipi']
   let auditLogs: (typeof import('../db/schema'))['auditLogs']
   let appUsers: (typeof import('../db/schema'))['appUsers']
   let eq: (typeof import('drizzle-orm'))['eq']
@@ -38,6 +39,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
     pgClient = dbModule.pgClient
     ensureDatabaseObjects = dbModule.ensureDatabaseObjects
     ordini = schemaModule.ordini
+    accessoriTipi = schemaModule.accessoriTipi
     auditLogs = schemaModule.auditLogs
     appUsers = schemaModule.appUsers
     eq = drizzleModule.eq
@@ -375,6 +377,41 @@ describe.runIf(runDbTests)('Consegne API', () => {
 
     await request(app).delete(`/api/consegne/${older.body.id}`).set('Authorization', `Bearer ${token}`)
     await request(app).delete(`/api/consegne/${newer.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('GET /api/consegne/board includes accessori for DA ASSEGNARE items', async () => {
+    const created = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__ACC-001',
+      cliente: 'Cliente Accessori',
+      tipoImpianto: 'ACC-1',
+      dataConsegna: '2026-08-12',
+      dataOrdine: '2026-06-20',
+      stato: 'DA ASSEGNARE',
+    })
+    expect(created.status).toBe(201)
+
+    const [tipo] = await db.insert(accessoriTipi).values({ nome: 'Accessorio test board', ordine: 1 }).returning()
+    expect(tipo).toBeTruthy()
+
+    const updated = await request(app)
+      .put(`/api/consegne/${created.body.id}/accessori`)
+      .set('Authorization', `Bearer ${token}`)
+      .send([{ tipoId: tipo.id, ordinata: true, fatta: false }])
+    expect(updated.status).toBe(200)
+
+    const board = await request(app).get('/api/consegne/board')
+    expect(board.status).toBe(200)
+    const daAssegnare = board.body.columns.find((x: { status: string; items: Array<{ rif: string; accessori?: Array<{ nome: string; ordinata: boolean; fatta: boolean }> }> }) => x.status === 'DA ASSEGNARE')
+    const item = (daAssegnare?.items ?? []).find((x: { rif: string }) => x.rif === '__TEST__ACC-001')
+    expect(item).toBeTruthy()
+    expect(item.accessori).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ nome: 'Accessorio test board', ordinata: true, fatta: false }),
+      ]),
+    )
+
+    await request(app).delete(`/api/consegne/${created.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/accessori-tipi/${tipo.id}`).set('Authorization', `Bearer ${token}`)
   })
 
   it('POST + PUT + DELETE lifecycle works', async () => {
@@ -876,6 +913,36 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(item?.conclusiMode).toBe('date')
     expect(item?.conclusiWeek ?? null).toBeNull()
     expect(item?.conclusiDate).toBe('2026-07-22')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('PUT /api/consegne/:id updates disegnoApprovatoAt in DISEGNO APPROVATO without A.M.P. validation', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__DAPP-001',
+      cliente: 'Cliente Disegno Approvato',
+      stato: 'DISEGNO APPROVATO',
+      dataConsegna: '2026-07-20',
+      dataOrdine: '2026-07-01',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const update = await request(app)
+      .put(`/api/consegne/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        disegnoApprovatoAt: '2026-06-25',
+        conclusiMode: null,
+        conclusiWeek: null,
+        conclusiDate: null,
+      })
+    expect(update.status).toBe(200)
+    expect(update.body.disegnoApprovatoAt).toBe('2026-06-25')
+
+    const detail = await request(app).get(`/api/consegne/${id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.disegnoApprovatoAt).toBe('2026-06-25')
 
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })

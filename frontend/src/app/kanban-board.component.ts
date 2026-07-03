@@ -17,6 +17,8 @@ export interface KanbanBoardHost {
   boardInfoBadgeClass(tone: BoardInfoBadgeTone): string;
   boardProntiAvvisatiBadge(item: ConsegnaRecord): string | null;
   boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }>;
+  boardAccessoriSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }>;
+  boardMetaPrimaryText(item: ConsegnaRecord): string;
   boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBadge[];
   boardDropListIds: string[];
   canWrite: boolean;
@@ -61,6 +63,7 @@ export interface KanbanBoardHost {
   standalone: true,
   imports: [CommonModule, FormsModule, CdkDropList, CdkDrag],
   templateUrl: './kanban-board.component.html',
+  styleUrl: './kanban-board.component.scss',
 })
 export class KanbanBoardComponent {
   @Input({ required: true }) app!: KanbanBoardHost;

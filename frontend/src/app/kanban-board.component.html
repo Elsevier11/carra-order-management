@@ -112,7 +112,7 @@
                         }
                         @if (app.showKanbanMeta(item)) {
                           <div class="kanban-card-meta">
-                            <span class="kanban-card-meta__order">Ordine {{ item.dataOrdine ? (item.dataOrdine | date:'dd/MM/yy') : '-' }}</span>
+                            <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
                             @if (app.showKanbanEstimatedDelivery(item)) {
                               <span class="kanban-card-meta__date">Consegna stimata {{ item.dataConsegna | date:'dd/MM/yy' }}</span>
                             }
@@ -168,10 +168,21 @@
                             <span class="kanban-card-alert kanban-card-alert--conclusi">{{ prontiBadge }}</span>
                           </div>
                         }
-                        @if (app.boardCementiSummary(item).length) {
-                          <div class="kanban-card-alerts kanban-card-alerts--cementi">
-                            @for (cemento of app.boardCementiSummary(item); track cemento.nome) {
-                              <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
+                        @if (app.boardCementiSummary(item).length || app.boardAccessoriSummary(item).length) {
+                          <div class="kanban-card-supplies">
+                            @if (app.boardCementiSummary(item).length) {
+                              <div class="kanban-card-alerts kanban-card-alerts--cementi">
+                                @for (cemento of app.boardCementiSummary(item); track cemento.nome) {
+                                  <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
+                                }
+                              </div>
+                            }
+                            @if (app.boardAccessoriSummary(item).length) {
+                              <div class="kanban-card-alerts kanban-card-alerts--cementi kanban-card-alerts--accessori">
+                                @for (accessorio of app.boardAccessoriSummary(item); track accessorio.nome) {
+                                  <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(accessorio)">{{ accessorio.nome }}</span>
+                                }
+                              </div>
                             }
                           </div>
                         }
@@ -200,7 +211,7 @@
                       }
                       @if (app.showKanbanMeta(item)) {
                         <div class="kanban-card-meta">
-                          <span class="kanban-card-meta__order">Ordine {{ item.dataOrdine ? (item.dataOrdine | date:'dd/MM/yy') : '-' }}</span>
+                          <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
                           @if (app.showKanbanEstimatedDelivery(item)) {
                             <span class="kanban-card-meta__date">Consegna stimata {{ item.dataConsegna | date:'dd/MM/yy' }}</span>
                           }
@@ -256,10 +267,21 @@
                           <span class="kanban-card-alert kanban-card-alert--conclusi">{{ prontiBadge }}</span>
                         </div>
                       }
-                      @if (app.boardCementiSummary(item).length) {
-                        <div class="kanban-card-alerts kanban-card-alerts--cementi">
-                          @for (cemento of app.boardCementiSummary(item); track cemento.nome) {
-                            <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
+                      @if (app.boardCementiSummary(item).length || app.boardAccessoriSummary(item).length) {
+                        <div class="kanban-card-supplies">
+                          @if (app.boardCementiSummary(item).length) {
+                            <div class="kanban-card-alerts kanban-card-alerts--cementi">
+                              @for (cemento of app.boardCementiSummary(item); track cemento.nome) {
+                                <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(cemento)">{{ cemento.nome }}</span>
+                              }
+                            </div>
+                          }
+                          @if (app.boardAccessoriSummary(item).length) {
+                            <div class="kanban-card-alerts kanban-card-alerts--cementi kanban-card-alerts--accessori">
+                              @for (accessorio of app.boardAccessoriSummary(item); track accessorio.nome) {
+                                <span class="kanban-card-alert" [ngClass]="app.cementoBadgeClassFromFlags(accessorio)">{{ accessorio.nome }}</span>
+                              }
+                            </div>
                           }
                         </div>
                       }

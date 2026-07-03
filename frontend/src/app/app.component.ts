@@ -41,6 +41,7 @@ import { TransitionModalComponent, type TransitionModalModel } from './transitio
 import { KanbanBoardComponent, type KanbanBoardHost } from './kanban-board.component';
 import { OrderDetailModalComponent } from './order-detail-modal.component';
 import {
+  boardAccessoriSummary as boardAccessoriSummaryHelper,
   boardCementiSummary as boardCementiSummaryHelper,
   boardConsegnaPianificataBadges as boardConsegnaPianificataBadgesHelper,
   boardConclusiBadge as boardConclusiBadgeHelper,
@@ -898,8 +899,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       return bTime - aTime;
     };
     for (const item of filtered) {
-      if (!item.dataConsegna) { noDate.push(item); continue; }
-      const d = new Date(item.dataConsegna);
+      if (!item.consegnaDataEffettiva) { noDate.push(item); continue; }
+      const d = new Date(item.consegnaDataEffettiva);
       const week = this._isoWeek(d);
       const year = this._isoWeekYear(d);
       const key = year * 100 + week;
@@ -913,7 +914,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({
         ...g,
-        items: [...g.items].sort((a, b) => compareDateDesc(a.dataConsegna, b.dataConsegna)),
+        items: [...g.items].sort((a, b) => compareDateDesc(a.consegnaDataEffettiva, b.consegnaDataEffettiva)),
       }));
     if (noDate.length) sorted.push({ key: 0, label: 'Data non definita', items: noDate });
     return sorted;
@@ -989,6 +990,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return boardCementiSummaryHelper(item);
   }
 
+  boardAccessoriSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }> {
+    return boardAccessoriSummaryHelper(item);
+  }
+
   boardOperaiSummary(item: ConsegnaRecord): string[] {
     return boardOperaiSummaryHelper(item);
   }
@@ -1011,6 +1016,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   showKanbanEstimatedDelivery(item: ConsegnaRecord): boolean {
     return !!item.dataConsegna && !this.orderWarnings(item).includes('Data consegna mancante');
+  }
+
+  boardMetaPrimaryText(item: ConsegnaRecord): string {
+    if (item.stato === 'DISEGNO APPROVATO') {
+      return `Data approvazione disegno ${item.disegnoApprovatoAt ? this.formatKanbanMetaDate(item.disegnoApprovatoAt) : '-'}`
+    }
+    return `Ordine ${item.dataOrdine ? this.formatKanbanMetaDate(item.dataOrdine) : '-'}`
+  }
+
+  private formatKanbanMetaDate(value: string): string {
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return value
+    return new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(parsed)
   }
 
   boardInfoBadgeClass(tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet'): string {
@@ -1280,7 +1298,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     this.dettagliSnapshot = this.serializeDettagli();
     this.editMode = true;
-    this.activeDetailTab = 'dettagli';
+    this.activeDetailTab = 'gestione';
   }
 
   cancelEdit(): void {
@@ -3253,12 +3271,16 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         bancale: this.selectedDetail.bancale,
         chiusini: this.selectedDetail.chiusini,
         caricoVerificato: this.selectedDetail.caricoVerificato,
-        conclusiMode: this.selectedDetail.conclusiMode || null,
-        conclusiWeek: this.selectedDetail.conclusiWeek || null,
-        conclusiDate: this.selectedDetail.conclusiDate || null,
         camSiNo: this.selectedDetail.camSiNo,
         cementiNote: this.selectedDetail.cementiNote || null,
       });
+      if (['CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'].includes(this.selectedDetail.stato)) {
+        Object.assign(payload, {
+          conclusiMode: this.selectedDetail.conclusiMode || null,
+          conclusiWeek: this.selectedDetail.conclusiWeek || null,
+          conclusiDate: this.selectedDetail.conclusiDate || null,
+        });
+      }
     }
     if (cementiDirty) {
       const items = this.cementiSelections.filter(s => s.selezionato).map(s => ({ tipoId: s.tipoId, ordinata: s.ordinata, fatta: s.fatta }));
@@ -3357,12 +3379,29 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const trimmedPath = path?.trim();
     if (!trimmedPath) return;
 
+    if (!this.shouldOpenFolderViaServer()) {
+      const protocolUrl = `carra-folder:${encodeURIComponent(trimmedPath)}`;
+      const anchor = document.createElement('a');
+      anchor.href = protocolUrl;
+      anchor.rel = 'noopener';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      return;
+    }
+
     this.consegneService.openFolder(trimmedPath).subscribe({
       error: (err: { error?: { message?: string } }) => {
         this.operationError = err?.error?.message ?? 'Impossibile aprire la cartella';
         setTimeout(() => { this.operationError = ''; }, 3000);
       },
     });
+  }
+
+  private shouldOpenFolderViaServer(): boolean {
+    const hostname = window.location.hostname.toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
   }
 
   private savePreset(): void {

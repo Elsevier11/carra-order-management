@@ -75,7 +75,7 @@
               </button>
             </div>
             @if (modal.conclusiMode === 'week') {
-              <input type="week" [(ngModel)]="modal.conclusiWeek" />
+              <input class="transition-week-input" type="week" [(ngModel)]="modal.conclusiWeek" />
             } @else {
               <input type="date" [(ngModel)]="modal.conclusiDate" />
             }
