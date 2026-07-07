@@ -72,14 +72,19 @@ export function boardConsegnaPianificataBadges(
     { text: biliciText, tone: (item.bilici ?? 0) > 0 ? 'info' : 'muted' },
     { text: vettoreText, tone: item.vettoreId ? 'info' : 'muted' },
     { text: 'DDT pronti', tone: item.ddtPronti ? 'positive' : 'muted' },
+  ];
+}
+
+export function boardProntiAvvisatiBadges(item: ConsegnaRecord): BoardInfoBadge[] {
+  if (item.stato !== 'PRONTI & AVVISATI') return [];
+  return [
     { text: 'Bancale', tone: item.bancale ? 'positive' : 'muted' },
     { text: 'Chiusini', tone: item.chiusini ? 'positive' : 'muted' },
-    { text: 'Carico verificato', tone: item.caricoVerificato ? 'positive' : 'muted' },
   ];
 }
 
 export function boardConclusiBadge(item: ConsegnaRecord, conclusiWeekLabel: (value: string | null | undefined) => string): string | null {
-  if (!item.conclusiMode) return null;
+  if (!item.conclusiMode || item.stato === 'CONSEGNA PIANIFICATA') return null;
   if (item.conclusiMode === 'week') {
     return `A.M.P.: ${conclusiWeekLabel(item.conclusiWeek)}`;
   }
@@ -87,10 +92,6 @@ export function boardConclusiBadge(item: ConsegnaRecord, conclusiWeekLabel: (val
   const parsed = new Date(item.conclusiDate);
   if (Number.isNaN(parsed.getTime())) return `A.M.P.: ${item.conclusiDate}`;
   return `A.M.P.: ${parsed.toLocaleDateString('it-IT')}`;
-}
-
-export function boardProntiAvvisatiBadge(item: ConsegnaRecord): string | null {
-  return null;
 }
 
 export function detailMissingItems(item: ConsegnaRecord): string[] {

@@ -1,0 +1,129 @@
+<div class="consegne-page">
+  <div class="kanban-hero consegne-hero">
+    <div class="kanban-hero__top">
+      <div class="kanban-page-header-title">
+        <h1 class="consegne-title">Consegne</h1>
+        @if (app.activeFiltersCount > 0) {
+          <span class="kanban-active-filters-badge">{{ app.activeFiltersCount }} filtri attivi</span>
+        }
+      </div>
+      <p class="consegne-hero__subtitle">
+        Vista tabellare ordinata per data consegna effettiva decrescente, con le informazioni chiave raccolte in modo piu leggibile.
+      </p>
+    </div>
+
+    <div class="kanban-hero__filters consegne-hero__filters">
+      <div class="kanban-filters consegne-filters">
+        <input type="text" [(ngModel)]="app.filters.q" (ngModelChange)="app.onFilterTextChange()" placeholder="Cerca per rif, cliente, impianto..." />
+        <select [(ngModel)]="app.filters.cliente" (ngModelChange)="app.onFilterSelectChange()">
+          <option value="">Tutti i clienti</option>
+          @for (cliente of app.availableFilters.clienti; track cliente) {
+            <option [value]="cliente">{{ cliente }}</option>
+          }
+        </select>
+        <select [(ngModel)]="app.filters.commercialeId" (ngModelChange)="app.onFilterSelectChange()">
+          <option value="">Tutti i commerciali</option>
+          @for (commerciale of app.commercialiRows; track commerciale.id) {
+            <option [value]="commerciale.id">{{ commerciale.nome }}</option>
+          }
+        </select>
+        <select [(ngModel)]="app.filters.responsabileInternoId" (ngModelChange)="app.onFilterSelectChange()">
+          <option value="">Tutti i responsabili</option>
+          @for (responsabile of app.responsabiliRows; track responsabile.id) {
+            <option [value]="responsabile.id">{{ responsabile.nome }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="consegne-sections">
+    @for (section of sections; track section.status) {
+      @if (sectionItems(section.status); as items) {
+        <section class="consegne-section">
+          <header class="consegne-section__header">
+            <div class="consegne-section__title-wrap">
+              <span class="consegne-section__eyebrow">{{ section.status }}</span>
+              <h2>{{ section.label }}</h2>
+              <p class="consegne-section__description">
+                @if (section.status === 'CONSEGNA PIANIFICATA') {
+                  Ordinamento dalla data piu recente alla meno recente.
+                } @else {
+                  Elenco delle consegne completate con la stessa logica di lettura.
+                }
+              </p>
+            </div>
+            <span class="kanban-header-meta"><span>{{ items.length }}</span></span>
+          </header>
+
+          @if (items.length === 0) {
+            <div class="kanban-empty consegne-empty">Nessun ordine</div>
+          } @else {
+            <div class="consegne-table-wrap">
+              <table class="consegne-table">
+                <thead>
+                  <tr>
+                    <th>Codice</th>
+                    <th>Cliente / Ragione Sociale</th>
+                    <th>Descrizione Prodotto</th>
+                    <th>Data Cons.</th>
+                    <th>Num. bilici</th>
+                    <th>Vettore</th>
+                    <th>Tag / Stato</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of items; track item.id) {
+                    <tr
+                      class="consegne-row"
+                      role="button"
+                      tabindex="0"
+                      (click)="app.selectFromBoard(item)"
+                      (keydown.enter)="app.selectFromBoard(item)"
+                      (keydown.space)="$event.preventDefault(); app.selectFromBoard(item)"
+                    >
+                      <td class="consegne-cell consegne-cell--code" data-label="Codice">
+                        <span class="consegne-code">{{ item.rif }}</span>
+                      </td>
+                      <td class="consegne-cell consegne-cell--cliente" data-label="Cliente / Ragione Sociale">
+                        <span class="consegne-cliente">{{ item.cliente }}</span>
+                      </td>
+                      <td class="consegne-cell consegne-cell--prodotto" data-label="Descrizione Prodotto">
+                        <span class="consegne-prodotto">{{ item.tipoImpianto || '-' }}</span>
+                      </td>
+                      <td class="consegne-cell consegne-cell--date" data-label="Data Cons.">
+                        <span class="consegne-pill consegne-pill--date">{{ deliveryDateLabel(item) }}</span>
+                      </td>
+                      <td class="consegne-cell consegne-cell--bilici" data-label="Num. bilici">
+                        <span class="consegne-bilici">{{ item.bilici }}</span>
+                      </td>
+                      <td class="consegne-cell consegne-cell--vettore" data-label="Vettore">
+                        <span class="consegne-vettore">{{ vettoreLabel(item) }}</span>
+                      </td>
+                      <td class="consegne-cell consegne-cell--tags" data-label="Tag / Stato">
+                        <div class="consegne-badge-stack">
+                          @if (app.orderWarnings(item); as warnings) {
+                            @if (warnings.length) {
+                              <div class="consegne-badge-column">
+                                @for (warning of warnings; track warning) {
+                                  <span class="consegne-pill consegne-pill--warning">{{ warning }}</span>
+                                }
+                              </div>
+                            }
+                          }
+                          <div class="consegne-badge-column">
+                            <span class="consegne-pill" [class.consegne-pill--ok]="item.ddtPronti" [class.consegne-pill--muted]="!item.ddtPronti">DDT pronti</span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+    }
+  </div>
+</div>

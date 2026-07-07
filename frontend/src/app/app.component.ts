@@ -39,6 +39,7 @@ import {
 } from './consegne.types';
 import { TransitionModalComponent, type TransitionModalModel } from './transition-modal.component';
 import { KanbanBoardComponent, type KanbanBoardHost } from './kanban-board.component';
+import { ConsegneListComponent } from './consegne-list.component';
 import { OrderDetailModalComponent } from './order-detail-modal.component';
 import {
   boardAccessoriSummary as boardAccessoriSummaryHelper,
@@ -46,7 +47,7 @@ import {
   boardConsegnaPianificataBadges as boardConsegnaPianificataBadgesHelper,
   boardConclusiBadge as boardConclusiBadgeHelper,
   boardResiduiLavorazioneBadges as boardResiduiLavorazioneBadgesHelper,
-  boardProntiAvvisatiBadge as boardProntiAvvisatiBadgeHelper,
+  boardProntiAvvisatiBadges as boardProntiAvvisatiBadgesHelper,
   boardOperaiSummary as boardOperaiSummaryHelper,
   boardOperaiWarning as boardOperaiWarningHelper,
   cementoBadgeClass as cementoBadgeClassHelper,
@@ -95,12 +96,12 @@ type ConfirmModalState = {
   onConfirm: () => void;
 };
 
-type ViewMode = 'dashboard' | 'kanban' | 'audit' | 'anagrafiche' | 'settings';
+type ViewMode = 'dashboard' | 'kanban' | 'consegne' | 'audit' | 'anagrafiche' | 'settings';
 type RegistryTab = 'persone' | 'produzione';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, NgxDatatableModule, TransitionModalComponent, KanbanBoardComponent, OrderDetailModalComponent],
+  imports: [CommonModule, FormsModule, NgxDatatableModule, TransitionModalComponent, KanbanBoardComponent, ConsegneListComponent, OrderDetailModalComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -777,7 +778,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.activeView = view;
     if (view === 'dashboard') {
       this.ensureDashboardChartsLoaded();
-    } else if (view === 'kanban') {
+    } else if (view === 'kanban' || view === 'consegne') {
       this.loadBoard();
     } else if (view === 'audit') {
       this.activityMode = 'user';
@@ -911,11 +912,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       map.get(key)!.items.push(item);
     }
     const sorted = [...map.entries()]
-      .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({
         ...g,
         items: [...g.items].sort((a, b) => compareDateDesc(a.consegnaDataEffettiva, b.consegnaDataEffettiva)),
-      }));
+      }))
+      .sort((a, b) => {
+        if (items[0]?.stato === 'CONSEGNA PIANIFICATA') {
+          const aLatest = a.items[0]?.consegnaDataEffettiva ? new Date(a.items[0].consegnaDataEffettiva).getTime() : Number.NEGATIVE_INFINITY;
+          const bLatest = b.items[0]?.consegnaDataEffettiva ? new Date(b.items[0].consegnaDataEffettiva).getTime() : Number.NEGATIVE_INFINITY;
+          return bLatest - aLatest;
+        }
+        return a.key - b.key;
+      });
     if (noDate.length) sorted.push({ key: 0, label: 'Data non definita', items: noDate });
     return sorted;
   }
@@ -1010,6 +1018,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return boardConsegnaPianificataBadgesHelper(item, (id) => this.nomeVettore(id));
   }
 
+  boardProntiAvvisatiBadges(item: ConsegnaRecord) {
+    return boardProntiAvvisatiBadgesHelper(item);
+  }
+
   showKanbanMeta(item: ConsegnaRecord): boolean {
     return !['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'].includes(item.stato);
   }
@@ -1041,10 +1053,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   boardConclusiBadge(item: ConsegnaRecord): string | null {
     return boardConclusiBadgeHelper(item, (value) => this.conclusiWeekLabel(value));
-  }
-
-  boardProntiAvvisatiBadge(item: ConsegnaRecord): string | null {
-    return boardProntiAvvisatiBadgeHelper(item);
   }
 
   detailMissingItems(item: ConsegnaRecord): string[] {

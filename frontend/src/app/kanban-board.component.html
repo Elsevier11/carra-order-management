@@ -163,10 +163,14 @@
                             <span class="kanban-card-alert kanban-card-alert--conclusi">{{ conclusiBadge }}</span>
                           </div>
                         }
-                        @if (app.boardProntiAvvisatiBadge(item); as prontiBadge) {
-                          <div class="kanban-card-alerts kanban-card-alerts--conclusi">
-                            <span class="kanban-card-alert kanban-card-alert--conclusi">{{ prontiBadge }}</span>
-                          </div>
+                        @if (app.boardProntiAvvisatiBadges(item); as prontiBadges) {
+                          @if (prontiBadges.length) {
+                            <div class="kanban-card-alerts">
+                              @for (badge of prontiBadges; track badge.text) {
+                                <span class="kanban-card-alert" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                              }
+                            </div>
+                          }
                         }
                         @if (app.boardCementiSummary(item).length || app.boardAccessoriSummary(item).length) {
                           <div class="kanban-card-supplies">
@@ -262,10 +266,14 @@
                           <span class="kanban-card-alert kanban-card-alert--conclusi">{{ conclusiBadge }}</span>
                         </div>
                       }
-                      @if (app.boardProntiAvvisatiBadge(item); as prontiBadge) {
-                        <div class="kanban-card-alerts kanban-card-alerts--conclusi">
-                          <span class="kanban-card-alert kanban-card-alert--conclusi">{{ prontiBadge }}</span>
-                        </div>
+                      @if (app.boardProntiAvvisatiBadges(item); as prontiBadges) {
+                        @if (prontiBadges.length) {
+                          <div class="kanban-card-alerts">
+                            @for (badge of prontiBadges; track badge.text) {
+                              <span class="kanban-card-alert" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                            }
+                          </div>
+                        }
                       }
                       @if (app.boardCementiSummary(item).length || app.boardAccessoriSummary(item).length) {
                         <div class="kanban-card-supplies">

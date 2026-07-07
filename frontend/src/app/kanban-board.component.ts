@@ -12,10 +12,10 @@ export interface KanbanBoardHost {
   boardColumns: BoardColumn[];
   boardConclusiBadge(item: ConsegnaRecord): string | null;
   boardConsegnaPianificataBadges(item: ConsegnaRecord): BoardInfoBadge[];
+  boardProntiAvvisatiBadges(item: ConsegnaRecord): BoardInfoBadge[];
   showKanbanMeta(item: ConsegnaRecord): boolean;
   showKanbanEstimatedDelivery(item: ConsegnaRecord): boolean;
   boardInfoBadgeClass(tone: BoardInfoBadgeTone): string;
-  boardProntiAvvisatiBadge(item: ConsegnaRecord): string | null;
   boardCementiSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }>;
   boardAccessoriSummary(item: ConsegnaRecord): Array<{ nome: string; ordinata: boolean; fatta: boolean }>;
   boardMetaPrimaryText(item: ConsegnaRecord): string;
@@ -35,6 +35,7 @@ export interface KanbanBoardHost {
   isLate(item: ConsegnaRecord): boolean;
   kanbanCompactMode: boolean;
   kanbanScrollContentWidth: number;
+  nomeVettore(id: number | null | undefined): string;
   responsabiliRows: Array<{ id: number; nome: string }>;
   loadingBoard: boolean;
   boardOperaiSummary(item: ConsegnaRecord): string[];

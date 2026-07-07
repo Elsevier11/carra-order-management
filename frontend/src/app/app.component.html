@@ -33,6 +33,7 @@
         <div class="sidebar-nav-group">
           <span class="sidebar-nav-group__label">Operazioni</span>
           <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Ordini</button>
+          <button type="button" [class.active]="activeView === 'consegne'" (click)="changeView('consegne')">Consegne</button>
           <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
         </div>
         @if (isAdmin) {
@@ -57,7 +58,7 @@
       </div>
     </nav>
 
-    <div class="content" [class.content--kanban]="activeView === 'kanban'">
+    <div class="content" [class.content--kanban]="activeView === 'kanban' || activeView === 'consegne'">
       @if (activeView === 'audit' || activeView === 'anagrafiche') {
         <div class="content-header">
           <h1 class="content-title">
@@ -79,6 +80,8 @@
         }
       } @else if (activeView === 'kanban') {
         <app-kanban-board [app]="kanbanHost"></app-kanban-board>
+      } @else if (activeView === 'consegne') {
+        <app-consegne-list [app]="kanbanHost"></app-consegne-list>
       }
 
     @if (activeView === 'audit') {
