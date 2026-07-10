@@ -179,6 +179,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     disegnoApprovatoAt: '',
     lavorazioneAssegnataAt: '',
     consegnaDataEffettiva: '',
+    problemiScaricoNota: '',
     vettoreId: null,
     bilici: null,
     operaiIds: [],
@@ -713,6 +714,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       attesaMateriale: !!this.selectedDetail?.attesaMateriale,
       residuiLavorazioneNote: this.selectedDetail?.residuiLavorazioneNote ?? '',
       consegnaDataEffettiva: this.selectedDetail?.consegnaDataEffettiva ?? '',
+      problemiScaricoNota: this.selectedDetail?.problemiScaricoNota ?? '',
       vettoreId: this.selectedDetail?.vettoreId ?? null,
       bilici: this.selectedDetail?.bilici ?? 0,
       ddtPronti: !!this.selectedDetail?.ddtPronti,
@@ -1015,6 +1017,21 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   boardConsegnaPianificataBadges(item: ConsegnaRecord) {
+    if (item.stato === 'CONSEGNA EFFETTUATA') {
+      const badges: Array<{ text: string; tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet'; multiline?: boolean }> = [
+        {
+          text: item.consegnaDataEffettiva
+            ? `Cons. effettiva ${this.formatShortDate(item.consegnaDataEffettiva)}`
+            : 'Cons. effettiva',
+          tone: item.consegnaDataEffettiva ? 'info' : 'muted',
+        },
+      ];
+      const note = item.problemiScaricoNota?.trim();
+      if (note) {
+        badges.push({ text: `Problemi scarico: ${note}`, tone: 'violet', multiline: true });
+      }
+      return badges;
+    }
     return boardConsegnaPianificataBadgesHelper(item, (id) => this.nomeVettore(id));
   }
 
@@ -1134,6 +1151,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       conclusiWeek: '',
       conclusiDate: '',
       accontoPagato: false,
+      problemiScaricoNota: '',
       note: '',
       error: '',
     };
@@ -1152,6 +1170,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoApprovatoAt: toStatus === 'DISEGNO APPROVATO' ? (order.disegnoApprovatoAt ?? this.todayIsoDate()) : '',
       lavorazioneAssegnataAt: toStatus === 'ASSEGNATO' ? (order.lavorazioneAssegnataAt ?? this.todayIsoDate()) : '',
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(toStatus) ? (order.consegnaDataEffettiva ?? order.dataConsegna ?? this.todayIsoDate()) : '',
+      problemiScaricoNota: toStatus === 'CONSEGNA EFFETTUATA' ? (order.problemiScaricoNota ?? '') : '',
       vettoreId: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.vettoreId ?? null) : null,
       bilici: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.bilici ?? 0) : null,
       operaiIds: toStatus === 'ASSEGNATO' ? (order.operaiAssegnati ?? []).map((op) => op.id) : [],
@@ -1185,6 +1204,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoApprovatoAt: modal.toStatus === 'DISEGNO APPROVATO' ? modal.disegnoApprovatoAt : undefined,
       lavorazioneAssegnataAt: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.lavorazioneAssegnataAt : undefined,
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(modal.toStatus) ? modal.consegnaDataEffettiva : undefined,
+      problemiScaricoNota: modal.toStatus === 'CONSEGNA EFFETTUATA' ? (modal.problemiScaricoNota.trim() || null) : undefined,
       vettoreId: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.vettoreId : undefined,
       bilici: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.bilici : undefined,
       accontoPagato: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.accontoPagato : undefined,
@@ -1724,6 +1744,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       attesaMateriale: 'In attesa materiale',
       residuiLavorazioneNote: 'Residui lavorazione',
       consegnaDataEffettiva: 'Data consegna effettiva',
+      problemiScaricoNota: 'Problemi scarico',
       vettoreId: 'Vettore',
       bilici: 'N° bilici',
       operai: 'Operai',
@@ -3273,6 +3294,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         attesaMateriale: this.selectedDetail.attesaMateriale,
         residuiLavorazioneNote: this.selectedDetail.residuiLavorazioneNote || null,
         consegnaDataEffettiva: this.selectedDetail.consegnaDataEffettiva || null,
+        problemiScaricoNota: this.selectedDetail.problemiScaricoNota || null,
         vettoreId: this.selectedDetail.vettoreId || null,
         bilici: this.selectedDetail.bilici,
         ddtPronti: this.selectedDetail.ddtPronti,

@@ -107,6 +107,10 @@
             <span>Data consegna effettiva</span>
             <input type="date" [(ngModel)]="modal.consegnaDataEffettiva" />
           </label>
+          <label class="form-field">
+            <span>Problemi scarico</span>
+            <textarea [(ngModel)]="modal.problemiScaricoNota" rows="3" placeholder="Eventuali problemi riscontrati in scarico"></textarea>
+          </label>
         }
         <input
           type="text"

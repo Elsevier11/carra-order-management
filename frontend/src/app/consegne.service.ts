@@ -77,6 +77,7 @@ export class ConsegneService {
       disegnoApprovatoAt?: string | null;
       lavorazioneAssegnataAt?: string | null;
       consegnaDataEffettiva?: string | null;
+      problemiScaricoNota?: string | null;
       vettoreId?: number | null;
       bilici?: number | null;
       accontoPagato?: boolean | null;

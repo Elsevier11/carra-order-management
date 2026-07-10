@@ -267,6 +267,7 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists lavorazione_parziale boolean not null default false;`)
   await pgClient.unsafe(`alter table ordini add column if not exists attesa_materiale boolean not null default false;`)
   await pgClient.unsafe(`alter table ordini add column if not exists residui_lavorazione_note text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists problemi_scarico_nota text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists deleted_at timestamp;`)
   await pgClient.unsafe(`alter table ordini add column if not exists deleted_by text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists updated_at timestamp not null default now();`)

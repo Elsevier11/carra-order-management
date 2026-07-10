@@ -35,6 +35,10 @@
       <div class="detail-section-title">Disegno Approvato</div>
       <div class="detail-kv-grid">
         <div class="detail-kv">
+          <label class="kv-label">Data ordine</label>
+          <span class="kv-value">{{ detail.dataOrdine ? (detail.dataOrdine | date:'dd/MM/yyyy') : '—' }}</span>
+        </div>
+        <div class="detail-kv">
           <label class="kv-label">Data approvazione disegno</label>
           <input *ngIf="app.canWrite && app.editMode; else disegnoApprovatoRead" type="date" [(ngModel)]="detail.disegnoApprovatoAt" />
           <ng-template #disegnoApprovatoRead>
@@ -140,6 +144,27 @@
       <p *ngIf="app.canWrite && app.editMode" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
     </ng-container>
 
+    <ng-container *ngSwitchCase="'CONSEGNA EFFETTUATA'">
+      <div class="detail-section-title">Consegna Effettuata</div>
+      <div class="detail-kv-grid">
+        <div class="detail-kv">
+          <label class="kv-label">Data consegna effettiva</label>
+          <input *ngIf="app.canWrite && app.editMode; else consegnaEffettivaEffRead" type="date" [(ngModel)]="detail.consegnaDataEffettiva" />
+          <ng-template #consegnaEffettivaEffRead>
+            <span class="kv-value">{{ detail.consegnaDataEffettiva ? (detail.consegnaDataEffettiva | date:'dd/MM/yyyy') : '—' }}</span>
+          </ng-template>
+        </div>
+        <div class="detail-kv detail-kv--full">
+          <label class="kv-label">Problemi scarico</label>
+          <textarea *ngIf="app.canWrite && app.editMode; else problemiScaricoRead" [(ngModel)]="detail.problemiScaricoNota" rows="3" style="width:100%;resize:vertical" placeholder="Eventuali problemi riscontrati in scarico"></textarea>
+          <ng-template #problemiScaricoRead>
+            <span class="kv-value">{{ detail.problemiScaricoNota || '—' }}</span>
+          </ng-template>
+        </div>
+      </div>
+      <p *ngIf="app.canWrite && app.editMode" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
+    </ng-container>
+
     <ng-container *ngSwitchCase="'CONCLUSI'">
       <div class="detail-section-title">A.M.P.</div>
       <div class="detail-kv-grid">
@@ -211,7 +236,7 @@
         </div>
       </div>
       <div class="detail-kv detail-kv--full">
-        <label class="kv-label">Cosa manca da fare</label>
+          <label class="kv-label kv-label--residui">Cosa manca da fare</label>
         <textarea *ngIf="app.canWrite && app.editMode; else residuiRead" [(ngModel)]="detail.residuiLavorazioneNote" rows="3" style="width:100%;resize:vertical" placeholder="Descrivi attività residue, materiale atteso o lavorazioni da completare"></textarea>
         <ng-template #residuiRead>
           <span class="kv-value">{{ detail.residuiLavorazioneNote || '—' }}</span>

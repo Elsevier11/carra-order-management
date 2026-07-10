@@ -15,6 +15,7 @@ export interface TransitionModalModel {
   disegnoApprovatoAt: string;
   lavorazioneAssegnataAt: string;
   consegnaDataEffettiva: string;
+  problemiScaricoNota: string;
   vettoreId: number | null;
   bilici: number | null;
   operaiIds: number[];

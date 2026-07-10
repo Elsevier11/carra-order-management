@@ -65,6 +65,7 @@
                   <tr>
                     <th>Codice</th>
                     <th>Cliente / Ragione Sociale</th>
+                    <th>Cantiere</th>
                     <th>Descrizione Prodotto</th>
                     <th>Data Cons.</th>
                     <th>Num. bilici</th>
@@ -87,6 +88,9 @@
                       </td>
                       <td class="consegne-cell consegne-cell--cliente" data-label="Cliente / Ragione Sociale">
                         <span class="consegne-cliente">{{ item.cliente }}</span>
+                      </td>
+                      <td class="consegne-cell consegne-cell--cantiere" data-label="Cantiere">
+                        <span class="consegne-cantiere">{{ item.cantiere || '-' }}</span>
                       </td>
                       <td class="consegne-cell consegne-cell--prodotto" data-label="Descrizione Prodotto">
                         <span class="consegne-prodotto">{{ item.tipoImpianto || '-' }}</span>

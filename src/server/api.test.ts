@@ -865,6 +865,52 @@ describe.runIf(runDbTests)('Consegne API', () => {
     await request(app).delete(`/api/vettori/${vettore.body.id}`).set('Authorization', `Bearer ${token}`)
   })
 
+  it('POST /api/consegne/:id/transition persists CONSEGNA EFFETTUATA problemi scarico note', async () => {
+    const vettore = await request(app)
+      .post('/api/vettori')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nome: '__TEST__VETTORE-PE' })
+    expect(vettore.status).toBe(201)
+
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__PE-001',
+      cliente: 'Cliente Consegna Effettuata',
+      stato: 'CONSEGNA PIANIFICATA',
+      dataConsegna: '2026-07-16',
+      dataOrdine: '2026-07-01',
+      consegnaDataEffettiva: '2026-07-16',
+      vettoreId: vettore.body.id,
+      bilici: 2,
+      accontoPagato: true,
+      ddtPronti: true,
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const transition = await request(app)
+      .post(`/api/consegne/${id}/transition`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        toStatus: 'CONSEGNA EFFETTUATA',
+        consegnaDataEffettiva: '2026-07-16',
+        problemiScaricoNota: 'Problema alla rampa di scarico',
+        note: 'chiusura consegna',
+      })
+    expect(transition.status).toBe(200)
+    expect(transition.body.stato).toBe('CONSEGNA EFFETTUATA')
+    expect(new Date(transition.body.consegnaDataEffettiva).toLocaleDateString('it-IT')).toBe('16/07/2026')
+    expect(transition.body.problemiScaricoNota).toBe('Problema alla rampa di scarico')
+    expect(String(transition.body.note)).toContain('chiusura consegna')
+
+    const detail = await request(app).get(`/api/consegne/${id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.problemiScaricoNota).toBe('Problema alla rampa di scarico')
+    expect(new Date(detail.body.consegnaDataEffettiva).toLocaleDateString('it-IT')).toBe('16/07/2026')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/vettori/${vettore.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
   it('PUT /api/consegne/:id updates A.M.P. values for PRONTI & AVVISATI and exposes them on detail and board', async () => {
     const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
       rif: '__TEST__AMP-001',

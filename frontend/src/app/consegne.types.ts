@@ -88,6 +88,7 @@ export interface ConsegnaRecord {
   residuiLavorazioneNote: string | null;
   // Consegna
   consegnaDataEffettiva: string | null;
+  problemiScaricoNota: string | null;
   vettoreId: number | null;
   bilici: number;
   ddtPronti: boolean;
@@ -161,6 +162,7 @@ export interface DashboardAgingItem {
   dataOrdine: string | null;
   dataConsegna: string | null;
   disegnoApprovatoAt: string | null;
+  disegnoSpeditoAt: string | null;
   resposabileMancante?: boolean;
 }
 

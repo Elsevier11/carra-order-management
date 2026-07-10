@@ -574,13 +574,21 @@ const AGING_BANDS: AgingBand[] = [
                   <div class="aging-bands">
                     @for (band of agingBandsByStatus(status); track band.key) {
                       @if (shouldUseAccordion(band.rows.length)) {
-                        <details class="aging-band aging-band--accordion" [ngClass]="band.className" [open]="band.key === 'over30'">
+                        <details
+                          #bandDetails
+                          class="aging-band aging-band--accordion"
+                          [ngClass]="band.className"
+                          [open]="isAgingBandOpen(status, band.key)"
+                          (toggle)="onAgingBandToggle(status, band.key, bandDetails.open)"
+                        >
                           <summary class="aging-band__summary">
                           <div class="aging-band__title">
                             <span class="aging-band__label">{{ band.label }}</span>
                             <span class="aging-band__description">{{ band.description }}</span>
                           </div>
-                          <span class="aging-band__summary-action">Apri lista</span>
+                          <span class="aging-band__summary-action">
+                            {{ isAgingBandOpen(status, band.key) ? 'Chiudi lista' : 'Apri lista' }}
+                          </span>
                           <div class="aging-band__count">{{ band.rows.length }} ordini</div>
                           <span class="aging-band__summary-chevron">›</span>
                         </summary>
@@ -594,7 +602,7 @@ const AGING_BANDS: AgingBand[] = [
                                   </div>
                                   <div class="aging-row__meta">
                                     <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
-                                    <span>{{ item.disegnoApprovatoAt ? 'Approvazione' : 'Ingresso' }}: {{ formatAgingDate(item.disegnoApprovatoAt || item.enteredAt) }}</span>
+                                    <span>Invio disegno: {{ formatAgingDate(item.disegnoSpeditoAt || item.enteredAt) }}</span>
                                   </div>
                                   <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
                                 </div>
@@ -620,7 +628,7 @@ const AGING_BANDS: AgingBand[] = [
                                 </div>
                                 <div class="aging-row__meta">
                                   <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
-                                  <span>{{ item.disegnoApprovatoAt ? 'Approvazione' : 'Ingresso' }}: {{ formatAgingDate(item.disegnoApprovatoAt || item.enteredAt) }}</span>
+                                  <span>Invio disegno: {{ formatAgingDate(item.disegnoSpeditoAt || item.enteredAt) }}</span>
                                 </div>
                                 <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
                               </div>
@@ -643,6 +651,7 @@ const AGING_BANDS: AgingBand[] = [
 })
 export class DashboardChartsComponent implements OnInit {
   private readonly consegneService = inject(ConsegneService);
+  private readonly openAgingBands = new Set<string>(['PRONTI & AVVISATI:over30']);
 
   @Input({ required: true }) stats!: ConsegnaStats;
   @Input({ required: true }) app!: AppComponent;
@@ -665,7 +674,7 @@ export class DashboardChartsComponent implements OnInit {
     this.agingError = '';
     this.consegneService.dashboardAging().subscribe({
       next: (response) => {
-        this.agingRows = [...response.data].sort((a, b) => b.daysInState - a.daysInState || (a.enteredAt ?? '').localeCompare(b.enteredAt ?? ''));
+        this.agingRows = [...response.data].sort((a, b) => b.daysInState - a.daysInState || (a.disegnoSpeditoAt ?? a.enteredAt ?? '').localeCompare(b.disegnoSpeditoAt ?? b.enteredAt ?? ''));
         this.agingLoading = false;
       },
       error: (error) => {
@@ -697,8 +706,25 @@ export class DashboardChartsComponent implements OnInit {
     return rowCount > 3;
   }
 
+  isAgingBandOpen(status: AgingStatus, bandKey: AgingBandKey): boolean {
+    return this.openAgingBands.has(this.agingBandId(status, bandKey));
+  }
+
+  onAgingBandToggle(status: AgingStatus, bandKey: AgingBandKey, isOpen: boolean): void {
+    const id = this.agingBandId(status, bandKey);
+    if (isOpen) {
+      this.openAgingBands.add(id);
+      return;
+    }
+    this.openAgingBands.delete(id);
+  }
+
   openAgingItem(item: DashboardAgingItem): void {
     this.app.openOrderFromDashboard(item);
+  }
+
+  private agingBandId(status: AgingStatus, bandKey: AgingBandKey): string {
+    return `${status}:${bandKey}`;
   }
 
   private agingBandKey(daysInState: number): AgingBandKey {

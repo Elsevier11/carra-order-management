@@ -91,6 +91,7 @@ export const ordini = pgTable('ordini', {
   residuiLavorazioneNote: text('residui_lavorazione_note'),
   // campi CONSEGNA PIANIFICATA
   consegnaDataEffettiva: timestamp('consegna_data_effettiva'),
+  problemiScaricoNota: text('problemi_scarico_nota'),
   vettoreId: integer('vettore_id').references(() => vettori.id, { onDelete: 'set null' }),
   bilici: integer('bilici').notNull().default(0),
   ddtPronti: boolean('ddt_pronti').notNull().default(false),

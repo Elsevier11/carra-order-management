@@ -5,6 +5,7 @@ export type BoardInfoBadgeTone = 'info' | 'warning' | 'positive' | 'muted' | 'vi
 export type BoardInfoBadge = {
   text: string;
   tone: BoardInfoBadgeTone;
+  multiline?: boolean;
 };
 
 export function orderWarnings(item: ConsegnaRecord, _isLate: (order: ConsegnaRecord) => boolean, _lateDays: (order: ConsegnaRecord) => number): string[] {
@@ -52,7 +53,8 @@ export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBa
   const badges: BoardInfoBadge[] = [];
   if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'violet' });
   if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'violet' });
-  if (item.residuiLavorazioneNote?.trim()) badges.push({ text: 'Vedi note', tone: 'violet' });
+  const note = item.residuiLavorazioneNote?.trim();
+  if (note) badges.push({ text: item.stato === 'ASSEGNATO' ? note : 'Vedi note', tone: 'violet', multiline: item.stato === 'ASSEGNATO' });
   return badges;
 }
 

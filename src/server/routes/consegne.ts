@@ -188,6 +188,7 @@ const consegnaInputSchema = z.object({
   residuiLavorazioneNote: z.string().optional().nullable(),
   // campi CONSEGNA PIANIFICATA
   consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  problemiScaricoNota: z.string().optional().nullable(),
   vettoreId: z.number().int().positive().optional().nullable(),
   bilici: z.number().int().min(0).optional().default(0),
   ddtPronti: z.boolean().optional().default(false),
@@ -212,6 +213,7 @@ const transitionSchema = z.object({
   disegnoApprovatoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoApprovatoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  problemiScaricoNota: z.string().optional().nullable(),
   vettoreId: z.number().int().positive().optional().nullable(),
   bilici: z.number().int().min(0).optional(),
   accontoPagato: z.boolean().optional(),
@@ -341,6 +343,7 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     residuiLavorazioneNote: row.residuiLavorazioneNote ?? null,
     // campi CONSEGNA PIANIFICATA
     consegnaDataEffettiva: toIsoDate(row.consegnaDataEffettiva),
+    problemiScaricoNota: row.problemiScaricoNota ?? null,
     vettoreId: row.vettoreId ?? null,
     bilici: row.bilici ?? 0,
     ddtPronti: row.ddtPronti ?? false,
@@ -430,6 +433,7 @@ function readableFieldLabel(field: string): string {
     attesaMateriale: 'In attesa materiale',
     residuiLavorazioneNote: 'Residui lavorazione',
     consegnaDataEffettiva: 'Data consegna effettiva',
+    problemiScaricoNota: 'Problemi scarico',
     vettoreId: 'Vettore',
     bilici: 'N° bilici',
     ddtPronti: 'DDT pronti',
@@ -816,6 +820,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         'In attesa materiale': yesNo(row.attesaMateriale),
         'Residui lavorazione': row.residuiLavorazioneNote ?? '',
         'Consegna effettiva il': formatItalianDate(row.consegnaDataEffettiva),
+        'Problemi scarico': row.problemiScaricoNota ?? '',
         Vettore: vettore,
         'DDT pronti': yesNo(row.ddtPronti),
         Bancale: yesNo(row.bancale),
@@ -1883,6 +1888,9 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       if (payload.toStatus === 'CONSEGNA PIANIFICATA' || payload.toStatus === 'CONSEGNA EFFETTUATA') {
         updateData.consegnaDataEffettiva = parseInputDate(payload.consegnaDataEffettiva!)
       }
+      if (payload.toStatus === 'CONSEGNA EFFETTUATA' && 'problemiScaricoNota' in payload) {
+        updateData.problemiScaricoNota = payload.problemiScaricoNota ?? null
+      }
       if (payload.toStatus === 'CONSEGNA PIANIFICATA') {
         updateData.vettoreId = payload.vettoreId ?? null
         updateData.bilici = payload.bilici ?? 0
@@ -1928,6 +1936,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         : payload.toStatus === 'CONSEGNA EFFETTUATA'
           ? {
             consegnaDataEffettiva: payload.consegnaDataEffettiva,
+            problemiScaricoNota: payload.problemiScaricoNota ?? null,
           }
         : null
 
@@ -1966,6 +1975,7 @@ router.get('/dashboard/aging', async (_req, res, next) => {
         o.data_ordine as "dataOrdine",
         o.data_consegna as "dataConsegna",
         o.disegno_approvato_at as "disegnoApprovatoAt",
+        o.disegno_spedito_at as "disegnoSpeditoAt",
         coalesce(s.entered_at, o.created_at) as "enteredAt"
       from ordini o
       left join lateral (
@@ -1992,12 +2002,15 @@ router.get('/dashboard/aging', async (_req, res, next) => {
       dataOrdine: string | Date | null
       dataConsegna: string | Date | null
       disegnoApprovatoAt: string | Date | null
+      disegnoSpeditoAt: string | Date | null
       enteredAt: string | Date | null
     }>).map((row) => {
       const enteredAt = row.enteredAt ? new Date(row.enteredAt) : null
-      const enteredAtStart = enteredAt ? new Date(enteredAt) : null
-      if (enteredAtStart) enteredAtStart.setHours(0, 0, 0, 0)
-      const daysInState = enteredAtStart ? Math.max(0, Math.floor((startOfToday.getTime() - enteredAtStart.getTime()) / 86400000)) : 0
+      const disegnoSpeditoAt = row.disegnoSpeditoAt ? new Date(row.disegnoSpeditoAt) : null
+      const referenceAt = disegnoSpeditoAt ?? enteredAt
+      const referenceAtStart = referenceAt ? new Date(referenceAt) : null
+      if (referenceAtStart) referenceAtStart.setHours(0, 0, 0, 0)
+      const daysInState = referenceAtStart ? Math.max(0, Math.floor((startOfToday.getTime() - referenceAtStart.getTime()) / 86400000)) : 0
       return {
         id: row.id,
         rif: row.rif,
@@ -2008,10 +2021,11 @@ router.get('/dashboard/aging', async (_req, res, next) => {
         dataOrdine: row.dataOrdine ? new Date(row.dataOrdine).toISOString() : null,
         dataConsegna: row.dataConsegna ? new Date(row.dataConsegna).toISOString() : null,
         disegnoApprovatoAt: row.disegnoApprovatoAt ? new Date(row.disegnoApprovatoAt).toISOString() : null,
+        disegnoSpeditoAt: disegnoSpeditoAt ? disegnoSpeditoAt.toISOString() : null,
       }
     })
 
-    data.sort((a, b) => b.daysInState - a.daysInState || (a.enteredAt ?? '').localeCompare(b.enteredAt ?? '') || b.id - a.id)
+    data.sort((a, b) => b.daysInState - a.daysInState || (a.disegnoSpeditoAt ?? a.enteredAt ?? '').localeCompare(b.disegnoSpeditoAt ?? b.enteredAt ?? '') || b.id - a.id)
 
     return res.json({ data })
   } catch (error) {
@@ -2243,6 +2257,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('attesaMateriale' in payload) updateData.attesaMateriale = payload.attesaMateriale ?? false
     if ('residuiLavorazioneNote' in payload) updateData.residuiLavorazioneNote = payload.residuiLavorazioneNote ?? null
     if ('consegnaDataEffettiva' in payload) updateData.consegnaDataEffettiva = payload.consegnaDataEffettiva ? parseInputDate(payload.consegnaDataEffettiva) : null
+    if ('problemiScaricoNota' in payload) updateData.problemiScaricoNota = payload.problemiScaricoNota ?? null
     if ('vettoreId' in payload) updateData.vettoreId = payload.vettoreId ?? null
     if ('bilici' in payload) updateData.bilici = payload.bilici ?? 0
     if ('ddtPronti' in payload) updateData.ddtPronti = payload.ddtPronti ?? false
@@ -2327,6 +2342,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('attesaMateriale' in payload) diffBool('attesaMateriale', existing.attesaMateriale, payload.attesaMateriale)
     if ('residuiLavorazioneNote' in payload) diffStr('residuiLavorazioneNote', existing.residuiLavorazioneNote, payload.residuiLavorazioneNote)
     if ('consegnaDataEffettiva' in payload) diffStr('consegnaDataEffettiva', normDate(existing.consegnaDataEffettiva), payload.consegnaDataEffettiva)
+    if ('problemiScaricoNota' in payload) diffStr('problemiScaricoNota', existing.problemiScaricoNota, payload.problemiScaricoNota)
     if ('vettoreId' in payload) diffNum('vettoreId', existing.vettoreId, payload.vettoreId)
     if ('bilici' in payload) diffNum('bilici', existing.bilici, payload.bilici)
     if ('ddtPronti' in payload) diffBool('ddtPronti', existing.ddtPronti, payload.ddtPronti)

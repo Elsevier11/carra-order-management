@@ -30,3 +30,8 @@ Mettere in esercizio una prima versione utilizzabile del sistema per sostituire 
 - Backend online su Railway con healthcheck operativo
 - Frontend online su Netlify
 - Smoke produzione completo superato (health, list, stats, login, export, audit, attachment upload)
+
+## Aggiornamento post-MVP
+
+- Import ordini da ERP (SQL Server, in lettura, al caricamento) implementato e configurabile da UI Impostazioni — vedi `docs/superpowers/specs/2026-06-04-erp-sqlserver-config-design.md`.
+- Evasione ordine / scrittura verso ERP (es. DDT automatico) non implementata: resta una proposta in valutazione.

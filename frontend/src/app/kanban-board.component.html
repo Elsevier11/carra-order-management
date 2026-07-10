@@ -112,9 +112,17 @@
                         }
                         @if (app.showKanbanMeta(item)) {
                           <div class="kanban-card-meta">
-                            <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
+                            @if (item.stato !== 'ASSEGNATO') {
+                              <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
+                            }
                             @if (app.showKanbanEstimatedDelivery(item)) {
                               <span class="kanban-card-meta__date">Consegna stimata {{ item.dataConsegna | date:'dd/MM/yy' }}</span>
+                            }
+                            @if (item.stato === 'ASSEGNATO' && item.lavorazioneAssegnataAt) {
+                              <span class="kanban-card-meta__date">Data assegnazione {{ item.lavorazioneAssegnataAt | date:'dd/MM/yy' }}</span>
+                            }
+                            @if (item.stato === 'DISEGNO IN GESTIONE' && item.disegnoSpeditoAt) {
+                              <span class="kanban-card-meta__date">Disegno inviato il {{ item.disegnoSpeditoAt | date:'dd/MM/yy' }}</span>
                             }
                           </div>
                         }
@@ -144,7 +152,7 @@
                           @if (residuiBadges.length) {
                             <div class="kanban-card-alerts">
                               @for (badge of residuiBadges; track badge.text) {
-                                <span class="kanban-card-alert" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                                <span class="kanban-card-alert" [class.kanban-card-alert--multiline]="badge.multiline" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
                               }
                             </div>
                           }
@@ -215,9 +223,17 @@
                       }
                       @if (app.showKanbanMeta(item)) {
                         <div class="kanban-card-meta">
-                          <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
+                          @if (item.stato !== 'ASSEGNATO') {
+                            <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
+                          }
                           @if (app.showKanbanEstimatedDelivery(item)) {
                             <span class="kanban-card-meta__date">Consegna stimata {{ item.dataConsegna | date:'dd/MM/yy' }}</span>
+                          }
+                          @if (item.stato === 'ASSEGNATO' && item.lavorazioneAssegnataAt) {
+                            <span class="kanban-card-meta__date">Data assegnazione {{ item.lavorazioneAssegnataAt | date:'dd/MM/yy' }}</span>
+                          }
+                          @if (item.stato === 'DISEGNO IN GESTIONE' && item.disegnoSpeditoAt) {
+                            <span class="kanban-card-meta__date">Disegno inviato il {{ item.disegnoSpeditoAt | date:'dd/MM/yy' }}</span>
                           }
                         </div>
                       }
@@ -247,7 +263,7 @@
                         @if (residuiBadges.length) {
                           <div class="kanban-card-alerts">
                             @for (badge of residuiBadges; track badge.text) {
-                              <span class="kanban-card-alert" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                              <span class="kanban-card-alert" [class.kanban-card-alert--multiline]="badge.multiline" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
                             }
                           </div>
                         }

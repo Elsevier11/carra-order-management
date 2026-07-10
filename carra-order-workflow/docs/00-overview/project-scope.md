@@ -33,3 +33,8 @@ Realizzare una soluzione web based che:
 - App mobile nativa
 - BI avanzata e reporting direzionale evoluto
 - Pianificazione produzione completa MRP
+
+## Aggiornamento scope
+
+- Integrazione ERP: implementato un collegamento in lettura (import ordini da SQL Server ERP al caricamento) — vedi `docs/superpowers/specs/2026-06-04-erp-sqlserver-config-design.md`. Resta fuori scope l'evasione ordine/scrittura verso l'ERP (es. generazione automatica DDT), che è allo stadio di proposta non implementata.
+- Pianificazione produzione completa MRP: ancora fuori scope, nessuna modifica.
