@@ -56,6 +56,26 @@
   display: block;
 }
 
+.date-field {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.date-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.date-field__button {
+  flex: 0 0 auto;
+  min-width: 46px;
+  padding: 0 12px;
+  line-height: 1;
+  font-size: 1rem;
+}
+
 .transition-worker {
   display: inline-flex;
   align-items: center;
@@ -77,6 +97,28 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.form-field--full {
+  grid-column: 1 / -1;
+}
+
+.transition-second-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.transition-second-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  padding: 12px;
+  border: 1px dashed var(--border-glass);
+  border-radius: 14px;
+  background: var(--surface-muted);
 }
 
 .modal-actions {

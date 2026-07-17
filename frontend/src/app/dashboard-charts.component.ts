@@ -602,7 +602,7 @@ const AGING_BANDS: AgingBand[] = [
                                   </div>
                                   <div class="aging-row__meta">
                                     <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
-                                    <span>Invio disegno: {{ formatAgingDate(item.disegnoSpeditoAt || item.enteredAt) }}</span>
+                                    <span>{{ agingReferenceLabel(item) }}: {{ formatAgingDate(agingReferenceDate(item)) }}</span>
                                   </div>
                                   <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
                                 </div>
@@ -628,7 +628,7 @@ const AGING_BANDS: AgingBand[] = [
                                 </div>
                                 <div class="aging-row__meta">
                                   <span class="aging-pill" [ngClass]="agingDaysClass(item.daysInState)">{{ item.daysInState }} giorni</span>
-                                  <span>Invio disegno: {{ formatAgingDate(item.disegnoSpeditoAt || item.enteredAt) }}</span>
+                                  <span>{{ agingReferenceLabel(item) }}: {{ formatAgingDate(agingReferenceDate(item)) }}</span>
                                 </div>
                                 <button type="button" class="ghost" (click)="openAgingItem(item)">Apri</button>
                               </div>
@@ -674,7 +674,12 @@ export class DashboardChartsComponent implements OnInit {
     this.agingError = '';
     this.consegneService.dashboardAging().subscribe({
       next: (response) => {
-        this.agingRows = [...response.data].sort((a, b) => b.daysInState - a.daysInState || (a.disegnoSpeditoAt ?? a.enteredAt ?? '').localeCompare(b.disegnoSpeditoAt ?? b.enteredAt ?? ''));
+        this.agingRows = [...response.data].sort(
+          (a, b) =>
+            b.daysInState - a.daysInState ||
+            this.agingReferenceDate(a).localeCompare(this.agingReferenceDate(b)) ||
+            b.id - a.id,
+        );
         this.agingLoading = false;
       },
       error: (error) => {
@@ -738,6 +743,16 @@ export class DashboardChartsComponent implements OnInit {
     if (daysInState >= 7) return 'aging-pill aging-pill--red';
     if (daysInState >= 3) return 'aging-pill aging-pill--amber';
     return 'aging-pill aging-pill--green';
+  }
+
+  agingReferenceLabel(item: DashboardAgingItem): string {
+    return item.stato === 'PRONTI & AVVISATI' ? 'Avviso merce pronta' : 'Invio disegno';
+  }
+
+  agingReferenceDate(item: DashboardAgingItem): string {
+    return item.stato === 'PRONTI & AVVISATI'
+      ? (item.prontiAvvisatiAt ?? item.enteredAt ?? '')
+      : (item.disegnoSpeditoAt ?? item.enteredAt ?? '');
   }
 
   formatAgingDate(value: string | null): string {

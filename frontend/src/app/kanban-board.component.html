@@ -152,7 +152,20 @@
                           @if (residuiBadges.length) {
                             <div class="kanban-card-alerts">
                               @for (badge of residuiBadges; track badge.text) {
-                                <span class="kanban-card-alert" [class.kanban-card-alert--multiline]="badge.multiline" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                                @if (badge.html) {
+                                  <span
+                                    class="kanban-card-alert"
+                                    [class.kanban-card-alert--multiline]="badge.multiline"
+                                    [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                    [innerHTML]="badge.html"
+                                  ></span>
+                                } @else {
+                                  <span
+                                    class="kanban-card-alert"
+                                    [class.kanban-card-alert--multiline]="badge.multiline"
+                                    [ngClass]="app.boardInfoBadgeClass(badge.tone)"
+                                  >{{ badge.text }}</span>
+                                }
                               }
                             </div>
                           }
@@ -161,7 +174,20 @@
                           @if (consegnaBadges.length) {
                             <div class="kanban-card-alerts">
                               @for (badge of consegnaBadges; track badge.text) {
-                                <span class="kanban-card-alert" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                                @if (badge.html) {
+                                  <span
+                                    class="kanban-card-alert"
+                                    [class.kanban-card-alert--multiline]="badge.multiline"
+                                    [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                    [innerHTML]="badge.html"
+                                  ></span>
+                                } @else {
+                                  <span
+                                    class="kanban-card-alert"
+                                    [class.kanban-card-alert--multiline]="badge.multiline"
+                                    [ngClass]="app.boardInfoBadgeClass(badge.tone)"
+                                  >{{ badge.text }}</span>
+                                }
                               }
                             </div>
                           }
@@ -263,7 +289,20 @@
                         @if (residuiBadges.length) {
                           <div class="kanban-card-alerts">
                             @for (badge of residuiBadges; track badge.text) {
-                              <span class="kanban-card-alert" [class.kanban-card-alert--multiline]="badge.multiline" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                              @if (badge.html) {
+                                <span
+                                  class="kanban-card-alert"
+                                  [class.kanban-card-alert--multiline]="badge.multiline"
+                                  [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                  [innerHTML]="badge.html"
+                                ></span>
+                              } @else {
+                                <span
+                                  class="kanban-card-alert"
+                                  [class.kanban-card-alert--multiline]="badge.multiline"
+                                  [ngClass]="app.boardInfoBadgeClass(badge.tone)"
+                                >{{ badge.text }}</span>
+                              }
                             }
                           </div>
                         }
@@ -272,7 +311,20 @@
                         @if (consegnaBadges.length) {
                           <div class="kanban-card-alerts">
                             @for (badge of consegnaBadges; track badge.text) {
-                              <span class="kanban-card-alert" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                              @if (badge.html) {
+                                <span
+                                  class="kanban-card-alert"
+                                  [class.kanban-card-alert--multiline]="badge.multiline"
+                                  [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                  [innerHTML]="badge.html"
+                                ></span>
+                              } @else {
+                                <span
+                                  class="kanban-card-alert"
+                                  [class.kanban-card-alert--multiline]="badge.multiline"
+                                  [ngClass]="app.boardInfoBadgeClass(badge.tone)"
+                                >{{ badge.text }}</span>
+                              }
                             }
                           </div>
                         }

@@ -97,6 +97,7 @@ const listQuerySchema = z.object({
   stato: z.string().optional(),
   commercialeId: z.coerce.number().int().positive().optional(),
   responsabileInternoId: z.coerce.number().int().positive().optional(),
+  vettoreId: z.coerce.number().int().positive().optional(),
   fromDate: z.string().regex(dateOnlyRegex, 'fromDate must be YYYY-MM-DD').optional(),
   toDate: z.string().regex(dateOnlyRegex, 'toDate must be YYYY-MM-DD').optional(),
   sortBy: z.enum(['rif', 'cliente', 'dataConsegna', 'stato']).default('dataConsegna'),
@@ -134,6 +135,10 @@ function buildListFilters(query: ListQuery) {
 
   if (query.responsabileInternoId) {
     filters.push(eq(ordini.responsabileInternoId, query.responsabileInternoId))
+  }
+
+  if (query.vettoreId) {
+    filters.push(eq(ordini.vettoreId, query.vettoreId))
   }
 
   if (query.fromDate) {
@@ -188,9 +193,12 @@ const consegnaInputSchema = z.object({
   residuiLavorazioneNote: z.string().optional().nullable(),
   // campi CONSEGNA PIANIFICATA
   consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  consegnaDataEffettivaSeconda: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettivaSeconda must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   problemiScaricoNota: z.string().optional().nullable(),
   vettoreId: z.number().int().positive().optional().nullable(),
+  vettoreSecondoId: z.number().int().positive().optional().nullable(),
   bilici: z.number().int().min(0).optional().default(0),
+  biliciSecondi: z.number().int().min(0).optional().default(0),
   ddtPronti: z.boolean().optional().default(false),
   bancale: z.boolean().optional().default(false),
   chiusini: z.boolean().optional().default(false),
@@ -213,10 +221,14 @@ const transitionSchema = z.object({
   disegnoApprovatoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoApprovatoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  consegnaDataEffettivaSeconda: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettivaSeconda must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   problemiScaricoNota: z.string().optional().nullable(),
   vettoreId: z.number().int().positive().optional().nullable(),
+  vettoreSecondoId: z.number().int().positive().optional().nullable(),
   bilici: z.number().int().min(0).optional(),
+  biliciSecondi: z.number().int().min(0).optional(),
   accontoPagato: z.boolean().optional(),
+  secondaConsegna: z.boolean().optional().default(false),
   operaiIds: z.array(z.number().int().positive()).optional(),
   skipAssegnazione: z.boolean().optional().default(false),
   conclusiMode: z.enum(['week', 'date']).optional(),
@@ -343,9 +355,12 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     residuiLavorazioneNote: row.residuiLavorazioneNote ?? null,
     // campi CONSEGNA PIANIFICATA
     consegnaDataEffettiva: toIsoDate(row.consegnaDataEffettiva),
+    consegnaDataEffettivaSeconda: toIsoDate(row.consegnaDataEffettivaSeconda),
     problemiScaricoNota: row.problemiScaricoNota ?? null,
     vettoreId: row.vettoreId ?? null,
+    vettoreSecondoId: row.vettoreSecondoId ?? null,
     bilici: row.bilici ?? 0,
+    biliciSecondi: row.biliciSecondi ?? 0,
     ddtPronti: row.ddtPronti ?? false,
     bancale: row.bancale ?? false,
     chiusini: row.chiusini ?? false,
@@ -433,9 +448,12 @@ function readableFieldLabel(field: string): string {
     attesaMateriale: 'In attesa materiale',
     residuiLavorazioneNote: 'Residui lavorazione',
     consegnaDataEffettiva: 'Data consegna effettiva',
+    consegnaDataEffettivaSeconda: 'Data consegna effettiva 2',
     problemiScaricoNota: 'Problemi scarico',
     vettoreId: 'Vettore',
+    vettoreSecondoId: 'Vettore 2',
     bilici: 'N° bilici',
+    biliciSecondi: 'N° bilici 2',
     ddtPronti: 'DDT pronti',
     bancale: 'Bancale',
     chiusini: 'Chiusini',
@@ -820,8 +838,11 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         'In attesa materiale': yesNo(row.attesaMateriale),
         'Residui lavorazione': row.residuiLavorazioneNote ?? '',
         'Consegna effettiva il': formatItalianDate(row.consegnaDataEffettiva),
+        'Consegna effettiva 2': formatItalianDate(row.consegnaDataEffettivaSeconda),
         'Problemi scarico': row.problemiScaricoNota ?? '',
         Vettore: vettore,
+        'Vettore 2': row.vettoreSecondoId ? vettoriMap.get(row.vettoreSecondoId) ?? '' : '',
+        'Bilici 2': row.biliciSecondi ?? 0,
         'DDT pronti': yesNo(row.ddtPronti),
         Bancale: yesNo(row.bancale),
         Chiusini: yesNo(row.chiusini),
@@ -1318,14 +1339,16 @@ router.get('/stats', async (_req, res, next) => {
 
 router.get('/filters', async (_req, res, next) => {
   try {
-    const [clienti, stati] = await Promise.all([
+    const [clienti, stati, vettoriRows] = await Promise.all([
       db.selectDistinct({ value: ordini.cliente }).from(ordini).where(and(sql`${ordini.cliente} is not null`, sql`${ordini.deletedAt} is null`)),
       db.selectDistinct({ value: ordini.stato }).from(ordini).where(and(sql`${ordini.stato} is not null`, sql`${ordini.deletedAt} is null`)),
+      db.selectDistinct({ id: vettori.id, nome: vettori.nome }).from(vettori).orderBy(vettori.nome),
     ])
 
     res.json({
       clienti: clienti.map((r) => r.value).filter(Boolean).sort(),
       stati: stati.map((r) => r.value).filter(Boolean).sort(),
+      vettori: vettoriRows.map((r) => ({ id: r.id, nome: r.nome })).filter((item) => item.nome),
     })
   } catch (error) {
     next(error)
@@ -1858,6 +1881,22 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
           message: "Impossibile avanzare a 'CONSEGNA PIANIFICATA': acconto non ancora registrato come pagato.",
         })
       }
+      if (payload.secondaConsegna) {
+        if (!payload.consegnaDataEffettivaSeconda) {
+          return res.status(400).json({ message: 'Data seconda consegna obbligatoria' })
+        }
+        if (!payload.vettoreSecondoId) {
+          return res.status(400).json({ message: 'Vettore seconda consegna obbligatorio' })
+        }
+        if (!Number.isFinite(payload.biliciSecondi ?? NaN) || Number(payload.biliciSecondi) < 0) {
+          return res.status(400).json({ message: 'Numero bilici seconda consegna obbligatorio' })
+        }
+        const firstDate = parseInputDate(payload.consegnaDataEffettiva)
+        const secondDate = parseInputDate(payload.consegnaDataEffettivaSeconda)
+        if (secondDate.getTime() < firstDate.getTime()) {
+          return res.status(400).json({ message: 'La seconda consegna non può precedere la prima.' })
+        }
+      }
     }
 
     if (payload.toStatus === 'CONSEGNA EFFETTUATA' && !payload.consegnaDataEffettiva) {
@@ -1895,6 +1934,9 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         updateData.vettoreId = payload.vettoreId ?? null
         updateData.bilici = payload.bilici ?? 0
         updateData.accontoPagato = payload.accontoPagato ?? row.accontoPagato
+        updateData.consegnaDataEffettivaSeconda = payload.secondaConsegna ? parseInputDate(payload.consegnaDataEffettivaSeconda!) : null
+        updateData.vettoreSecondoId = payload.secondaConsegna ? (payload.vettoreSecondoId ?? null) : null
+        updateData.biliciSecondi = payload.secondaConsegna ? (payload.biliciSecondi ?? 0) : 0
       }
 
       const [result] = await tx.update(ordini).set(updateData).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).returning()
@@ -1932,6 +1974,10 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
             vettoreId: payload.vettoreId ?? null,
             bilici: payload.bilici ?? 0,
             accontoPagato: payload.accontoPagato ?? row.accontoPagato,
+            secondaConsegna: payload.secondaConsegna ?? false,
+            consegnaDataEffettivaSeconda: payload.secondaConsegna ? payload.consegnaDataEffettivaSeconda ?? null : null,
+            vettoreSecondoId: payload.secondaConsegna ? payload.vettoreSecondoId ?? null : null,
+            biliciSecondi: payload.secondaConsegna ? payload.biliciSecondi ?? 0 : 0,
           }
         : payload.toStatus === 'CONSEGNA EFFETTUATA'
           ? {
@@ -2003,11 +2049,13 @@ router.get('/dashboard/aging', async (_req, res, next) => {
       dataConsegna: string | Date | null
       disegnoApprovatoAt: string | Date | null
       disegnoSpeditoAt: string | Date | null
+      prontiAvvisatiAt: string | Date | null
       enteredAt: string | Date | null
     }>).map((row) => {
       const enteredAt = row.enteredAt ? new Date(row.enteredAt) : null
       const disegnoSpeditoAt = row.disegnoSpeditoAt ? new Date(row.disegnoSpeditoAt) : null
-      const referenceAt = disegnoSpeditoAt ?? enteredAt
+      const prontiAvvisatiAt = row.prontiAvvisatiAt ? new Date(row.prontiAvvisatiAt) : null
+      const referenceAt = row.stato === 'PRONTI & AVVISATI' ? (prontiAvvisatiAt ?? enteredAt) : (disegnoSpeditoAt ?? enteredAt)
       const referenceAtStart = referenceAt ? new Date(referenceAt) : null
       if (referenceAtStart) referenceAtStart.setHours(0, 0, 0, 0)
       const daysInState = referenceAtStart ? Math.max(0, Math.floor((startOfToday.getTime() - referenceAtStart.getTime()) / 86400000)) : 0
@@ -2022,10 +2070,15 @@ router.get('/dashboard/aging', async (_req, res, next) => {
         dataConsegna: row.dataConsegna ? new Date(row.dataConsegna).toISOString() : null,
         disegnoApprovatoAt: row.disegnoApprovatoAt ? new Date(row.disegnoApprovatoAt).toISOString() : null,
         disegnoSpeditoAt: disegnoSpeditoAt ? disegnoSpeditoAt.toISOString() : null,
+        prontiAvvisatiAt: prontiAvvisatiAt ? prontiAvvisatiAt.toISOString() : null,
       }
     })
 
-    data.sort((a, b) => b.daysInState - a.daysInState || (a.disegnoSpeditoAt ?? a.enteredAt ?? '').localeCompare(b.disegnoSpeditoAt ?? b.enteredAt ?? '') || b.id - a.id)
+    data.sort((a, b) => {
+      const aReference = a.stato === 'PRONTI & AVVISATI' ? (a.prontiAvvisatiAt ?? a.enteredAt ?? '') : (a.disegnoSpeditoAt ?? a.enteredAt ?? '')
+      const bReference = b.stato === 'PRONTI & AVVISATI' ? (b.prontiAvvisatiAt ?? b.enteredAt ?? '') : (b.disegnoSpeditoAt ?? b.enteredAt ?? '')
+      return b.daysInState - a.daysInState || aReference.localeCompare(bReference) || b.id - a.id
+    })
 
     return res.json({ data })
   } catch (error) {
@@ -2147,7 +2200,12 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
           accontoPagato: payload.accontoPagato ?? false,
           commercialeId: payload.commercialeId ?? null,
           responsabileInternoId: payload.responsabileInternoId ?? null,
+          folderLinkDocumenti: payload.folderLinkDocumenti ?? null,
+          folderLinkFoto: payload.folderLinkFoto ?? null,
           bilici: payload.bilici ?? 0,
+          consegnaDataEffettivaSeconda: payload.consegnaDataEffettivaSeconda ? parseInputDate(payload.consegnaDataEffettivaSeconda) : null,
+          vettoreSecondoId: payload.vettoreSecondoId ?? null,
+          biliciSecondi: payload.biliciSecondi ?? 0,
           chiusini: payload.chiusini ?? false,
           lavorazioneParziale: payload.lavorazioneParziale ?? false,
           attesaMateriale: payload.attesaMateriale ?? false,
@@ -2245,6 +2303,9 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('responsabileInternoId' in payload) updateData.responsabileInternoId = payload.responsabileInternoId ?? null
     if ('folderLinkDocumenti' in payload) updateData.folderLinkDocumenti = payload.folderLinkDocumenti ?? null
     if ('folderLinkFoto' in payload) updateData.folderLinkFoto = payload.folderLinkFoto ?? null
+    if ('consegnaDataEffettivaSeconda' in payload) updateData.consegnaDataEffettivaSeconda = payload.consegnaDataEffettivaSeconda ? parseInputDate(payload.consegnaDataEffettivaSeconda) : null
+    if ('vettoreSecondoId' in payload) updateData.vettoreSecondoId = payload.vettoreSecondoId ?? null
+    if ('biliciSecondi' in payload) updateData.biliciSecondi = payload.biliciSecondi ?? 0
     // nuovi campi scalar
     if ('disegnoSpeditoAt' in payload) updateData.disegnoSpeditoAt = payload.disegnoSpeditoAt ? parseInputDate(payload.disegnoSpeditoAt) : null
     if ('disegnoMittenteId' in payload) updateData.disegnoMittenteId = payload.disegnoMittenteId ?? null
@@ -2328,6 +2389,9 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('responsabileInternoId' in payload) diffNum('responsabileInternoId', existing.responsabileInternoId, payload.responsabileInternoId)
     if ('folderLinkDocumenti' in payload) diffStr('folderLinkDocumenti', existing.folderLinkDocumenti, payload.folderLinkDocumenti)
     if ('folderLinkFoto' in payload) diffStr('folderLinkFoto', existing.folderLinkFoto, payload.folderLinkFoto)
+    if ('consegnaDataEffettivaSeconda' in payload) diffStr('consegnaDataEffettivaSeconda', normDate(existing.consegnaDataEffettivaSeconda), payload.consegnaDataEffettivaSeconda)
+    if ('vettoreSecondoId' in payload) diffNum('vettoreSecondoId', existing.vettoreSecondoId, payload.vettoreSecondoId)
+    if ('biliciSecondi' in payload) diffNum('biliciSecondi', existing.biliciSecondi, payload.biliciSecondi)
     if ('disegnoSpeditoAt' in payload) diffStr('disegnoSpeditoAt', normDate(existing.disegnoSpeditoAt), payload.disegnoSpeditoAt)
     if ('disegnoMittenteId' in payload) diffNum('disegnoMittenteId', existing.disegnoMittenteId, payload.disegnoMittenteId)
     if ('disegnoNote' in payload) diffStr('disegnoNote', existing.disegnoNote, payload.disegnoNote)

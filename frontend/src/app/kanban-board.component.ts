@@ -8,7 +8,7 @@ import type { ConsegnaStatus } from '../../../src/shared/order-flow';
 
 export interface KanbanBoardHost {
   activeFiltersCount: number;
-  availableFilters: { clienti: string[]; stati: string[] };
+  availableFilters: { clienti: string[]; stati: string[]; vettori: Array<{ id: number; nome: string }> };
   boardColumns: BoardColumn[];
   boardConclusiBadge(item: ConsegnaRecord): string | null;
   boardConsegnaPianificataBadges(item: ConsegnaRecord): BoardInfoBadge[];

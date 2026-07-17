@@ -88,9 +88,12 @@ export interface ConsegnaRecord {
   residuiLavorazioneNote: string | null;
   // Consegna
   consegnaDataEffettiva: string | null;
+  consegnaDataEffettivaSeconda?: string | null;
   problemiScaricoNota: string | null;
   vettoreId: number | null;
+  vettoreSecondoId?: number | null;
   bilici: number;
+  biliciSecondi?: number;
   ddtPronti: boolean;
   bancale: boolean;
   chiusini: boolean;
@@ -144,6 +147,7 @@ export interface ConsegnaFilters {
   stato?: string;
   commercialeId?: number | string;
   responsabileInternoId?: number | string;
+  vettoreId?: number | string;
   fromDate?: string;
   toDate?: string;
 }
@@ -158,6 +162,7 @@ export interface DashboardAgingItem {
   cliente: string;
   stato: string;
   enteredAt: string | null;
+  prontiAvvisatiAt?: string | null;
   daysInState: number;
   dataOrdine: string | null;
   dataConsegna: string | null;
@@ -202,6 +207,7 @@ export interface ConsegnaStats {
 export interface FilterOptions {
   clienti: string[];
   stati: string[];
+  vettori: Array<{ id: number; nome: string }>;
 }
 
 export interface AuthUser {

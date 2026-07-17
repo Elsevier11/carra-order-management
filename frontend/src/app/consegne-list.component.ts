@@ -25,23 +25,51 @@ export class ConsegneListComponent {
 
   sectionItems(status: string): ConsegnaRecord[] {
     const items = this.app.filteredKanbanItems(this.itemsForStatus(status));
-    return [...items].sort((a, b) => this.deliverySortValue(b) - this.deliverySortValue(a) || a.rif.localeCompare(b.rif, 'it'));
+    return [...items].sort((a, b) => this.deliverySortValue(a) - this.deliverySortValue(b) || a.rif.localeCompare(b.rif, 'it'));
   }
 
   deliveryDateLabel(item: ConsegnaRecord): string {
     const value = this.deliveryDateValue(item);
-    if (!value) return '—';
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleDateString('it-IT');
+    const second = this.deliveryDateSecondValue(item);
+    if (!value && !second) return '—';
+    const firstLabel = value ? this.formatDate(value) : '—';
+    if (!second) return firstLabel;
+    const secondLabel = this.formatDate(second);
+    return `${firstLabel} + ${secondLabel}`;
   }
 
   vettoreLabel(item: ConsegnaRecord): string {
-    return this.app.nomeVettore(item.vettoreId);
+    const first = this.app.nomeVettore(item.vettoreId);
+    const second = this.app.nomeVettore(item.vettoreSecondoId ?? null);
+    if (!second || second === '—') return first;
+    return first && first !== '—' ? `${first} + ${second}` : second;
+  }
+
+  biliciLabel(item: ConsegnaRecord): string {
+    if (item.biliciSecondi != null && item.biliciSecondi > 0) {
+      return `${item.bilici} + ${item.biliciSecondi}`;
+    }
+    return `${item.bilici}`;
+  }
+
+  problemiScaricoLabel(item: ConsegnaRecord): string | null {
+    if (item.stato !== 'CONSEGNA EFFETTUATA') return null;
+    const note = item.problemiScaricoNota?.trim();
+    if (!note) return null;
+    return `Problemi scarico: ${note}`;
   }
 
   private deliveryDateValue(item: ConsegnaRecord): string | null {
     return item.consegnaDataEffettiva ?? item.dataConsegna;
+  }
+
+  private deliveryDateSecondValue(item: ConsegnaRecord): string | null {
+    return item.consegnaDataEffettivaSeconda ?? null;
+  }
+
+  private formatDate(value: string): string {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('it-IT');
   }
 
   private deliverySortValue(item: ConsegnaRecord): number {

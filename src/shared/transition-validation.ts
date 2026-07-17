@@ -11,10 +11,14 @@ export interface TransitionStateLike {
   conclusiWeek?: string | null;
   conclusiDate?: string | null;
   consegnaDataEffettiva?: string | null;
+  consegnaDataEffettivaSeconda?: string | null;
   problemiScaricoNota?: string | null;
   vettoreId?: number | null;
+  vettoreSecondoId?: number | null;
   bilici?: number | null;
+  biliciSecondi?: number | null;
   accontoPagato?: boolean | null;
+  secondaConsegna?: boolean;
 }
 
 export function validateTransitionState(state: TransitionStateLike): string | null {
@@ -66,6 +70,22 @@ export function validateTransitionState(state: TransitionStateLike): string | nu
     }
     if (state.accontoPagato === false) {
       return 'L\'acconto deve risultare pagato prima della pianificazione consegna.';
+    }
+    if (state.secondaConsegna) {
+      if (!state.consegnaDataEffettivaSeconda) {
+        return 'Inserisci la seconda data di consegna.';
+      }
+      if (!Number.isFinite(state.biliciSecondi ?? NaN) || Number(state.biliciSecondi) < 0) {
+        return 'Inserisci il numero di bilici per la seconda consegna.';
+      }
+      if (!state.vettoreSecondoId) {
+        return 'Seleziona il vettore per la seconda consegna.';
+      }
+      const firstDate = new Date(state.consegnaDataEffettiva);
+      const secondDate = new Date(state.consegnaDataEffettivaSeconda);
+      if (!Number.isNaN(firstDate.getTime()) && !Number.isNaN(secondDate.getTime()) && secondDate.getTime() < firstDate.getTime()) {
+        return 'La seconda consegna non può precedere la prima.';
+      }
     }
   }
 

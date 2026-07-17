@@ -247,6 +247,19 @@
   color: #9a3412;
 }
 
+.consegne-pill--scarico {
+  display: inline-flex;
+  align-items: flex-start;
+  max-width: 100%;
+  min-height: auto;
+  padding: 6px 10px;
+  background: #fef2f2;
+  border-color: rgba(220, 38, 38, 0.24);
+  color: #b91c1c;
+  white-space: normal;
+  line-height: 1.25;
+}
+
 .consegne-pill--ok {
   background: #ecfdf5;
   border-color: rgba(34, 197, 94, 0.26);

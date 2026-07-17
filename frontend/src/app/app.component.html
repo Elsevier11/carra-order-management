@@ -24,24 +24,55 @@
   </div>
 } @else {
   <div class="page app-shell">
-    <nav class="sidebar">
+    <nav class="sidebar" [class.sidebar--collapsed]="sidebarCollapsed">
       <div class="sidebar-brand">
         <img src="logo-carra.png" alt="Carra Depurazioni" class="sidebar-logo" />
-        <small class="sidebar-tagline">Gestione ordini e logistica</small>
+        <div class="sidebar-brand-copy">
+          <strong>Carra Ordini</strong>
+          <small class="sidebar-tagline">Gestione ordini e logistica</small>
+        </div>
+        <button
+          type="button"
+          class="sidebar-collapse-toggle ghost"
+          (click)="toggleSidebarCollapsed()"
+          [attr.aria-label]="sidebarCollapsed ? 'Espandi menu' : 'Comprimi menu'"
+          [attr.aria-pressed]="sidebarCollapsed"
+          [title]="sidebarCollapsed ? 'Espandi menu' : 'Comprimi menu'"
+        >
+          {{ sidebarCollapsed ? '›' : '‹' }}
+        </button>
       </div>
       <div class="sidebar-nav">
         <div class="sidebar-nav-group">
           <span class="sidebar-nav-group__label">Operazioni</span>
-          <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')">Ordini</button>
-          <button type="button" [class.active]="activeView === 'consegne'" (click)="changeView('consegne')">Consegne</button>
-          <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')">Dashboard</button>
+          <button type="button" [class.active]="activeView === 'kanban'" (click)="changeView('kanban')" title="Ordini" [attr.aria-label]="sidebarCollapsed ? 'Ordini' : null">
+            <span class="sidebar-nav__icon" aria-hidden="true">O</span>
+            <span class="sidebar-nav__label">Ordini</span>
+          </button>
+          <button type="button" [class.active]="activeView === 'consegne'" (click)="changeView('consegne')" title="Consegne" [attr.aria-label]="sidebarCollapsed ? 'Consegne' : null">
+            <span class="sidebar-nav__icon" aria-hidden="true">C</span>
+            <span class="sidebar-nav__label">Consegne</span>
+          </button>
+          <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')" title="Dashboard" [attr.aria-label]="sidebarCollapsed ? 'Dashboard' : null">
+            <span class="sidebar-nav__icon" aria-hidden="true">D</span>
+            <span class="sidebar-nav__label">Dashboard</span>
+          </button>
         </div>
         @if (isAdmin) {
           <div class="sidebar-nav-group">
             <span class="sidebar-nav-group__label">Amministrazione</span>
-            <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')">Storico ordini</button>
-            <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')">Anagrafiche</button>
-            <button type="button" [class.active]="activeView === 'settings'" (click)="changeView('settings')">Impostazioni</button>
+            <button type="button" [class.active]="activeView === 'audit'" (click)="changeView('audit')" title="Storico ordini" [attr.aria-label]="sidebarCollapsed ? 'Storico ordini' : null">
+              <span class="sidebar-nav__icon" aria-hidden="true">S</span>
+              <span class="sidebar-nav__label">Storico ordini</span>
+            </button>
+            <button type="button" [class.active]="activeView === 'anagrafiche'" (click)="changeView('anagrafiche')" title="Anagrafiche" [attr.aria-label]="sidebarCollapsed ? 'Anagrafiche' : null">
+              <span class="sidebar-nav__icon" aria-hidden="true">A</span>
+              <span class="sidebar-nav__label">Anagrafiche</span>
+            </button>
+            <button type="button" [class.active]="activeView === 'settings'" (click)="changeView('settings')" title="Impostazioni" [attr.aria-label]="sidebarCollapsed ? 'Impostazioni' : null">
+              <span class="sidebar-nav__icon" aria-hidden="true">I</span>
+              <span class="sidebar-nav__label">Impostazioni</span>
+            </button>
           </div>
         }
         <div class="sidebar-footer">
@@ -53,7 +84,10 @@
             >{{ user.role }}</span>
             <span class="sidebar-user">{{ user.username }}</span>
           </div>
-          <button type="button" (click)="logout()">Logout</button>
+          <button type="button" (click)="logout()" title="Logout" [attr.aria-label]="sidebarCollapsed ? 'Logout' : null">
+            <span class="sidebar-nav__icon" aria-hidden="true">↩</span>
+            <span class="sidebar-nav__label">Logout</span>
+          </button>
         </div>
       </div>
     </nav>
@@ -848,14 +882,37 @@
           <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
           <span>Acconto pagato</span>
         </label>
-        <textarea [(ngModel)]="formModel.note" placeholder="Note operative..."></textarea>
-        <div class="form-field">
-          <label class="form-field__label">Cartella documenti</label>
-          <input type="text" [(ngModel)]="formModel.folderLinkDocumenti" placeholder="\\server\cartella\documenti" />
-        </div>
-        <div class="form-field">
-          <label class="form-field__label">Cartella foto</label>
-          <input type="text" [(ngModel)]="formModel.folderLinkFoto" placeholder="\\server\cartella\foto" />
+        <app-note-editor [value]="formModel.note" (valueChange)="formModel.note = $event" placeholder="Note operative..."></app-note-editor>
+        <div class="detail-section">
+          <div class="detail-section-title">Cartelle di riferimento</div>
+          <div class="folder-rows">
+            <div class="folder-row">
+              <span class="folder-row-label">Documenti</span>
+              <input type="text" class="folder-row-input" [(ngModel)]="formModel.folderLinkDocumenti" placeholder="\\server\cartella\documenti" />
+              <button type="button" class="ghost icon-btn" (click)="pasteFolderPath('documenti')" title="Incolla dagli appunti">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              </button>
+              <button *ngIf="formModel.folderLinkDocumenti" type="button" class="ghost icon-btn" (click)="openFolder(formModel.folderLinkDocumenti)" title="Apri in Esplora file">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              </button>
+              <button *ngIf="formModel.folderLinkDocumenti" type="button" class="ghost-danger icon-btn" (click)="clearFolderPath('documenti')" title="Rimuovi">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="folder-row">
+              <span class="folder-row-label">Foto</span>
+              <input type="text" class="folder-row-input" [(ngModel)]="formModel.folderLinkFoto" placeholder="\\server\cartella\foto" />
+              <button type="button" class="ghost icon-btn" (click)="pasteFolderPath('foto')" title="Incolla dagli appunti">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              </button>
+              <button *ngIf="formModel.folderLinkFoto" type="button" class="ghost icon-btn" (click)="openFolder(formModel.folderLinkFoto)" title="Apri in Esplora file">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              </button>
+              <button *ngIf="formModel.folderLinkFoto" type="button" class="ghost-danger icon-btn" (click)="clearFolderPath('foto')" title="Rimuovi">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
         </div>
         <div class="modal-actions">
@@ -891,7 +948,7 @@
                     <div class="timeline-transition">{{ event.fromStatus || '—' }} <span class="arrow">→</span> {{ event.toStatus || '—' }}</div>
                   }
                   @if (event.note) {
-                    <div class="timeline-note">{{ event.note }}</div>
+                    <div class="timeline-note" [innerHTML]="renderNoteHtml(event.note)"></div>
                   }
                   @if (getDiffEntries(event).length > 0) {
                     <table class="diff-table">

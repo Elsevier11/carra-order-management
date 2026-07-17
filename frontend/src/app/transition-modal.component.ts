@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MittenteDisegno, Operaio, Vettore } from './consegne.types';
+import { NoteEditorComponent } from './note-editor.component';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
 import { validateTransitionState } from '../../../src/shared/transition-validation';
 
@@ -15,15 +16,19 @@ export interface TransitionModalModel {
   disegnoApprovatoAt: string;
   lavorazioneAssegnataAt: string;
   consegnaDataEffettiva: string;
+  consegnaDataEffettivaSeconda: string;
   problemiScaricoNota: string;
   vettoreId: number | null;
+  vettoreSecondoId: number | null;
   bilici: number | null;
+  biliciSecondi: number | null;
   operaiIds: number[];
   skipAssegnazione: boolean;
   conclusiMode: 'week' | 'date';
   conclusiWeek: string;
   conclusiDate: string;
   accontoPagato: boolean;
+  secondaConsegna: boolean;
   note: string;
   error: string;
 }
@@ -35,7 +40,7 @@ export interface TransitionConfirmRequest {
 @Component({
   selector: 'app-transition-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NoteEditorComponent],
   templateUrl: './transition-modal.component.html',
   styleUrl: './transition-modal.component.scss',
 })
@@ -73,8 +78,37 @@ export class TransitionModalComponent {
     }
   }
 
+  toggleSecondaConsegna(enabled: boolean): void {
+    if (!this.modal.open || this.modal.toStatus !== 'CONSEGNA PIANIFICATA') return;
+    this.modal.secondaConsegna = enabled;
+    if (enabled) {
+      this.modal.consegnaDataEffettivaSeconda = this.modal.consegnaDataEffettivaSeconda || this.modal.consegnaDataEffettiva || this.todayIsoDate();
+      this.modal.vettoreSecondoId = this.modal.vettoreSecondoId ?? this.modal.vettoreId;
+      this.modal.biliciSecondi = this.modal.biliciSecondi ?? 0;
+    } else {
+      this.modal.consegnaDataEffettivaSeconda = '';
+      this.modal.vettoreSecondoId = null;
+      this.modal.biliciSecondi = null;
+    }
+  }
+
   requestConfirm(skipAssegnazione = false): void {
     this.confirm.emit({ skipAssegnazione });
+  }
+
+  openDatePicker(input: HTMLInputElement | null): void {
+    if (!input) return;
+    const anyInput = input as HTMLInputElement & { showPicker?: () => void };
+    try {
+      if (typeof anyInput.showPicker === 'function') {
+        anyInput.showPicker();
+        return;
+      }
+    } catch {
+      // Fallback below.
+    }
+    input.focus();
+    input.click();
   }
 
   isConfirmDisabled(): boolean {

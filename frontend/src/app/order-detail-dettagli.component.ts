@@ -3,11 +3,12 @@ import { Component, Input, ViewEncapsulation } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { AppComponent } from './app.component';
 import type { ConsegnaRecord } from './consegne.types';
+import { NoteEditorComponent } from './note-editor.component';
 
 @Component({
   selector: 'app-order-detail-dettagli',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NoteEditorComponent],
   templateUrl: './order-detail-dettagli.component.html',
   styleUrl: './app.component.scss',
   encapsulation: ViewEncapsulation.None,

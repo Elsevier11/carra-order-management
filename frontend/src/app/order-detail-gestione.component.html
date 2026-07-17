@@ -22,9 +22,9 @@
         </div>
         <div class="detail-kv detail-kv--full">
           <label class="kv-label">Note disegno</label>
-          <textarea *ngIf="app.canWrite && app.editMode; else disegnoNoteRead" [(ngModel)]="detail.disegnoNote" rows="3" style="width:100%;resize:vertical"></textarea>
+          <app-note-editor *ngIf="app.canWrite && app.editMode; else disegnoNoteRead" [value]="detail.disegnoNote ?? ''" (valueChange)="detail.disegnoNote = $event" placeholder="Note disegno..."></app-note-editor>
           <ng-template #disegnoNoteRead>
-            <span class="kv-value">{{ detail.disegnoNote || '—' }}</span>
+            <span class="kv-value note-display" [innerHTML]="app.renderNoteHtml(detail.disegnoNote)"></span>
           </ng-template>
         </div>
       </div>
@@ -47,16 +47,16 @@
         </div>
         <div class="detail-kv detail-kv--full">
           <label class="kv-label">Massicciata</label>
-          <textarea *ngIf="app.canWrite && app.editMode; else massicciataRead" [(ngModel)]="detail.massicciataNota" rows="3" style="width:100%;resize:vertical"></textarea>
+          <app-note-editor *ngIf="app.canWrite && app.editMode; else massicciataRead" [value]="detail.massicciataNota ?? ''" (valueChange)="detail.massicciataNota = $event" placeholder="Note massicciata..."></app-note-editor>
           <ng-template #massicciataRead>
-            <span class="kv-value">{{ detail.massicciataNota || '—' }}</span>
+            <span class="kv-value note-display" [innerHTML]="app.renderNoteHtml(detail.massicciataNota)"></span>
           </ng-template>
         </div>
         <div class="detail-kv detail-kv--full">
           <label class="kv-label">Tipologia carichi</label>
-          <textarea *ngIf="app.canWrite && app.editMode; else tipoCarichiRead" [(ngModel)]="detail.tipoCariciNota" rows="3" style="width:100%;resize:vertical"></textarea>
+          <app-note-editor *ngIf="app.canWrite && app.editMode; else tipoCarichiRead" [value]="detail.tipoCariciNota ?? ''" (valueChange)="detail.tipoCariciNota = $event" placeholder="Note tipologia carichi..."></app-note-editor>
           <ng-template #tipoCarichiRead>
-            <span class="kv-value">{{ detail.tipoCariciNota || '—' }}</span>
+            <span class="kv-value note-display" [innerHTML]="app.renderNoteHtml(detail.tipoCariciNota)"></span>
           </ng-template>
         </div>
       </div>
@@ -87,7 +87,7 @@
         </div>
         <div class="detail-kv detail-kv--full">
           <label class="kv-label">Note generali ordine</label>
-          <span class="kv-value">{{ detail.note || '—' }}</span>
+          <span class="kv-value note-display" [innerHTML]="app.renderNoteHtml(detail.note)"></span>
         </div>
       </div>
       <p *ngIf="app.canWrite && app.editMode" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
@@ -141,6 +141,39 @@
           </div>
         </div>
       </div>
+      <div class="detail-section" *ngIf="app.canWrite && app.editMode || app.hasSecondaConsegna(detail)">
+        <div class="detail-section-title detail-section-title--inline">
+          <span>Seconda consegna</span>
+          <button *ngIf="app.canWrite && app.editMode && !app.hasSecondaConsegna(detail)" type="button" class="ghost" (click)="app.enableSecondaConsegna()">Aggiungi</button>
+          <button *ngIf="app.canWrite && app.editMode && app.hasSecondaConsegna(detail)" type="button" class="ghost-danger" (click)="app.disableSecondaConsegna()">Rimuovi</button>
+        </div>
+        <div *ngIf="app.hasSecondaConsegna(detail) || (app.canWrite && app.editMode)" class="detail-kv-grid">
+          <div class="detail-kv">
+            <label class="kv-label">Data seconda consegna</label>
+            <input *ngIf="app.canWrite && app.editMode; else consegnaSecondaRead" type="date" [(ngModel)]="detail.consegnaDataEffettivaSeconda" />
+            <ng-template #consegnaSecondaRead>
+              <span class="kv-value">{{ detail.consegnaDataEffettivaSeconda ? (detail.consegnaDataEffettivaSeconda | date:'dd/MM/yyyy') : '—' }}</span>
+            </ng-template>
+          </div>
+          <div class="detail-kv">
+            <label class="kv-label">N° bilici seconda consegna</label>
+            <input *ngIf="app.canWrite && app.editMode; else biliciSecondiRead" type="number" min="0" step="1" [(ngModel)]="detail.biliciSecondi" />
+            <ng-template #biliciSecondiRead>
+              <span class="kv-value">{{ detail.biliciSecondi ?? '—' }}</span>
+            </ng-template>
+          </div>
+          <div class="detail-kv">
+            <label class="kv-label">Vettore seconda consegna</label>
+            <select *ngIf="app.canWrite && app.editMode; else vettoreSecondoRead" [(ngModel)]="detail.vettoreSecondoId">
+              <option [ngValue]="null">— seleziona —</option>
+              <option *ngFor="let vettore of app.vettoriList" [ngValue]="vettore.id">{{ vettore.nome }}</option>
+            </select>
+            <ng-template #vettoreSecondoRead>
+              <span class="kv-value">{{ app.nomeVettore(detail.vettoreSecondoId) }}</span>
+            </ng-template>
+          </div>
+        </div>
+      </div>
       <p *ngIf="app.canWrite && app.editMode" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
     </ng-container>
 
@@ -156,9 +189,9 @@
         </div>
         <div class="detail-kv detail-kv--full">
           <label class="kv-label">Problemi scarico</label>
-          <textarea *ngIf="app.canWrite && app.editMode; else problemiScaricoRead" [(ngModel)]="detail.problemiScaricoNota" rows="3" style="width:100%;resize:vertical" placeholder="Eventuali problemi riscontrati in scarico"></textarea>
+          <app-note-editor *ngIf="app.canWrite && app.editMode; else problemiScaricoRead" [value]="detail.problemiScaricoNota ?? ''" (valueChange)="detail.problemiScaricoNota = $event" placeholder="Eventuali problemi riscontrati in scarico"></app-note-editor>
           <ng-template #problemiScaricoRead>
-            <span class="kv-value">{{ detail.problemiScaricoNota || '—' }}</span>
+            <span class="kv-value note-display" [innerHTML]="app.renderNoteHtml(detail.problemiScaricoNota)"></span>
           </ng-template>
         </div>
       </div>
@@ -237,9 +270,9 @@
       </div>
       <div class="detail-kv detail-kv--full">
           <label class="kv-label kv-label--residui">Cosa manca da fare</label>
-        <textarea *ngIf="app.canWrite && app.editMode; else residuiRead" [(ngModel)]="detail.residuiLavorazioneNote" rows="3" style="width:100%;resize:vertical" placeholder="Descrivi attività residue, materiale atteso o lavorazioni da completare"></textarea>
+        <app-note-editor *ngIf="app.canWrite && app.editMode; else residuiRead" [value]="detail.residuiLavorazioneNote ?? ''" (valueChange)="detail.residuiLavorazioneNote = $event" placeholder="Descrivi attivita residue, materiale atteso o lavorazioni da completare"></app-note-editor>
         <ng-template #residuiRead>
-          <span class="kv-value">{{ detail.residuiLavorazioneNote || '—' }}</span>
+          <span class="kv-value note-display" [innerHTML]="app.renderNoteHtml(detail.residuiLavorazioneNote)"></span>
         </ng-template>
       </div>
     </div>

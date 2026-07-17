@@ -33,6 +33,12 @@
             <option [value]="responsabile.id">{{ responsabile.nome }}</option>
           }
         </select>
+        <select [(ngModel)]="app.filters.vettoreId" (ngModelChange)="app.onFilterSelectChange()">
+          <option value="">Tutti i trasportatori</option>
+          @for (vettore of app.availableFilters.vettori; track vettore.id) {
+            <option [value]="vettore.id">{{ vettore.nome }}</option>
+          }
+        </select>
       </div>
     </div>
   </div>
@@ -99,13 +105,18 @@
                         <span class="consegne-pill consegne-pill--date">{{ deliveryDateLabel(item) }}</span>
                       </td>
                       <td class="consegne-cell consegne-cell--bilici" data-label="Num. bilici">
-                        <span class="consegne-bilici">{{ item.bilici }}</span>
+                        <span class="consegne-bilici">{{ biliciLabel(item) }}</span>
                       </td>
                       <td class="consegne-cell consegne-cell--vettore" data-label="Vettore">
                         <span class="consegne-vettore">{{ vettoreLabel(item) }}</span>
                       </td>
                       <td class="consegne-cell consegne-cell--tags" data-label="Tag / Stato">
                         <div class="consegne-badge-stack">
+                          @if (problemiScaricoLabel(item); as scaricoNote) {
+                            <div class="consegne-badge-column">
+                              <span class="consegne-pill consegne-pill--scarico">{{ scaricoNote }}</span>
+                            </div>
+                          }
                           @if (app.orderWarnings(item); as warnings) {
                             @if (warnings.length) {
                               <div class="consegne-badge-column">

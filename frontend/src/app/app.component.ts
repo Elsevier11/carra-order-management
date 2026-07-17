@@ -40,6 +40,7 @@ import {
 import { TransitionModalComponent, type TransitionModalModel } from './transition-modal.component';
 import { KanbanBoardComponent, type KanbanBoardHost } from './kanban-board.component';
 import { ConsegneListComponent } from './consegne-list.component';
+import { NoteEditorComponent } from './note-editor.component';
 import { OrderDetailModalComponent } from './order-detail-modal.component';
 import {
   boardAccessoriSummary as boardAccessoriSummaryHelper,
@@ -48,11 +49,13 @@ import {
   boardConclusiBadge as boardConclusiBadgeHelper,
   boardResiduiLavorazioneBadges as boardResiduiLavorazioneBadgesHelper,
   boardProntiAvvisatiBadges as boardProntiAvvisatiBadgesHelper,
+  composeNoteBadgeHtml,
   boardOperaiSummary as boardOperaiSummaryHelper,
   boardOperaiWarning as boardOperaiWarningHelper,
   cementoBadgeClass as cementoBadgeClassHelper,
   cementoBadgeClassFromFlags as cementoBadgeClassFromFlagsHelper,
   detailMissingItems as detailMissingItemsHelper,
+  renderRichTextHtml,
   onCementoFattaChange as onCementoFattaChangeHelper,
   onCementoOrdinataChange as onCementoOrdinataChangeHelper,
   orderWarnings as orderWarningsHelper,
@@ -86,6 +89,9 @@ type EditableConsegna = {
   folderLinkDocumenti: string;
   folderLinkFoto: string;
   cementiNote: string;
+  consegnaDataEffettivaSeconda: string;
+  vettoreSecondoId: number | null;
+  biliciSecondi: number | null;
 };
 
 type ConfirmModalState = {
@@ -101,7 +107,7 @@ type RegistryTab = 'persone' | 'produzione';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, NgxDatatableModule, TransitionModalComponent, KanbanBoardComponent, ConsegneListComponent, OrderDetailModalComponent],
+  imports: [CommonModule, FormsModule, NgxDatatableModule, TransitionModalComponent, KanbanBoardComponent, ConsegneListComponent, OrderDetailModalComponent, NoteEditorComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -128,6 +134,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   activePersoneSubTab: string = 'utenti';
   activeProduzioneSubTab: string = 'vettori';
   showFiltersPanel = false;
+  sidebarCollapsed = false;
 
   private operationMessageTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly searchSubject = new Subject<void>();
@@ -179,15 +186,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     disegnoApprovatoAt: '',
     lavorazioneAssegnataAt: '',
     consegnaDataEffettiva: '',
+    consegnaDataEffettivaSeconda: '',
     problemiScaricoNota: '',
     vettoreId: null,
+    vettoreSecondoId: null,
     bilici: null,
+    biliciSecondi: null,
     operaiIds: [],
     skipAssegnazione: false,
     conclusiMode: 'week',
     conclusiWeek: '',
     conclusiDate: '',
     accontoPagato: false,
+    secondaConsegna: false,
     note: '',
     error: '',
   };
@@ -202,6 +213,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     stato: '',
     commercialeId: '',
     responsabileInternoId: '',
+    vettoreId: '',
     fromDate: '',
     toDate: '',
   };
@@ -209,6 +221,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   availableFilters = {
     clienti: [] as string[],
     stati: [] as string[],
+    vettori: [] as Array<{ id: number; nome: string }>,
   };
 
   stats: ConsegnaStats = {
@@ -470,7 +483,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get activeFiltersCount(): number {
-    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.commercialeId, this.filters.responsabileInternoId, this.filters.fromDate, this.filters.toDate, this.showOnlyLateInKanban]
+    return [this.filters.q, this.filters.cliente, this.filters.stato, this.filters.commercialeId, this.filters.responsabileInternoId, this.filters.vettoreId, this.filters.fromDate, this.filters.toDate, this.showOnlyLateInKanban]
       .filter((v) => !!v).length;
   }
 
@@ -485,6 +498,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.user = this.authService.user;
     this.canWrite = this.user?.role === 'admin' || this.user?.role === 'operativo';
+    this.restoreSidebarPreference();
     this._restoreVisibleColumns();
 
     this.authService.user$.subscribe((user) => {
@@ -492,6 +506,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       this.canWrite = user?.role === 'admin' || user?.role === 'operativo';
       if (user) {
         this.loginState.error = '';
+        this.restoreSidebarPreference();
         this.restorePreset();
         this.restoreAuditPreset();
         this.loadFilters();
@@ -553,6 +568,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleFiltersPanel(): void {
     this.showFiltersPanel = !this.showFiltersPanel;
+  }
+
+  toggleSidebarCollapsed(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    this.saveSidebarPreference();
   }
 
   onFilterTextChange(): void {
@@ -629,6 +649,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       },
     });
 
+    this.loadVettoriLookup();
     this.loadBoard();
   }
 
@@ -1018,7 +1039,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   boardConsegnaPianificataBadges(item: ConsegnaRecord) {
     if (item.stato === 'CONSEGNA EFFETTUATA') {
-      const badges: Array<{ text: string; tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet'; multiline?: boolean }> = [
+      const badges: Array<{
+        text: string;
+        tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet';
+        multiline?: boolean;
+        kind?: 'note';
+        html?: string;
+      }> = [
         {
           text: item.consegnaDataEffettiva
             ? `Cons. effettiva ${this.formatShortDate(item.consegnaDataEffettiva)}`
@@ -1028,7 +1055,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       ];
       const note = item.problemiScaricoNota?.trim();
       if (note) {
-        badges.push({ text: `Problemi scarico: ${note}`, tone: 'violet', multiline: true });
+        badges.push({
+          text: note,
+          html: composeNoteBadgeHtml('Problemi scarico:', note),
+          tone: 'violet',
+          multiline: true,
+          kind: 'note',
+        });
       }
       return badges;
     }
@@ -1058,6 +1091,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return value
     return new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(parsed)
+  }
+
+  renderNoteHtml(value: string | null | undefined): string {
+    return renderRichTextHtml(value);
   }
 
   boardInfoBadgeClass(tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet'): string {
@@ -1143,14 +1180,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoApprovatoAt: '',
       lavorazioneAssegnataAt: '',
       consegnaDataEffettiva: '',
+      consegnaDataEffettivaSeconda: '',
       vettoreId: null,
+      vettoreSecondoId: null,
       bilici: null,
+      biliciSecondi: null,
       operaiIds: [],
       skipAssegnazione: false,
       conclusiMode: 'week',
       conclusiWeek: '',
       conclusiDate: '',
       accontoPagato: false,
+      secondaConsegna: false,
       problemiScaricoNota: '',
       note: '',
       error: '',
@@ -1170,15 +1211,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoApprovatoAt: toStatus === 'DISEGNO APPROVATO' ? (order.disegnoApprovatoAt ?? this.todayIsoDate()) : '',
       lavorazioneAssegnataAt: toStatus === 'ASSEGNATO' ? (order.lavorazioneAssegnataAt ?? this.todayIsoDate()) : '',
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(toStatus) ? (order.consegnaDataEffettiva ?? order.dataConsegna ?? this.todayIsoDate()) : '',
+      consegnaDataEffettivaSeconda: toStatus === 'CONSEGNA PIANIFICATA' ? (order.consegnaDataEffettivaSeconda ?? '') : '',
       problemiScaricoNota: toStatus === 'CONSEGNA EFFETTUATA' ? (order.problemiScaricoNota ?? '') : '',
       vettoreId: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.vettoreId ?? null) : null,
+      vettoreSecondoId: toStatus === 'CONSEGNA PIANIFICATA' ? (order.vettoreSecondoId ?? null) : null,
       bilici: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.bilici ?? 0) : null,
+      biliciSecondi: toStatus === 'CONSEGNA PIANIFICATA' ? (order.biliciSecondi ?? 0) : null,
       operaiIds: toStatus === 'ASSEGNATO' ? (order.operaiAssegnati ?? []).map((op) => op.id) : [],
       skipAssegnazione: false,
       conclusiMode,
       conclusiWeek: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'week' ? order.conclusiWeek ?? this.todayIsoWeek() : order.conclusiWeek ?? this.todayIsoWeek()) : '',
       conclusiDate: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'date' ? order.conclusiDate ?? this.todayIsoDate() : order.conclusiDate ?? this.todayIsoDate()) : '',
       accontoPagato: toStatus === 'CONSEGNA PIANIFICATA' ? !!order.accontoPagato : false,
+      secondaConsegna: toStatus === 'CONSEGNA PIANIFICATA' ? !!(order.consegnaDataEffettivaSeconda || order.vettoreSecondoId || (order.biliciSecondi ?? 0)) : false,
       note,
       error: '',
     };
@@ -1206,8 +1251,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(modal.toStatus) ? modal.consegnaDataEffettiva : undefined,
       problemiScaricoNota: modal.toStatus === 'CONSEGNA EFFETTUATA' ? (modal.problemiScaricoNota.trim() || null) : undefined,
       vettoreId: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.vettoreId : undefined,
+      consegnaDataEffettivaSeconda: modal.toStatus === 'CONSEGNA PIANIFICATA' && modal.secondaConsegna ? modal.consegnaDataEffettivaSeconda : undefined,
+      vettoreSecondoId: modal.toStatus === 'CONSEGNA PIANIFICATA' && modal.secondaConsegna ? modal.vettoreSecondoId : undefined,
       bilici: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.bilici : undefined,
+      biliciSecondi: modal.toStatus === 'CONSEGNA PIANIFICATA' && modal.secondaConsegna ? modal.biliciSecondi : undefined,
       accontoPagato: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.accontoPagato : undefined,
+      secondaConsegna: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.secondaConsegna : undefined,
       operaiIds: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.operaiIds : undefined,
       skipAssegnazione,
       conclusiMode: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(modal.toStatus) ? modal.conclusiMode : undefined,
@@ -1243,6 +1292,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       stato: '',
       commercialeId: '',
       responsabileInternoId: '',
+      vettoreId: '',
       fromDate: '',
       toDate: '',
     };
@@ -1322,6 +1372,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       responsabileInternoId: this.selectedDetail.responsabileInternoId ?? null,
       folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti ?? '',
       folderLinkFoto: this.selectedDetail.folderLinkFoto ?? '',
+      consegnaDataEffettivaSeconda: this.selectedDetail.consegnaDataEffettivaSeconda ?? '',
+      vettoreSecondoId: this.selectedDetail.vettoreSecondoId ?? null,
+      biliciSecondi: this.selectedDetail.biliciSecondi ?? 0,
       cementiNote: this.selectedDetail.cementiNote ?? '',
     };
     this.dettagliSnapshot = this.serializeDettagli();
@@ -1364,6 +1417,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       responsabileInternoId: this.formModel.responsabileInternoId,
       folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
       folderLinkFoto: this.formModel.folderLinkFoto || null,
+      consegnaDataEffettivaSeconda: this.formModel.consegnaDataEffettivaSeconda || null,
+      vettoreSecondoId: this.formModel.vettoreSecondoId,
+      biliciSecondi: this.formModel.biliciSecondi ?? 0,
       cementiNote: this.formModel.cementiNote || null,
     };
 
@@ -1535,6 +1591,30 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedDetail.conclusiDate = this.selectedDetail.conclusiDate || this.todayIsoDate();
     this.selectedDetail.conclusiWeek = null;
+  }
+
+  hasSecondaConsegna(detail: Pick<ConsegnaRecord, 'consegnaDataEffettivaSeconda' | 'vettoreSecondoId' | 'biliciSecondi'>): boolean {
+    return !!detail.consegnaDataEffettivaSeconda || !!detail.vettoreSecondoId || (detail.biliciSecondi ?? 0) > 0;
+  }
+
+  enableSecondaConsegna(): void {
+    if (!this.selectedDetail || !this.canWrite || !this.editMode) return;
+    this.selectedDetail = {
+      ...this.selectedDetail,
+      consegnaDataEffettivaSeconda: this.selectedDetail.consegnaDataEffettivaSeconda ?? this.selectedDetail.consegnaDataEffettiva ?? this.todayIsoDate(),
+      vettoreSecondoId: this.selectedDetail.vettoreSecondoId ?? this.selectedDetail.vettoreId ?? null,
+      biliciSecondi: this.selectedDetail.biliciSecondi ?? 0,
+    };
+  }
+
+  disableSecondaConsegna(): void {
+    if (!this.selectedDetail || !this.canWrite || !this.editMode) return;
+    this.selectedDetail = {
+      ...this.selectedDetail,
+      consegnaDataEffettivaSeconda: null,
+      vettoreSecondoId: null,
+      biliciSecondi: 0,
+    };
   }
 
   onAttachmentSelected(event: Event): void {
@@ -2935,6 +3015,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private loadVettoriLookup(): void {
+    if (this.vettoriList.length) return;
+    this.consegneService.listVettori().subscribe({
+      next: (r) => { this.vettoriList = r.data; },
+      error: () => {},
+    });
+  }
+
   private loadAttachments(orderId: number): void {
     this.loadingAttachments = true;
     this.consegneService.listAttachments(orderId).subscribe({
@@ -3108,6 +3196,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       folderLinkDocumenti: '',
       folderLinkFoto: '',
       cementiNote: '',
+      consegnaDataEffettivaSeconda: '',
+      vettoreSecondoId: null,
+      biliciSecondi: null,
     };
   }
 
@@ -3283,6 +3374,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       Object.assign(payload, {
         folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti || null,
         folderLinkFoto: this.selectedDetail.folderLinkFoto || null,
+        consegnaDataEffettivaSeconda: this.selectedDetail.consegnaDataEffettivaSeconda || null,
+        vettoreSecondoId: this.selectedDetail.vettoreSecondoId ?? null,
+        biliciSecondi: this.selectedDetail.biliciSecondi ?? 0,
         disegnoSpeditoAt: this.selectedDetail.disegnoSpeditoAt || null,
         disegnoMittenteId: this.selectedDetail.disegnoMittenteId || null,
         disegnoNote: this.selectedDetail.disegnoNote || null,
@@ -3352,6 +3446,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             responsabileInternoId: this.formModel.responsabileInternoId,
             folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
             folderLinkFoto: this.formModel.folderLinkFoto || null,
+            consegnaDataEffettivaSeconda: this.formModel.consegnaDataEffettivaSeconda || null,
+            vettoreSecondoId: this.formModel.vettoreSecondoId,
+            biliciSecondi: this.formModel.biliciSecondi ?? 0,
             cementiNote: this.formModel.cementiNote || null,
           });
           this.dettagliSnapshot = this.serializeDettagli();
@@ -3485,6 +3582,20 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private saveSidebarPreference(): void {
+    localStorage.setItem(this.userScopedStorageKey('carra_sidebar_collapsed'), JSON.stringify(this.sidebarCollapsed));
+  }
+
+  private restoreSidebarPreference(): void {
+    try {
+      const raw = localStorage.getItem(this.userScopedStorageKey('carra_sidebar_collapsed'));
+      if (!raw) return;
+      this.sidebarCollapsed = JSON.parse(raw) === true;
+    } catch {
+      localStorage.removeItem(this.userScopedStorageKey('carra_sidebar_collapsed'));
+    }
+  }
+
   private userScopedStorageKey(key: string): string {
     return this.user?.username ? `${key}_${this.user.username}` : key;
   }
@@ -3517,6 +3628,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       const id = Number(this.filters.responsabileInternoId);
       if (!Number.isFinite(id) || id <= 0 || (this.responsabiliRows.length > 0 && !this.responsabiliRows.some((item) => item.id === id))) {
         this.filters.responsabileInternoId = '';
+      }
+    }
+    if (this.filters.vettoreId) {
+      const id = Number(this.filters.vettoreId);
+      if (!Number.isFinite(id) || id <= 0 || (this.availableFilters.vettori.length > 0 && !this.availableFilters.vettori.some((item) => item.id === id))) {
+        this.filters.vettoreId = '';
       }
     }
     this.normalizeDateFilters();

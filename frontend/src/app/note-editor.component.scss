@@ -1,0 +1,61 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.note-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.note-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-editor__btn {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(202, 138, 4, 0.35);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff6bf 0%, #ffe780 100%);
+  color: #7a4a00;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.note-editor__btn:hover {
+  filter: brightness(0.98);
+}
+
+.note-editor__surface {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 1px solid rgba(202, 138, 4, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff9d9 0%, #fff2a8 100%);
+  color: #1f2937;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  line-height: 1.5;
+  overflow: auto;
+  white-space: pre-wrap;
+  outline: none;
+}
+
+.note-editor__surface:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(87, 83, 78, 0.7);
+}
+
+.note-editor__surface--disabled,
+.note-editor--disabled .note-editor__surface {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.note-editor--disabled .note-editor__toolbar {
+  display: none;
+}

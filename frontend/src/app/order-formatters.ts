@@ -6,7 +6,29 @@ export type BoardInfoBadge = {
   text: string;
   tone: BoardInfoBadgeTone;
   multiline?: boolean;
+  kind?: 'note';
+  html?: string;
 };
+
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function renderRichTextHtml(value: string | null | undefined): string {
+  const raw = value?.trim();
+  if (!raw) return '—';
+  if (/<\/?[a-z][\s\S]*>/i.test(raw)) return raw;
+  return escapeHtml(raw).replace(/\n/g, '<br>');
+}
+
+export function composeNoteBadgeHtml(label: string, value: string | null | undefined): string {
+  return `${escapeHtml(label)} ${renderRichTextHtml(value)}`;
+}
 
 export function orderWarnings(item: ConsegnaRecord, _isLate: (order: ConsegnaRecord) => boolean, _lateDays: (order: ConsegnaRecord) => number): string[] {
   const warnings: string[] = [];
@@ -54,7 +76,19 @@ export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBa
   if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'violet' });
   if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'violet' });
   const note = item.residuiLavorazioneNote?.trim();
-  if (note) badges.push({ text: item.stato === 'ASSEGNATO' ? note : 'Vedi note', tone: 'violet', multiline: item.stato === 'ASSEGNATO' });
+  if (note) {
+    if (item.stato === 'ASSEGNATO') {
+      badges.push({
+        text: note,
+        html: composeNoteBadgeHtml('Note residui:', note),
+        tone: 'violet',
+        kind: 'note',
+        multiline: true,
+      });
+    } else {
+      badges.push({ text: 'Vedi note', tone: 'violet' });
+    }
+  }
   return badges;
 }
 
@@ -69,12 +103,28 @@ export function boardConsegnaPianificataBadges(
   const biliciText = `N° bilici ${item.bilici ?? 0}`;
   const vettoreNome = nomeVettore?.(item.vettoreId) ?? '';
   const vettoreText = vettoreNome && vettoreNome !== '—' ? `Vettore ${vettoreNome}` : 'Vettore';
-  return [
+  const badges: BoardInfoBadge[] = [
     { text: dataEffettivaText, tone: item.consegnaDataEffettiva ? 'info' : 'muted' },
     { text: biliciText, tone: (item.bilici ?? 0) > 0 ? 'info' : 'muted' },
     { text: vettoreText, tone: item.vettoreId ? 'info' : 'muted' },
     { text: 'DDT pronti', tone: item.ddtPronti ? 'positive' : 'muted' },
   ];
+  if (item.consegnaDataEffettivaSeconda) {
+    const dataSeconda = new Date(item.consegnaDataEffettivaSeconda);
+    const dataSecondaText = Number.isNaN(dataSeconda.getTime())
+      ? `2ª consegna ${item.consegnaDataEffettivaSeconda}`
+      : `2ª consegna ${dataSeconda.toLocaleDateString('it-IT')}`;
+    badges.unshift({ text: dataSecondaText, tone: 'violet' });
+  }
+  if (item.biliciSecondi != null && item.biliciSecondi > 0) {
+    badges.splice(2, 0, { text: `2° bilici ${item.biliciSecondi}`, tone: 'info' });
+  }
+  if (item.vettoreSecondoId) {
+    const vettoreSecondoNome = nomeVettore?.(item.vettoreSecondoId) ?? '';
+    const vettoreSecondoText = vettoreSecondoNome && vettoreSecondoNome !== '—' ? `2° vettore ${vettoreSecondoNome}` : '2° vettore';
+    badges.splice(3, 0, { text: vettoreSecondoText, tone: 'info' });
+  }
+  return badges;
 }
 
 export function boardProntiAvvisatiBadges(item: ConsegnaRecord): BoardInfoBadge[] {

@@ -77,10 +77,14 @@ export class ConsegneService {
       disegnoApprovatoAt?: string | null;
       lavorazioneAssegnataAt?: string | null;
       consegnaDataEffettiva?: string | null;
+      consegnaDataEffettivaSeconda?: string | null;
       problemiScaricoNota?: string | null;
       vettoreId?: number | null;
+      vettoreSecondoId?: number | null;
       bilici?: number | null;
+      biliciSecondi?: number | null;
       accontoPagato?: boolean | null;
+      secondaConsegna?: boolean;
       operaiIds?: number[];
       skipAssegnazione?: boolean;
       conclusiMode?: 'week' | 'date';
