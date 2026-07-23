@@ -54,6 +54,8 @@ export const ordini = pgTable('ordini', {
   cliente: text('cliente'),
   tipoImpianto: text('tipo_impianto'),
   dataConsegna: timestamp('data_consegna'),
+  dataConsegnaTassativa: timestamp('data_consegna_tassativa'),
+  consegnaTassativa: boolean('consegna_tassativa').notNull().default(false),
   cantiere: text('cantiere'),
   dataOrdine: timestamp('data_ordine'),
   referente: text('referente'),

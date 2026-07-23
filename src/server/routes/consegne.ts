@@ -142,13 +142,13 @@ function buildListFilters(query: ListQuery) {
   }
 
   if (query.fromDate) {
-    filters.push(gte(ordini.dataConsegna, parseInputDate(query.fromDate)))
+    filters.push(gte(effectiveDeliveryDateExpr(), parseInputDate(query.fromDate)))
   }
 
   if (query.toDate) {
     const endOfDay = parseInputDate(query.toDate)
     endOfDay.setHours(23, 59, 59, 999)
-    filters.push(lte(ordini.dataConsegna, endOfDay))
+    filters.push(lte(effectiveDeliveryDateExpr(), endOfDay))
   }
 
   return filters.length ? and(...filters) : undefined
@@ -159,6 +159,8 @@ const consegnaInputSchema = z.object({
   cliente: z.string().min(1),
   tipoImpianto: z.string().optional().nullable(),
   dataConsegna: z.string().regex(dateOrDateTimeRegex, 'dataConsegna must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  dataConsegnaTassativa: z.string().regex(dateOrDateTimeRegex, 'dataConsegnaTassativa must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  consegnaTassativa: z.boolean().optional(),
   cantiere: z.string().optional().nullable(),
   dataOrdine: z.string().regex(dateOrDateTimeRegex, 'dataOrdine must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   referente: z.string().optional().nullable(),
@@ -321,6 +323,8 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     cliente: row.cliente,
     tipoImpianto: row.tipoImpianto,
     dataConsegna: toIsoDate(row.dataConsegna),
+    dataConsegnaTassativa: toIsoDate(row.dataConsegnaTassativa),
+    consegnaTassativa: row.consegnaTassativa ?? false,
     cantiere: row.cantiere,
     dataOrdine: toIsoDate(row.dataOrdine),
     referente: row.referente,
@@ -419,6 +423,8 @@ function readableFieldLabel(field: string): string {
     cliente: 'Cliente',
     tipoImpianto: 'Tipo impianto',
     dataConsegna: 'Data consegna',
+    dataConsegnaTassativa: 'Data consegna tassativa',
+    consegnaTassativa: 'Consegna tassativa',
     cantiere: 'Cantiere',
     dataOrdine: 'Data ordine',
     referente: 'Referente',
@@ -538,6 +544,20 @@ function compareNullableDatesDesc(a: Date | null | undefined, b: Date | null | u
   return bTime - aTime
 }
 
+function compareNullableDatesAsc(a: Date | null | undefined, b: Date | null | undefined): number {
+  const aTime = a?.getTime() ?? Number.POSITIVE_INFINITY
+  const bTime = b?.getTime() ?? Number.POSITIVE_INFINITY
+  return aTime - bTime
+}
+
+function resolveDeliveryDate(row: Pick<typeof ordini.$inferSelect, 'dataConsegna' | 'dataConsegnaTassativa' | 'consegnaTassativa'>): Date | null {
+  return row.consegnaTassativa ? (row.dataConsegnaTassativa ?? row.dataConsegna ?? null) : (row.dataConsegna ?? null)
+}
+
+function effectiveDeliveryDateExpr(): SQL {
+  return sql`case when ${ordini.consegnaTassativa} then coalesce(${ordini.dataConsegnaTassativa}, ${ordini.dataConsegna}) else ${ordini.dataConsegna} end`
+}
+
 function sortBoardItems(
   status: string,
   rows: typeof ordini.$inferSelect[],
@@ -553,9 +573,19 @@ function sortBoardItems(
     })
   }
 
+  if (status === 'ASSEGNATO') {
+    return [...rows].sort((a, b) => {
+      const byAssignmentDate = compareNullableDatesDesc(a.lavorazioneAssegnataAt, b.lavorazioneAssegnataAt)
+      if (byAssignmentDate !== 0) return byAssignmentDate
+      const byOrderDate = compareNullableDatesDesc(a.dataOrdine, b.dataOrdine)
+      if (byOrderDate !== 0) return byOrderDate
+      return compareNullableDatesDesc(a.createdAt, b.createdAt)
+    })
+  }
+
   if (status === 'CONSEGNA PIANIFICATA') {
     return [...rows].sort((a, b) => {
-      const byDeliveryDate = compareNullableDatesDesc(a.dataConsegna, b.dataConsegna)
+      const byDeliveryDate = compareNullableDatesDesc(resolveDeliveryDate(a), resolveDeliveryDate(b))
       if (byDeliveryDate !== 0) return byDeliveryDate
       return compareNullableDatesDesc(a.createdAt, b.createdAt)
     })
@@ -647,10 +677,11 @@ router.get('/', async (req, res, next) => {
     const query = listQuerySchema.parse(req.query)
     const offset = (query.page - 1) * query.pageSize
     const whereClause = buildListFilters(query)
+    const deliveryDateExpr = effectiveDeliveryDateExpr()
     const sortColumn = {
       rif: ordini.rifto,
       cliente: ordini.cliente,
-      dataConsegna: ordini.dataConsegna,
+      dataConsegna: deliveryDateExpr,
       stato: ordini.stato,
     }[query.sortBy]
 
@@ -688,10 +719,11 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
   try {
     const query = listQuerySchema.parse(req.query)
     const whereClause = buildListFilters(query)
+    const deliveryDateExpr = effectiveDeliveryDateExpr()
     const sortColumn = {
       rif: ordini.rifto,
       cliente: ordini.cliente,
-      dataConsegna: ordini.dataConsegna,
+      dataConsegna: deliveryDateExpr,
       stato: ordini.stato,
     }[query.sortBy]
 
@@ -705,19 +737,22 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
     const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'cantiere', 'stato', 'note', 'referente2', 'telefono2', 'disegnoApprovatoAt', 'cementiNote']
     const csvRows = rows.map((row) => {
       const normalized = normalizeRow(row)
+      const deliveryDate = normalized.consegnaTassativa
+        ? (normalized.dataConsegnaTassativa ?? normalized.dataConsegna ?? '')
+        : (normalized.dataConsegna ?? '')
       return [
         normalized.rif,
         normalized.cliente,
         normalized.tipoImpianto ?? '',
-        normalized.dataConsegna ?? '',
+        deliveryDate,
         normalized.cantiere ?? '',
         normalized.stato ?? '',
-      normalized.note ?? '',
-      normalized.referente2 ?? '',
-      normalized.telefono2 ?? '',
-      normalized.disegnoApprovatoAt ?? '',
-      normalized.cementiNote ?? '',
-    ]
+        normalized.note ?? '',
+        normalized.referente2 ?? '',
+        normalized.telefono2 ?? '',
+        normalized.disegnoApprovatoAt ?? '',
+        normalized.cementiNote ?? '',
+      ]
         .map((value) => `"${String(value).replace(/"/g, '""')}"`)
         .join(',')
     })
@@ -793,7 +828,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
 
     const exportedRows = orders.map((row) => {
       const status = row.stato ?? 'IN CORSO'
-      const dueDate = row.dataConsegna ?? null
+      const dueDate = row.consegnaTassativa ? (row.dataConsegnaTassativa ?? row.dataConsegna ?? null) : (row.dataConsegna ?? null)
       const daysToDeadline = dueDate ? Math.round((dueDate.getTime() - startOfToday.getTime()) / msPerDay) : null
       const isLate = daysToDeadline != null && daysToDeadline < 0 && !completedStatuses.has(status.toUpperCase())
       const commerciale = row.commercialeId ? commercialiMap.get(row.commercialeId) ?? '' : ''
@@ -808,7 +843,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         Cliente: row.cliente ?? '',
         Stato: status,
         'Data ordine': formatItalianDate(row.dataOrdine),
-        'Data consegna': formatItalianDate(row.dataConsegna),
+        'Data consegna': formatItalianDate(dueDate),
         'Giorni al termine': daysToDeadline ?? '',
         'Giorni ritardo': isLate && daysToDeadline != null ? Math.abs(daysToDeadline) : 0,
         'In ritardo': yesNo(isLate),
@@ -1024,7 +1059,7 @@ router.get('/board', async (req, res, next) => {
         .select()
         .from(ordini)
         .where(whereClause)
-        .orderBy(desc(ordini.dataConsegna), desc(ordini.createdAt)),
+        .orderBy(desc(effectiveDeliveryDateExpr()), desc(ordini.createdAt)),
       db
         .select({
           orderId: orderOperai.orderId,
@@ -1182,6 +1217,7 @@ router.get('/stats', async (_req, res, next) => {
     nextSunday.setHours(23, 59, 59, 999)
 
     const eightWeeksOut = new Date(startOfToday.getTime() + 8 * 7 * 24 * 60 * 60 * 1000)
+    const deliveryDateExpr = effectiveDeliveryDateExpr()
 
     const activeOrderClause = sql`${ordini.deletedAt} is null`
     const activeFilter = and(activeOrderClause, sql`upper(coalesce(${ordini.stato}, 'IN CORSO')) not in ('CONCLUSI')`)
@@ -1206,14 +1242,14 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ count: count() })
         .from(ordini)
-        .where(and(activeOrderClause, gte(ordini.dataConsegna, startOfWeek), lte(ordini.dataConsegna, endOfWeek))),
+        .where(and(activeOrderClause, gte(deliveryDateExpr, startOfWeek), lte(deliveryDateExpr, endOfWeek))),
       db
         .select({ count: count() })
         .from(ordini)
         .where(
           and(
             activeOrderClause,
-            lte(ordini.dataConsegna, now),
+            lte(deliveryDateExpr, now),
             or(sql`${ordini.stato} is null`, sql`upper(${ordini.stato}) not in ('CONSEGNATO', 'CHIUSO')`),
           ),
         ),
@@ -1228,13 +1264,13 @@ router.get('/stats', async (_req, res, next) => {
         .orderBy(desc(count())),
       db
         .select({
-          week: sql<string>`to_char(date_trunc('week', ${ordini.dataConsegna}), 'IYYY-IW')`,
+          week: sql<string>`to_char(date_trunc('week', ${deliveryDateExpr}), 'IYYY-IW')`,
           count: count(),
         })
         .from(ordini)
-        .where(and(activeOrderClause, sql`${ordini.dataConsegna} is not null`))
-        .groupBy(sql`date_trunc('week', ${ordini.dataConsegna})`)
-        .orderBy(sql`date_trunc('week', ${ordini.dataConsegna}) desc`)
+        .where(and(activeOrderClause, sql`${deliveryDateExpr} is not null`))
+        .groupBy(sql`date_trunc('week', ${deliveryDateExpr})`)
+        .orderBy(sql`date_trunc('week', ${deliveryDateExpr}) desc`)
         .limit(8),
       // totale ordini attivi (non CONCLUSI)
       db.select({ count: count() }).from(ordini).where(activeFilter),
@@ -1242,7 +1278,7 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ count: count() })
         .from(ordini)
-        .where(and(gte(ordini.dataConsegna, nextMonday), lte(ordini.dataConsegna, nextSunday), activeFilter)),
+        .where(and(gte(deliveryDateExpr, nextMonday), lte(deliveryDateExpr, nextSunday), activeFilter)),
       // acconti da incassare
       db.select({ count: count() }).from(ordini).where(and(eq(ordini.accontoPagato, false), activeFilter)),
       // ordini incompleti
@@ -1253,7 +1289,7 @@ router.get('/stats', async (_req, res, next) => {
           and(
             activeFilter,
             or(
-              sql`${ordini.dataConsegna} is null`,
+              sql`${deliveryDateExpr} is null`,
               sql`${ordini.responsabileInternoId} is null`,
               sql`${ordini.folderLinkDocumenti} is null`,
               sql`${ordini.folderLinkDocumenti} = ''`,
@@ -1278,25 +1314,25 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ stato: sql<string>`coalesce(${ordini.stato}, 'IN CORSO')`, late: count() })
         .from(ordini)
-        .where(and(lt(ordini.dataConsegna, startOfToday), activeFilter))
+        .where(and(lt(deliveryDateExpr, startOfToday), activeFilter))
         .groupBy(sql`coalesce(${ordini.stato}, 'IN CORSO')`),
       // carico prossime 8 settimane
       db
         .select({
-          week: sql<string>`to_char(date_trunc('week', ${ordini.dataConsegna}), 'IYYY-IW')`,
+          week: sql<string>`to_char(date_trunc('week', ${deliveryDateExpr}), 'IYYY-IW')`,
           count: count(),
         })
         .from(ordini)
         .where(
           and(
-            sql`${ordini.dataConsegna} is not null`,
-            gte(ordini.dataConsegna, startOfToday),
-            lte(ordini.dataConsegna, eightWeeksOut),
+            sql`${deliveryDateExpr} is not null`,
+            gte(deliveryDateExpr, startOfToday),
+            lte(deliveryDateExpr, eightWeeksOut),
             activeFilter,
           ),
         )
-        .groupBy(sql`date_trunc('week', ${ordini.dataConsegna})`)
-        .orderBy(sql`date_trunc('week', ${ordini.dataConsegna}) asc`),
+        .groupBy(sql`date_trunc('week', ${deliveryDateExpr})`)
+        .orderBy(sql`date_trunc('week', ${deliveryDateExpr}) asc`),
       // top 10 clienti per ordini attivi
       db
         .select({ cliente: ordini.cliente, count: count() })
@@ -2019,7 +2055,7 @@ router.get('/dashboard/aging', async (_req, res, next) => {
         coalesce(o.cliente, '') as cliente,
         coalesce(o.stato, 'IN CORSO') as stato,
         o.data_ordine as "dataOrdine",
-        o.data_consegna as "dataConsegna",
+        case when o.consegna_tassativa then coalesce(o.data_consegna_tassativa, o.data_consegna) else o.data_consegna end as "dataConsegna",
         o.disegno_approvato_at as "disegnoApprovatoAt",
         o.disegno_spedito_at as "disegnoSpeditoAt",
         coalesce(s.entered_at, o.created_at) as "enteredAt"
@@ -2183,6 +2219,8 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
           cliente: payload.cliente,
           tipoImpianto: payload.tipoImpianto ?? null,
           dataConsegna: payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null,
+          dataConsegnaTassativa: payload.dataConsegnaTassativa ? parseInputDate(payload.dataConsegnaTassativa) : null,
+          consegnaTassativa: payload.consegnaTassativa ?? false,
           cantiere: payload.cantiere ?? null,
           dataOrdine: payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null,
           referente: payload.referente ?? null,
@@ -2284,6 +2322,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('cliente' in payload) updateData.cliente = payload.cliente
     if ('tipoImpianto' in payload) updateData.tipoImpianto = payload.tipoImpianto ?? null
     if ('dataConsegna' in payload) updateData.dataConsegna = payload.dataConsegna ? parseInputDate(payload.dataConsegna) : null
+    if ('dataConsegnaTassativa' in payload) updateData.dataConsegnaTassativa = payload.dataConsegnaTassativa ? parseInputDate(payload.dataConsegnaTassativa) : null
+    if ('consegnaTassativa' in payload) updateData.consegnaTassativa = payload.consegnaTassativa ?? false
     if ('cantiere' in payload) updateData.cantiere = payload.cantiere ?? null
     if ('dataOrdine' in payload) updateData.dataOrdine = payload.dataOrdine ? parseInputDate(payload.dataOrdine) : null
     if ('referente' in payload) updateData.referente = payload.referente ?? null
@@ -2372,6 +2412,8 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('cliente' in payload) diffStr('cliente', existing.cliente, payload.cliente)
     if ('tipoImpianto' in payload) diffStr('tipoImpianto', existing.tipoImpianto, payload.tipoImpianto)
     if ('dataConsegna' in payload) diffStr('dataConsegna', normDate(existing.dataConsegna), payload.dataConsegna)
+    if ('dataConsegnaTassativa' in payload) diffStr('dataConsegnaTassativa', normDate(existing.dataConsegnaTassativa), payload.dataConsegnaTassativa)
+    if ('consegnaTassativa' in payload) diffBool('consegnaTassativa', existing.consegnaTassativa, payload.consegnaTassativa)
     if ('cantiere' in payload) diffStr('cantiere', existing.cantiere, payload.cantiere)
     if ('dataOrdine' in payload) diffStr('dataOrdine', normDate(existing.dataOrdine), payload.dataOrdine)
     if ('referente2' in payload) diffStr('referente2', existing.referente2, payload.referente2)

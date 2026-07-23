@@ -43,6 +43,9 @@ Questo file viene usato solo per l'import iniziale o per i reimport di test.
 
 ## 5. Avvio stack
 
+Se il rilascio introduce modifiche allo schema, esegui prima la checklist di migration:
+
+
 ```bash
 docker compose up -d --build
 ```

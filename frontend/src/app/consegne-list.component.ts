@@ -3,6 +3,7 @@ import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { ConsegnaRecord } from './consegne.types';
 import type { KanbanBoardHost } from './kanban-board.component';
+import { deliveryBadgeText, deliveryDateValue } from './order-formatters';
 
 @Component({
   selector: 'app-consegne-list',
@@ -29,13 +30,17 @@ export class ConsegneListComponent {
   }
 
   deliveryDateLabel(item: ConsegnaRecord): string {
-    const value = this.deliveryDateValue(item);
+    const value = this.deliveryDateValueForItem(item);
     const second = this.deliveryDateSecondValue(item);
     if (!value && !second) return '—';
     const firstLabel = value ? this.formatDate(value) : '—';
     if (!second) return firstLabel;
     const secondLabel = this.formatDate(second);
     return `${firstLabel} + ${secondLabel}`;
+  }
+
+  deliveryTypeLabel(item: ConsegnaRecord): string {
+    return deliveryBadgeText(item);
   }
 
   vettoreLabel(item: ConsegnaRecord): string {
@@ -59,8 +64,8 @@ export class ConsegneListComponent {
     return `Problemi scarico: ${note}`;
   }
 
-  private deliveryDateValue(item: ConsegnaRecord): string | null {
-    return item.consegnaDataEffettiva ?? item.dataConsegna;
+  private deliveryDateValueForItem(item: ConsegnaRecord): string | null {
+    return deliveryDateValue(item);
   }
 
   private deliveryDateSecondValue(item: ConsegnaRecord): string | null {
@@ -73,7 +78,7 @@ export class ConsegneListComponent {
   }
 
   private deliverySortValue(item: ConsegnaRecord): number {
-    const value = this.deliveryDateValue(item);
+    const value = this.deliveryDateValueForItem(item);
     if (!value) return Number.NEGATIVE_INFINITY;
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? Number.NEGATIVE_INFINITY : parsed.getTime();

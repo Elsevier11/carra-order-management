@@ -64,11 +64,11 @@
           </div>
         } @else if (modal.toStatus === 'CONCLUSI' || modal.toStatus === 'PRONTI & AVVISATI') {
           <div class="form-field" style="grid-column: 1 / -1;">
-            <span>A.M.P.</span>
-            <div class="transition-mode-switch">
+            <span class="transition-field-label">A.M.P.</span>
+            <div class="transition-mode-switch transition-mode-switch--chip">
               <button
                 type="button"
-                class="ghost"
+                class="ghost transition-mode-switch__button"
                 [class.active]="modal.conclusiMode === 'week'"
                 (click)="toggleConclusiMode('week')"
               >
@@ -76,7 +76,7 @@
               </button>
               <button
                 type="button"
-                class="ghost"
+                class="ghost transition-mode-switch__button"
                 [class.active]="modal.conclusiMode === 'date'"
                 (click)="toggleConclusiMode('date')"
               >
@@ -116,10 +116,12 @@
               }
             </select>
           </label>
-          <label class="form-field form-field--inline">
-            <input type="checkbox" [(ngModel)]="modal.accontoPagato" />
-            <span>Acconto pagato</span>
-          </label>
+          <div class="form-field form-field--full">
+            <label class="transition-inline-check">
+              <input type="checkbox" [(ngModel)]="modal.accontoPagato" />
+              <span>Acconto pagato</span>
+            </label>
+          </div>
           <div class="form-field form-field--full">
             <label class="transition-second-toggle">
               <input type="checkbox" [(ngModel)]="modal.secondaConsegna" (ngModelChange)="toggleSecondaConsegna($event)" />

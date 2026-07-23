@@ -30,9 +30,25 @@ export function composeNoteBadgeHtml(label: string, value: string | null | undef
   return `${escapeHtml(label)} ${renderRichTextHtml(value)}`;
 }
 
+export function deliveryBadgePrefix(item: ConsegnaRecord): string {
+  return item.consegnaTassativa ? 'Consegna TASSATIVA' : 'Consegna stimata';
+}
+
+export function deliveryDateValue(item: ConsegnaRecord): string | null {
+  return item.consegnaTassativa ? (item.dataConsegnaTassativa ?? item.dataConsegna) : item.dataConsegna;
+}
+
+export function deliveryBadgeText(item: ConsegnaRecord, value: string | null | undefined = deliveryDateValue(item)): string {
+  const prefix = deliveryBadgePrefix(item);
+  if (!value) return prefix;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return `${prefix} ${value}`;
+  return `${prefix} ${parsed.toLocaleDateString('it-IT')}`;
+}
+
 export function orderWarnings(item: ConsegnaRecord, _isLate: (order: ConsegnaRecord) => boolean, _lateDays: (order: ConsegnaRecord) => number): string[] {
   const warnings: string[] = [];
-  if (!item.dataConsegna) warnings.push('Data consegna mancante');
+  if (!deliveryDateValue(item)) warnings.push('Data consegna mancante');
   if (!item.responsabileInternoId) warnings.push('Resp. mancante');
   return warnings;
 }
@@ -73,6 +89,7 @@ export function boardOperaiWarning(item: ConsegnaRecord): string | null {
 
 export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBadge[] {
   const badges: BoardInfoBadge[] = [];
+  if (item.camSiNo) badges.push({ text: 'C.A.M.', tone: 'positive' });
   if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'violet' });
   if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'violet' });
   const note = item.residuiLavorazioneNote?.trim();
@@ -97,6 +114,8 @@ export function boardConsegnaPianificataBadges(
   nomeVettore?: (id: number | null | undefined) => string,
 ): BoardInfoBadge[] {
   if (!['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(item.stato)) return [];
+  const activeDeliveryDate = deliveryDateValue(item);
+  const dataPianificataText = deliveryBadgeText(item, activeDeliveryDate);
   const dataEffettivaText = item.consegnaDataEffettiva
     ? `Cons. effettiva ${new Date(item.consegnaDataEffettiva).toLocaleDateString('it-IT')}`
     : 'Cons. effettiva';
@@ -104,6 +123,7 @@ export function boardConsegnaPianificataBadges(
   const vettoreNome = nomeVettore?.(item.vettoreId) ?? '';
   const vettoreText = vettoreNome && vettoreNome !== '—' ? `Vettore ${vettoreNome}` : 'Vettore';
   const badges: BoardInfoBadge[] = [
+    { text: dataPianificataText, tone: activeDeliveryDate ? 'info' : 'muted' },
     { text: dataEffettivaText, tone: item.consegnaDataEffettiva ? 'info' : 'muted' },
     { text: biliciText, tone: (item.bilici ?? 0) > 0 ? 'info' : 'muted' },
     { text: vettoreText, tone: item.vettoreId ? 'info' : 'muted' },
@@ -112,16 +132,16 @@ export function boardConsegnaPianificataBadges(
   if (item.consegnaDataEffettivaSeconda) {
     const dataSeconda = new Date(item.consegnaDataEffettivaSeconda);
     const dataSecondaText = Number.isNaN(dataSeconda.getTime())
-      ? `2ª consegna ${item.consegnaDataEffettivaSeconda}`
-      : `2ª consegna ${dataSeconda.toLocaleDateString('it-IT')}`;
+      ? `2a consegna ${item.consegnaDataEffettivaSeconda}`
+      : `2a consegna ${dataSeconda.toLocaleDateString('it-IT')}`;
     badges.unshift({ text: dataSecondaText, tone: 'violet' });
   }
   if (item.biliciSecondi != null && item.biliciSecondi > 0) {
-    badges.splice(2, 0, { text: `2° bilici ${item.biliciSecondi}`, tone: 'info' });
+    badges.splice(2, 0, { text: `2o bilici ${item.biliciSecondi}`, tone: 'info' });
   }
   if (item.vettoreSecondoId) {
     const vettoreSecondoNome = nomeVettore?.(item.vettoreSecondoId) ?? '';
-    const vettoreSecondoText = vettoreSecondoNome && vettoreSecondoNome !== '—' ? `2° vettore ${vettoreSecondoNome}` : '2° vettore';
+    const vettoreSecondoText = vettoreSecondoNome && vettoreSecondoNome !== '—' ? `2o vettore ${vettoreSecondoNome}` : '2o vettore';
     badges.splice(3, 0, { text: vettoreSecondoText, tone: 'info' });
   }
   return badges;
@@ -148,7 +168,7 @@ export function boardConclusiBadge(item: ConsegnaRecord, conclusiWeekLabel: (val
 
 export function detailMissingItems(item: ConsegnaRecord): string[] {
   const missing: string[] = [];
-  if (!item.dataConsegna) missing.push('Data consegna');
+  if (!deliveryDateValue(item)) missing.push('Data consegna');
   if (!item.responsabileInternoId) missing.push('Responsabile');
   if (item.stato === 'CONSEGNA PIANIFICATA') {
     if (!item.consegnaDataEffettiva) missing.push('Data consegna effettiva');

@@ -35,6 +35,7 @@ export interface KanbanBoardHost {
   isLate(item: ConsegnaRecord): boolean;
   kanbanCompactMode: boolean;
   kanbanScrollContentWidth: number;
+  kanbanDeliveryBadgeText(item: ConsegnaRecord): string;
   nomeVettore(id: number | null | undefined): string;
   responsabiliRows: Array<{ id: number; nome: string }>;
   loadingBoard: boolean;

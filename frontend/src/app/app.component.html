@@ -23,7 +23,7 @@
     </div>
   </div>
 } @else {
-  <div class="page app-shell">
+  <div class="page app-shell" [class.app-shell--sidebar-collapsed]="sidebarCollapsed">
     <nav class="sidebar" [class.sidebar--collapsed]="sidebarCollapsed">
       <div class="sidebar-brand">
         <img src="logo-carra.png" alt="Carra Depurazioni" class="sidebar-logo" />
@@ -817,8 +817,16 @@
           <input type="text" [(ngModel)]="formModel.tipoImpianto" placeholder="es. N°1 METEOTANK MP/SD 1200" />
         </div>
         <div class="form-field">
-          <label class="form-field__label">Data consegna</label>
-          <input type="date" [(ngModel)]="formModel.dataConsegna" />
+          <label class="form-field__label">{{ formModel.consegnaTassativa ? 'Data consegna TASSATIVA' : 'Data consegna' }}</label>
+          <input *ngIf="!formModel.consegnaTassativa" type="date" [(ngModel)]="formModel.dataConsegna" />
+          <input *ngIf="formModel.consegnaTassativa" type="date" [(ngModel)]="formModel.dataConsegnaTassativa" />
+        </div>
+        <div class="form-field">
+          <label class="form-field__label">Tipo consegna</label>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+            <button type="button" class="segmented-toggle-btn" [class.active]="!formModel.consegnaTassativa" (click)="setConsegnaTassativa(false)">Consegna stimata</button>
+            <button type="button" class="segmented-toggle-btn" [class.active]="formModel.consegnaTassativa" (click)="setConsegnaTassativa(true)">Consegna TASSATIVA</button>
+          </div>
         </div>
         <div class="form-field">
           <label class="form-field__label">Cantiere</label>
@@ -1105,7 +1113,7 @@
                       <td>{{ order.rifto }}</td>
                       <td>{{ order.cliente || '—' }}</td>
                       <td>{{ order.dataOrdine || '—' }}</td>
-                      <td>{{ order.dataConsegna || '—' }}</td>
+                      <td>{{ deliveryDateDisplay(order) }}</td>
                       <td>{{ order.cantiere || '—' }}</td>
                       <td>{{ order.agenteNome || '—' }}</td>
                     </tr>

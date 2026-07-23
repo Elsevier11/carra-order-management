@@ -22,6 +22,7 @@
     "db:import": "tsx src/db/import.ts",
     "db:import:truncate": "tsx src/db/import.ts --truncate",
     "db:migrate:second-delivery": "tsx src/db/migrate-add-second-delivery.ts",
+    "db:migrate:delivery-type": "tsx src/db/migrate-add-consegna-tassativa.ts",
     "attachments:cleanup": "tsx src/scripts/cleanup-attachments.ts",
     "attachments:cleanup:dry": "tsx src/scripts/cleanup-attachments.ts --dry-run",
     "cleanup:workspace:linux": "bash scripts/cleanup-workspace.sh",

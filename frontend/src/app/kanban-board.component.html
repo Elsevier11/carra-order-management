@@ -1,7 +1,6 @@
 <div class="kanban-hero">
   <div class="kanban-hero__top">
     <div class="kanban-page-header-title">
-      <h1 class="content-title">Ordini</h1>
       @if (app.isReadOnly) {
         <span class="read-only-badge">Sola lettura</span>
       }
@@ -25,36 +24,37 @@
         </button>
       }
     </div>
-    <div class="kanban-top-actions">
-      @if (app.canWrite) {
-        <button type="button" class="kanban-top-action" (click)="app.openCreate()">Nuovo ordine</button>
-        <button type="button" class="ghost kanban-top-action" (click)="app.openSqlImportModal()">Importa da ERP</button>
-      }
-      <button type="button" class="ghost kanban-top-action" (click)="app.exportXlsx()">Export Excel</button>
-    </div>
-  </div>
-
-  <div class="kanban-hero__filters">
-    <div class="kanban-filters">
-      <input type="text" [(ngModel)]="app.filters.q" (ngModelChange)="app.onFilterTextChange()" placeholder="Cerca per rif, cliente, impianto..." />
-      <select [(ngModel)]="app.filters.cliente" (ngModelChange)="app.onFilterSelectChange()">
-        <option value="">Tutti i clienti</option>
-        @for (cliente of app.availableFilters.clienti; track cliente) {
-          <option [value]="cliente">{{ cliente }}</option>
+    <div class="kanban-top-controls">
+      <div class="kanban-top-actions">
+        @if (app.canWrite) {
+          <button type="button" class="kanban-top-action kanban-top-action--primary" (click)="app.openCreate()">Nuovo ordine</button>
+          <button type="button" class="ghost kanban-top-action" (click)="app.openSqlImportModal()">Importa da ERP</button>
         }
-      </select>
-      <select [(ngModel)]="app.filters.commercialeId" (ngModelChange)="app.onFilterSelectChange()">
-        <option value="">Tutti i commerciali</option>
-        @for (commerciale of app.commercialiRows; track commerciale.id) {
-          <option [value]="commerciale.id">{{ commerciale.nome }}</option>
-        }
-      </select>
-      <select [(ngModel)]="app.filters.responsabileInternoId" (ngModelChange)="app.onFilterSelectChange()">
-        <option value="">Tutti i responsabili</option>
-        @for (responsabile of app.responsabiliRows; track responsabile.id) {
-          <option [value]="responsabile.id">{{ responsabile.nome }}</option>
-        }
-      </select>
+        <button type="button" class="ghost kanban-top-action" (click)="app.exportXlsx()">Export Excel</button>
+      </div>
+      <div class="kanban-hero__filters">
+        <div class="kanban-filters">
+          <input type="text" [(ngModel)]="app.filters.q" (ngModelChange)="app.onFilterTextChange()" placeholder="Cerca per rif, cliente, impianto..." />
+          <select [(ngModel)]="app.filters.cliente" (ngModelChange)="app.onFilterSelectChange()">
+            <option value="">Tutti i clienti</option>
+            @for (cliente of app.availableFilters.clienti; track cliente) {
+              <option [value]="cliente">{{ cliente }}</option>
+            }
+          </select>
+          <select [(ngModel)]="app.filters.commercialeId" (ngModelChange)="app.onFilterSelectChange()">
+            <option value="">Tutti i commerciali</option>
+            @for (commerciale of app.commercialiRows; track commerciale.id) {
+              <option [value]="commerciale.id">{{ commerciale.nome }}</option>
+            }
+          </select>
+          <select [(ngModel)]="app.filters.responsabileInternoId" (ngModelChange)="app.onFilterSelectChange()">
+            <option value="">Tutti i responsabili</option>
+            @for (responsabile of app.responsabiliRows; track responsabile.id) {
+              <option [value]="responsabile.id">{{ responsabile.nome }}</option>
+            }
+          </select>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -116,7 +116,7 @@
                               <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
                             }
                             @if (app.showKanbanEstimatedDelivery(item)) {
-                              <span class="kanban-card-meta__date">Consegna stimata {{ item.dataConsegna | date:'dd/MM/yy' }}</span>
+                              <span class="kanban-card-meta__date">{{ app.kanbanDeliveryBadgeText(item) }}</span>
                             }
                             @if (item.stato === 'ASSEGNATO' && item.lavorazioneAssegnataAt) {
                               <span class="kanban-card-meta__date">Data assegnazione {{ item.lavorazioneAssegnataAt | date:'dd/MM/yy' }}</span>
@@ -253,7 +253,7 @@
                             <span class="kanban-card-meta__order">{{ app.boardMetaPrimaryText(item) }}</span>
                           }
                           @if (app.showKanbanEstimatedDelivery(item)) {
-                            <span class="kanban-card-meta__date">Consegna stimata {{ item.dataConsegna | date:'dd/MM/yy' }}</span>
+                            <span class="kanban-card-meta__date">{{ app.kanbanDeliveryBadgeText(item) }}</span>
                           }
                           @if (item.stato === 'ASSEGNATO' && item.lavorazioneAssegnataAt) {
                             <span class="kanban-card-meta__date">Data assegnazione {{ item.lavorazioneAssegnataAt | date:'dd/MM/yy' }}</span>

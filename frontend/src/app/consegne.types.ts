@@ -56,6 +56,8 @@ export interface ConsegnaRecord {
   cliente: string;
   tipoImpianto: string | null;
   dataConsegna: string | null;
+  dataConsegnaTassativa: string | null;
+  consegnaTassativa: boolean;
   cantiere: string | null;
   dataOrdine: string | null;
   referente: string | null;

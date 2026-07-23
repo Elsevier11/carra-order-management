@@ -14,8 +14,16 @@
         <input type="text" [(ngModel)]="app.formModel.tipoImpianto" />
       </div>
       <div class="form-field">
-        <label class="form-field__label">Data consegna</label>
-        <input type="date" [(ngModel)]="app.formModel.dataConsegna" />
+        <label class="form-field__label">{{ app.formModel.consegnaTassativa ? 'Data consegna TASSATIVA' : 'Data consegna' }}</label>
+        <input *ngIf="!app.formModel.consegnaTassativa" type="date" [(ngModel)]="app.formModel.dataConsegna" />
+        <input *ngIf="app.formModel.consegnaTassativa" type="date" [(ngModel)]="app.formModel.dataConsegnaTassativa" />
+      </div>
+      <div class="form-field">
+        <label class="form-field__label">Tipo consegna</label>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+          <button type="button" class="segmented-toggle-btn" [class.active]="!app.formModel.consegnaTassativa" (click)="app.setConsegnaTassativa(false)">Consegna stimata</button>
+          <button type="button" class="segmented-toggle-btn" [class.active]="app.formModel.consegnaTassativa" (click)="app.setConsegnaTassativa(true)">Consegna TASSATIVA</button>
+        </div>
       </div>
       <div class="form-field form-field--span2">
         <label class="form-field__label">Cantiere</label>
@@ -113,8 +121,12 @@
           <span class="kv-value">{{ detail.cantiere || '—' }}</span>
         </div>
         <div class="detail-kv">
-          <span class="kv-label">Data consegna</span>
-          <span class="kv-value">{{ detail.dataConsegna ? (detail.dataConsegna | date:'dd/MM/yyyy') : '—' }}</span>
+          <span class="kv-label">{{ detail.consegnaTassativa ? 'Data consegna TASSATIVA' : 'Data consegna' }}</span>
+          <span class="kv-value">{{ app.deliveryDateDisplay(detail) }}</span>
+        </div>
+        <div class="detail-kv">
+          <span class="kv-label">Tipo consegna</span>
+          <span class="kv-value">{{ detail.consegnaTassativa ? 'Consegna TASSATIVA' : 'Consegna stimata' }}</span>
         </div>
       </div>
       <div class="detail-kv-grid detail-kv-grid--2col detail-kv-grid--contact" style="margin-top: 10px">

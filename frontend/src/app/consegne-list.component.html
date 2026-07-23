@@ -112,6 +112,13 @@
                       </td>
                       <td class="consegne-cell consegne-cell--tags" data-label="Tag / Stato">
                         <div class="consegne-badge-stack">
+                          <div class="consegne-badge-column">
+                            <span
+                              class="consegne-pill"
+                              [class.consegne-pill--tassativa]="item.consegnaTassativa"
+                              [class.consegne-pill--stimata]="!item.consegnaTassativa"
+                            >{{ deliveryTypeLabel(item) }}</span>
+                          </div>
                           @if (problemiScaricoLabel(item); as scaricoNote) {
                             <div class="consegne-badge-column">
                               <span class="consegne-pill consegne-pill--scarico">{{ scaricoNote }}</span>

@@ -37,6 +37,33 @@
 
 .consegne-filters {
   width: 100%;
+  grid-template-columns:
+    minmax(260px, 1.55fr)
+    minmax(180px, 1fr)
+    minmax(180px, 1fr)
+    minmax(180px, 1fr)
+    minmax(190px, 1fr);
+}
+
+@media (max-width: 1440px) {
+  .consegne-filters {
+    grid-template-columns:
+      minmax(240px, 1.6fr)
+      minmax(180px, 1fr)
+      minmax(180px, 1fr);
+  }
+}
+
+@media (max-width: 1040px) {
+  .consegne-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .consegne-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 .consegne-sections {
@@ -239,6 +266,18 @@
   background: linear-gradient(180deg, #eef4ff 0%, #e4edff 100%);
   border-color: rgba(37, 99, 235, 0.18);
   color: var(--primary-dark);
+}
+
+.consegne-pill--stimata {
+  background: #f8fafc;
+  border-color: rgba(100, 116, 139, 0.2);
+  color: var(--ink-secondary);
+}
+
+.consegne-pill--tassativa {
+  background: #fef2f2;
+  border-color: rgba(220, 38, 38, 0.24);
+  color: #b91c1c;
 }
 
 .consegne-pill--warning {

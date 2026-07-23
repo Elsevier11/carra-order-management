@@ -379,6 +379,57 @@ describe.runIf(runDbTests)('Consegne API', () => {
     await request(app).delete(`/api/consegne/${newer.body.id}`).set('Authorization', `Bearer ${token}`)
   })
 
+  it('GET /api/consegne/board sorts ASSEGNATO by latest assignment date first', async () => {
+    const older = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__AS-001',
+      cliente: 'Cliente Assegnato Uno',
+      tipoImpianto: 'AS-1',
+      dataConsegna: '2026-08-10',
+      dataOrdine: '2026-05-01',
+      stato: 'ASSEGNATO',
+    })
+    expect(older.status).toBe(201)
+
+    const newer = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__AS-002',
+      cliente: 'Cliente Assegnato Due',
+      tipoImpianto: 'AS-2',
+      dataConsegna: '2026-08-11',
+      dataOrdine: '2026-06-15',
+      stato: 'ASSEGNATO',
+    })
+    expect(newer.status).toBe(201)
+
+    const setOlderAssignment = await request(app)
+      .put(`/api/consegne/${older.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lavorazioneAssegnataAt: '2026-06-01' })
+    expect(setOlderAssignment.status).toBe(200)
+
+    const setNewerAssignment = await request(app)
+      .put(`/api/consegne/${newer.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lavorazioneAssegnataAt: '2026-06-20' })
+    expect(setNewerAssignment.status).toBe(200)
+
+    const touched = await request(app)
+      .put(`/api/consegne/${newer.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ note: 'tocco ordine assegnato piu recente' })
+    expect(touched.status).toBe(200)
+
+    const res = await request(app).get('/api/consegne/board')
+    expect(res.status).toBe(200)
+    const assegnato = res.body.columns.find((x: { status: string; items: Array<{ rif: string }> }) => x.status === 'ASSEGNATO')
+    const refs = (assegnato?.items ?? []).map((item: { rif: string }) => item.rif)
+    expect(refs.indexOf('__TEST__AS-001')).toBeGreaterThanOrEqual(0)
+    expect(refs.indexOf('__TEST__AS-002')).toBeGreaterThanOrEqual(0)
+    expect(refs.indexOf('__TEST__AS-002')).toBeLessThan(refs.indexOf('__TEST__AS-001'))
+
+    await request(app).delete(`/api/consegne/${older.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/consegne/${newer.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
   it('GET /api/consegne/board includes accessori for DA ASSEGNARE items', async () => {
     const created = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
       rif: '__TEST__ACC-001',
@@ -863,6 +914,43 @@ describe.runIf(runDbTests)('Consegne API', () => {
 
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
     await request(app).delete(`/api/vettori/${vettore.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('persists consegnaTassativa in create and update flows', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__CT-001',
+      cliente: 'Cliente Consegna Tassativa',
+      stato: 'IN CORSO',
+      dataConsegna: '2026-07-21',
+      dataConsegnaTassativa: '2026-07-22',
+      consegnaTassativa: true,
+      dataOrdine: '2026-07-01',
+      note: 'nota base',
+    })
+    expect(create.status).toBe(201)
+    expect(create.body.consegnaTassativa).toBe(true)
+    expect(create.body.dataConsegnaTassativa).toContain('2026-07-22')
+    const id = create.body.id as number
+
+    const detail = await request(app).get(`/api/consegne/${id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.consegnaTassativa).toBe(true)
+    expect(detail.body.dataConsegnaTassativa).toContain('2026-07-22')
+
+    const update = await request(app)
+      .put(`/api/consegne/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        consegnaTassativa: false,
+      })
+    expect(update.status).toBe(200)
+    expect(update.body.consegnaTassativa).toBe(false)
+
+    const updatedDetail = await request(app).get(`/api/consegne/${id}`)
+    expect(updatedDetail.status).toBe(200)
+    expect(updatedDetail.body.consegnaTassativa).toBe(false)
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })
 
   it('POST /api/consegne/:id/transition persists CONSEGNA EFFETTUATA problemi scarico note', async () => {

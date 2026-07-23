@@ -47,6 +47,7 @@ import {
   boardCementiSummary as boardCementiSummaryHelper,
   boardConsegnaPianificataBadges as boardConsegnaPianificataBadgesHelper,
   boardConclusiBadge as boardConclusiBadgeHelper,
+  deliveryBadgeText as deliveryBadgeTextHelper,
   boardResiduiLavorazioneBadges as boardResiduiLavorazioneBadgesHelper,
   boardProntiAvvisatiBadges as boardProntiAvvisatiBadgesHelper,
   composeNoteBadgeHtml,
@@ -55,6 +56,7 @@ import {
   cementoBadgeClass as cementoBadgeClassHelper,
   cementoBadgeClassFromFlags as cementoBadgeClassFromFlagsHelper,
   detailMissingItems as detailMissingItemsHelper,
+  deliveryDateValue as deliveryDateValueHelper,
   renderRichTextHtml,
   onCementoFattaChange as onCementoFattaChangeHelper,
   onCementoOrdinataChange as onCementoOrdinataChangeHelper,
@@ -69,6 +71,8 @@ type EditableConsegna = {
   cliente: string;
   tipoImpianto: string;
   dataConsegna: string;
+  dataConsegnaTassativa: string;
+  consegnaTassativa: boolean;
   cantiere: string;
   dataOrdine: string;
   referente: string;
@@ -694,6 +698,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente: this.formModel.cliente,
       tipoImpianto: this.formModel.tipoImpianto,
       dataConsegna: this.formModel.dataConsegna,
+      dataConsegnaTassativa: this.formModel.dataConsegnaTassativa,
+      consegnaTassativa: this.formModel.consegnaTassativa,
       cantiere: this.formModel.cantiere,
       dataOrdine: this.formModel.dataOrdine,
       referente: this.formModel.referente,
@@ -990,9 +996,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   isLate(item: ConsegnaRecord): boolean {
-    if (!item.dataConsegna) return false;
+    const value = deliveryDateValueHelper(item);
+    if (!value) return false;
     if (item.stato === 'CONCLUSI') return false;
-    const dueDate = new Date(item.dataConsegna);
+    const dueDate = new Date(value);
     if (Number.isNaN(dueDate.getTime())) return false;
     dueDate.setHours(0, 0, 0, 0);
     const today = new Date();
@@ -1005,8 +1012,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   lateDays(item: ConsegnaRecord): number {
-    if (!this.isLate(item) || !item.dataConsegna) return 0;
-    const dueDate = new Date(item.dataConsegna);
+    const value = deliveryDateValueHelper(item);
+    if (!this.isLate(item) || !value) return 0;
+    const dueDate = new Date(value);
     dueDate.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1039,6 +1047,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   boardConsegnaPianificataBadges(item: ConsegnaRecord) {
     if (item.stato === 'CONSEGNA EFFETTUATA') {
+      const deliveryDate = deliveryDateValueHelper(item);
       const badges: Array<{
         text: string;
         tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet';
@@ -1046,6 +1055,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         kind?: 'note';
         html?: string;
       }> = [
+        {
+          text: deliveryBadgeTextHelper(item, deliveryDate),
+          tone: deliveryDate ? 'info' : 'muted',
+        },
         {
           text: item.consegnaDataEffettiva
             ? `Cons. effettiva ${this.formatShortDate(item.consegnaDataEffettiva)}`
@@ -1077,7 +1090,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   showKanbanEstimatedDelivery(item: ConsegnaRecord): boolean {
-    return !!item.dataConsegna && !this.orderWarnings(item).includes('Data consegna mancante');
+    return !!deliveryDateValueHelper(item) && !this.orderWarnings(item).includes('Data consegna mancante');
+  }
+
+  kanbanDeliveryBadgeText(item: ConsegnaRecord): string {
+    return deliveryBadgeTextHelper(item, deliveryDateValueHelper(item));
   }
 
   boardMetaPrimaryText(item: ConsegnaRecord): string {
@@ -1210,7 +1227,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoMittenteId: toStatus === 'DISEGNO IN GESTIONE' ? (order.disegnoMittenteId ?? null) : null,
       disegnoApprovatoAt: toStatus === 'DISEGNO APPROVATO' ? (order.disegnoApprovatoAt ?? this.todayIsoDate()) : '',
       lavorazioneAssegnataAt: toStatus === 'ASSEGNATO' ? (order.lavorazioneAssegnataAt ?? this.todayIsoDate()) : '',
-      consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(toStatus) ? (order.consegnaDataEffettiva ?? order.dataConsegna ?? this.todayIsoDate()) : '',
+      consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(toStatus) ? (order.consegnaDataEffettiva ?? deliveryDateValueHelper(order) ?? this.todayIsoDate()) : '',
       consegnaDataEffettivaSeconda: toStatus === 'CONSEGNA PIANIFICATA' ? (order.consegnaDataEffettivaSeconda ?? '') : '',
       problemiScaricoNota: toStatus === 'CONSEGNA EFFETTUATA' ? (order.problemiScaricoNota ?? '') : '',
       vettoreId: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.vettoreId ?? null) : null,
@@ -1353,6 +1370,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente: this.selectedDetail.cliente ?? '',
       tipoImpianto: this.selectedDetail.tipoImpianto ?? '',
       dataConsegna: this.selectedDetail.dataConsegna ?? '',
+      dataConsegnaTassativa: this.selectedDetail.dataConsegnaTassativa ?? '',
+      consegnaTassativa: this.selectedDetail.consegnaTassativa ?? false,
       cantiere: this.selectedDetail.cantiere ?? '',
       dataOrdine: this.selectedDetail.dataOrdine ?? '',
       referente: this.selectedDetail.referente ?? '',
@@ -1398,6 +1417,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente: this.formModel.cliente,
       tipoImpianto: this.formModel.tipoImpianto || null,
       dataConsegna: this.formModel.dataConsegna || null,
+      dataConsegnaTassativa: this.formModel.dataConsegnaTassativa || null,
+      consegnaTassativa: this.formModel.consegnaTassativa,
       cantiere: this.formModel.cantiere || null,
       dataOrdine: this.formModel.dataOrdine || null,
       referente: this.formModel.referente || null,
@@ -1815,6 +1836,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente: 'Cliente',
       tipoImpianto: 'Tipo impianto',
       dataConsegna: 'Data consegna',
+      dataConsegnaTassativa: 'Data consegna tassativa',
       responsabileInternoId: 'Responsabile',
       disegnoSpeditoAt: 'Data spedizione disegno',
       disegnoMittenteId: 'Mittente disegno',
@@ -2186,6 +2208,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente: 'Cliente',
       tipoImpianto: 'Tipo impianto',
       dataConsegna: 'Data consegna',
+      dataConsegnaTassativa: 'Data consegna tassativa',
       cantiere: 'Cantiere',
       dataOrdine: 'Data ordine',
       scarico: 'Scarico',
@@ -3176,6 +3199,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente: '',
       tipoImpianto: '',
       dataConsegna: '',
+      dataConsegnaTassativa: '',
+      consegnaTassativa: false,
       cantiere: '',
       dataOrdine: '',
       referente: '',
@@ -3200,6 +3225,28 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       vettoreSecondoId: null,
       biliciSecondi: null,
     };
+  }
+
+  setConsegnaTassativa(enabled: boolean): void {
+    if (this.formModel.consegnaTassativa === enabled) return;
+    if (enabled && !this.formModel.dataConsegnaTassativa) {
+      this.formModel.dataConsegnaTassativa = this.formModel.dataConsegna || '';
+    }
+    if (!enabled && !this.formModel.dataConsegna) {
+      this.formModel.dataConsegna = this.formModel.dataConsegnaTassativa || '';
+    }
+    this.formModel.consegnaTassativa = enabled;
+  }
+
+  deliveryDateLabel(item: { dataConsegna?: string | null; dataConsegnaTassativa?: string | null; consegnaTassativa?: boolean }): string {
+    return item.consegnaTassativa ? 'Data consegna TASSATIVA' : 'Data consegna';
+  }
+
+  deliveryDateDisplay(item: { dataConsegna?: string | null; dataConsegnaTassativa?: string | null; consegnaTassativa?: boolean }): string {
+    const value = item.consegnaTassativa ? (item.dataConsegnaTassativa ?? item.dataConsegna ?? null) : (item.dataConsegna ?? null);
+    if (!value) return '—';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : this.formatShortDate(value);
   }
 
   // ── Operai multi-select helpers ───────────────────────────────────────────
@@ -3353,6 +3400,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         cliente: this.formModel.cliente,
         tipoImpianto: this.formModel.tipoImpianto || null,
         dataConsegna: this.formModel.dataConsegna || null,
+        dataConsegnaTassativa: this.formModel.dataConsegnaTassativa || null,
+        consegnaTassativa: this.formModel.consegnaTassativa,
         cantiere: this.formModel.cantiere || null,
         dataOrdine: this.formModel.dataOrdine || null,
         referente: this.formModel.referente || null,
@@ -3374,6 +3423,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       Object.assign(payload, {
         folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti || null,
         folderLinkFoto: this.selectedDetail.folderLinkFoto || null,
+        dataConsegnaTassativa: this.selectedDetail.dataConsegnaTassativa || null,
         consegnaDataEffettivaSeconda: this.selectedDetail.consegnaDataEffettivaSeconda || null,
         vettoreSecondoId: this.selectedDetail.vettoreSecondoId ?? null,
         biliciSecondi: this.selectedDetail.biliciSecondi ?? 0,
@@ -3431,6 +3481,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             cliente: this.formModel.cliente,
             tipoImpianto: this.formModel.tipoImpianto || null,
             dataConsegna: this.formModel.dataConsegna || null,
+            dataConsegnaTassativa: this.formModel.dataConsegnaTassativa || null,
+            consegnaTassativa: this.formModel.consegnaTassativa,
             cantiere: this.formModel.cantiere || null,
             dataOrdine: this.formModel.dataOrdine || null,
             referente: this.formModel.referente || null,
