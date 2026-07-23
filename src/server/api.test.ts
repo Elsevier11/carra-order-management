@@ -560,6 +560,41 @@ describe.runIf(runDbTests)('Consegne API', () => {
     await request(app).delete(`/api/consegne/${forced.body.id}`).set('Authorization', `Bearer ${token}`)
   })
 
+  it('duplicates an existing order preserving lineage and tranche numbering', async () => {
+    const [baseOrder] = await db
+      .select({ id: ordini.id, rifto: ordini.rifto })
+      .from(ordini)
+      .where(eq(ordini.rifto, '__TEST__A-001'))
+      .limit(1)
+
+    expect(baseOrder).toBeTruthy()
+    if (!baseOrder) throw new Error('Missing base order for duplication test')
+
+    const firstDuplicate = await request(app).post(`/api/consegne/${baseOrder.id}/duplicate`).set('Authorization', `Bearer ${token}`)
+    expect(firstDuplicate.status).toBe(201)
+    expect(firstDuplicate.body.rif).toBe('__TEST__A-001 (1a tranche)')
+    expect(firstDuplicate.body.duplicatedFromRif).toBe('__TEST__A-001')
+    expect(firstDuplicate.body.duplicatedFromId).toBe(baseOrder.id)
+    expect(firstDuplicate.body.rootOrderId).toBe(baseOrder.id)
+    expect(firstDuplicate.body.trancheNumber).toBe(1)
+
+    const history = await request(app).get(`/api/consegne/${firstDuplicate.body.id}/history`).set('Authorization', `Bearer ${token}`)
+    expect(history.status).toBe(200)
+    expect(history.body.data?.[0]?.eventType).toBe('ORDER_DUPLICATED')
+    expect(history.body.data?.[0]?.note).toContain('__TEST__A-001')
+    expect(history.body.data?.[0]?.details?.duplicatedFromRif).toBe('__TEST__A-001')
+    expect(history.body.data?.[0]?.details?.rootOrderId).toBe(baseOrder.id)
+
+    const secondDuplicate = await request(app).post(`/api/consegne/${firstDuplicate.body.id}/duplicate`).set('Authorization', `Bearer ${token}`)
+    expect(secondDuplicate.status).toBe(201)
+    expect(secondDuplicate.body.rif).toBe('__TEST__A-001 (2a tranche)')
+    expect(secondDuplicate.body.rootOrderId).toBe(baseOrder.id)
+    expect(secondDuplicate.body.trancheNumber).toBe(2)
+
+    await request(app).delete(`/api/consegne/${firstDuplicate.body.id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/consegne/${secondDuplicate.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
   it('supports DA ASSEGNARE -> ASSEGNATO -> CONCLUSI transition flow', async () => {
     const operaiSeed = await request(app).get('/api/operai').set('Authorization', `Bearer ${token}`)
     expect(operaiSeed.status).toBe(200)

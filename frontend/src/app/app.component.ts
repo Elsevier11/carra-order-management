@@ -855,7 +855,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectFromBoard(row: ConsegnaRecord): void {
-    this.detailReturnView = 'kanban';
+    this.detailReturnView = this.activeView;
     this.selectedRow = row;
     this.loadDetail(row.id);
   }
@@ -1549,6 +1549,28 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   deleteSelected(): void {
     if (!this.selectedDetail) return;
     this.deleteConfirmOpen = true;
+  }
+
+  duplicateSelected(): void {
+    if (!this.selectedDetail || !this.canWrite || this.editMode) return;
+    const source = this.selectedDetail;
+    const label = source.rif || `ID ${source.id}`;
+    const confirmed = window.confirm('Stai per creare una nuova commessa autonoma a partire da ' + label + '. Procedere?');
+    if (!confirmed) return;
+
+    this.consegneService.duplicate(source.id).subscribe({
+      next: (result) => {
+        const duplicated = result as ConsegnaRecord;
+        this.notifySuccess('Consegna duplicata');
+        this.refreshData(1);
+        if (duplicated?.id) {
+          this.loadDetail(duplicated.id);
+        }
+      },
+      error: (error) => {
+        this.notifyError(error?.error?.message ?? 'Errore duplicazione');
+      },
+    });
   }
 
   confirmDelete(): void {

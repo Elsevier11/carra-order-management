@@ -73,6 +73,10 @@ export interface ConsegnaRecord {
   accontoPagato: boolean;
   commercialeId: number | null;
   responsabileInternoId: number | null;
+  duplicatedFromId?: number | null;
+  duplicatedFromRif?: string | null;
+  rootOrderId?: number | null;
+  trancheNumber?: number | null;
   folderLinkDocumenti: string | null;
   folderLinkFoto: string | null;
   // Disegno

@@ -284,6 +284,10 @@ export async function ensureDatabaseObjects() {
 
   // ERP SQL Server import support
   await pgClient.unsafe(`alter table ordini add column if not exists external_ref text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists duplicated_from_id integer references ordini(id) on delete set null;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists duplicated_from_rif text;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists root_order_id integer references ordini(id) on delete set null;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists tranche_number integer not null default 0;`)
   await pgClient.unsafe(`
     create unique index if not exists idx_ordini_external_ref
     on ordini(external_ref)

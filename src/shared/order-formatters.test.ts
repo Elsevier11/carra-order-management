@@ -48,4 +48,25 @@ describe('order-formatters', () => {
     expect(boardResiduiLavorazioneBadges(onItem).some((badge) => badge.text === 'C.A.M.')).toBe(true)
     expect(boardResiduiLavorazioneBadges(offItem).some((badge) => badge.text === 'C.A.M.')).toBe(false)
   })
+
+  it('renders residui notes the same way in ASSEGNATO and PRONTI & AVVISATI', () => {
+    const assignedItem = {
+      stato: 'ASSEGNATO',
+      residuiLavorazioneNote: 'Prima riga\nSeconda riga',
+    } as never
+    const readyItem = {
+      stato: 'PRONTI & AVVISATI',
+      residuiLavorazioneNote: 'Prima riga\nSeconda riga',
+    } as never
+
+    const assignedBadge = boardResiduiLavorazioneBadges(assignedItem).find((badge) => badge.kind === 'note')
+    const readyBadge = boardResiduiLavorazioneBadges(readyItem).find((badge) => badge.kind === 'note')
+
+    expect(assignedBadge?.multiline).toBe(true)
+    expect(readyBadge?.multiline).toBe(true)
+    expect(assignedBadge?.html).toContain('Note residui:')
+    expect(readyBadge?.html).toContain('Note residui:')
+    expect(assignedBadge?.html).toContain('Seconda riga')
+    expect(readyBadge?.html).toContain('Seconda riga')
+  })
 })

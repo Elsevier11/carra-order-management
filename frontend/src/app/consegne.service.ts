@@ -191,6 +191,10 @@ export class ConsegneService {
     return this.http.put(`${this.baseUrl}/${id}`, payload);
   }
 
+  duplicate(id: number) {
+    return this.http.post(`${this.baseUrl}/${id}/duplicate`, {});
+  }
+
   updateOperai(id: number, operaiIds: number[]): Observable<unknown> {
     return this.http.put(`${this.baseUrl}/${id}/operai`, { operaiIds });
   }

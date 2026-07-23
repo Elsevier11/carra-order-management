@@ -30,6 +30,7 @@
               <button *ngIf="app.canWrite && !app.editMode" type="button" (click)="app.openEdit()">Modifica</button>
               <button *ngIf="app.canWrite && app.editMode" type="button" class="ghost" (click)="app.cancelEdit()">Annulla</button>
               <button *ngIf="app.canWrite" type="button" [class.ghost]="!app.hasPendingChanges()" (click)="app.saveAll()">Salva</button>
+              <button *ngIf="app.canWrite && !app.editMode" type="button" class="ghost" (click)="app.duplicateSelected()">Duplica</button>
               <button *ngIf="app.canWrite" type="button" class="ghost-danger" (click)="app.deleteSelected()">Elimina</button>
               <button type="button" class="ghost modal-close-btn" (click)="app.closeDetailModal()" aria-label="Chiudi">
                 <svg class="modal-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

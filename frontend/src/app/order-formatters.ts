@@ -94,17 +94,13 @@ export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBa
   if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'violet' });
   const note = item.residuiLavorazioneNote?.trim();
   if (note) {
-    if (item.stato === 'ASSEGNATO') {
-      badges.push({
-        text: note,
-        html: composeNoteBadgeHtml('Note residui:', note),
-        tone: 'violet',
-        kind: 'note',
-        multiline: true,
-      });
-    } else {
-      badges.push({ text: 'Vedi note', tone: 'violet' });
-    }
+    badges.push({
+      text: note,
+      html: composeNoteBadgeHtml('Note residui:', note),
+      tone: 'violet',
+      kind: 'note',
+      multiline: true,
+    });
   }
   return badges;
 }

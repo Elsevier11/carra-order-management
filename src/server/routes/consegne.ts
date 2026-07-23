@@ -283,6 +283,16 @@ function toIsoDate(value: Date | null): string | null {
   return value ? value.toISOString().slice(0, 10) : null
 }
 
+function trancheLabel(trancheNumber: number): string {
+  return `${trancheNumber}a tranche`
+}
+
+function buildDuplicatedRif(baseRif: string | null | undefined, trancheNumber: number): string {
+  const cleanBase = (baseRif ?? '').trim()
+  const suffix = trancheLabel(trancheNumber)
+  return cleanBase ? `${cleanBase} (${suffix})` : suffix
+}
+
 function formatItalianDate(value: Date | null | undefined): string {
   if (!value) return ''
   const day = String(value.getDate()).padStart(2, '0')
@@ -342,6 +352,10 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     accontoPagato: row.accontoPagato ?? false,
     commercialeId: row.commercialeId ?? null,
     responsabileInternoId: row.responsabileInternoId ?? null,
+    duplicatedFromId: row.duplicatedFromId ?? null,
+    duplicatedFromRif: row.duplicatedFromRif ?? null,
+    rootOrderId: row.rootOrderId ?? null,
+    trancheNumber: row.trancheNumber ?? 0,
     folderLinkDocumenti: row.folderLinkDocumenti ?? null,
     folderLinkFoto: row.folderLinkFoto ?? null,
     // campi DISEGNO IN GESTIONE
@@ -385,6 +399,7 @@ function activeOrderFilter(extra?: SQL): SQL {
 const readableActivityKinds = {
   ORDER_CREATED: 'Ordine creato',
   ORDER_IMPORTED: 'Ordine importato',
+  ORDER_DUPLICATED: 'Ordine duplicato',
   STATUS_CHANGED: 'Stato cambiato',
   STATUS_SUSPENDED: 'Stato cambiato',
   ORDER_UPDATED: 'Ordine aggiornato',
@@ -482,6 +497,14 @@ function summarizeActivityEvent(eventType: string, fromStatus: string | null, to
   if (eventType === 'ORDER_CREATED') {
     return 'Ordine creato manualmente'
   }
+  if (eventType === 'ORDER_DUPLICATED') {
+    const source = typeof details?.duplicatedFromRif === 'string' && details.duplicatedFromRif.trim()
+      ? details.duplicatedFromRif.trim()
+      : typeof details?.rootRif === 'string' && details.rootRif.trim()
+        ? details.rootRif.trim()
+        : ''
+    return source ? `Ordine duplicato da ${source}` : 'Ordine duplicato'
+  }
   if (eventType === 'ORDER_IMPORTED') {
     return 'Ordine importato dal gestionale'
   }
@@ -506,6 +529,7 @@ function summarizeActivityEvent(eventType: string, fromStatus: string | null, to
 function activityCategory(eventType: string): string {
   if (eventType === 'ORDER_CREATED') return 'ORDER_CREATED'
   if (eventType === 'ORDER_IMPORTED') return 'ORDER_IMPORTED'
+  if (eventType === 'ORDER_DUPLICATED') return 'ORDER_DUPLICATED'
   if (eventType === 'ORDER_DELETED') return 'ORDER_DELETED'
   if (eventType === 'STATUS_CHANGED' || eventType === 'STATUS_SUSPENDED') return 'STATUS_CHANGED'
   return 'ORDER_UPDATED'
@@ -544,7 +568,7 @@ function compareNullableDatesDesc(a: Date | null | undefined, b: Date | null | u
   return bTime - aTime
 }
 
-function compareNullableDatesAsc(a: Date | null | undefined, b: Date | null | undefined): number {
+function _compareNullableDatesAsc(a: Date | null | undefined, b: Date | null | undefined): number {
   const aTime = a?.getTime() ?? Number.POSITIVE_INFINITY
   const bTime = b?.getTime() ?? Number.POSITIVE_INFINITY
   return aTime - bTime
@@ -650,8 +674,8 @@ async function addOrderEvent(payload: {
   note?: string | null
   actor?: string | null
   details?: Record<string, unknown> | null
-}) {
-  await db.execute(sql`
+}, executor: Pick<typeof db, 'execute'> = db) {
+  await executor.execute(sql`
     insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
     values (
       ${payload.orderId},
@@ -1444,7 +1468,7 @@ router.get('/activity/options', async (_req, res, next) => {
     }
 
     const actions = Object.entries(readableActivityKinds)
-      .filter(([key]) => key === 'ORDER_CREATED' || key === 'ORDER_IMPORTED' || key === 'STATUS_CHANGED' || key === 'ORDER_UPDATED' || key === 'ORDER_DELETED')
+      .filter(([key]) => key === 'ORDER_CREATED' || key === 'ORDER_IMPORTED' || key === 'ORDER_DUPLICATED' || key === 'STATUS_CHANGED' || key === 'ORDER_UPDATED' || key === 'ORDER_DELETED')
       .map(([value, label]) => ({
         value,
         label,
@@ -2186,6 +2210,177 @@ router.get('/:id', async (req, res, next) => {
       conclusiWeek: ampDetails?.conclusiWeek ?? null,
       conclusiDate: ampDetails?.conclusiDate ?? null,
     })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:id/duplicate', requireAuth, requireRole(['admin', 'operativo']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const duplicateResult = await db.transaction(async (tx) => {
+      const [source] = await tx.select().from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
+      if (!source) {
+        return { notFound: true as const }
+      }
+
+      const rootId = source.rootOrderId ?? source.id
+      await tx.execute(sql`select pg_advisory_xact_lock(${rootId})`)
+
+      const [rootRow] = await tx
+        .select({ id: ordini.id, rifto: ordini.rifto })
+        .from(ordini)
+        .where(eq(ordini.id, rootId))
+        .limit(1)
+
+      const maxTrancheRows = (await tx.execute(sql`
+        select coalesce(max(tranche_number), 0) as "maxTranche"
+        from ordini
+        where root_order_id = ${rootId} or id = ${rootId}
+      `)) as Array<{ maxTranche?: number | string | null }>
+
+      const maxTranche = Number(maxTrancheRows[0]?.maxTranche ?? 0)
+      const trancheNumber = Number.isFinite(maxTranche) ? maxTranche + 1 : 1
+      const duplicatedFromRif = source.rifto ?? rootRow?.rifto ?? null
+      const baseRif = rootRow?.rifto ?? source.rifto ?? null
+      const duplicatedRif = buildDuplicatedRif(baseRif, trancheNumber)
+
+      const [created] = await tx
+        .insert(ordini)
+        .values({
+          rifto: duplicatedRif,
+          cliente: source.cliente,
+          tipoImpianto: source.tipoImpianto,
+          dataConsegna: source.dataConsegna,
+          dataConsegnaTassativa: source.dataConsegnaTassativa,
+          consegnaTassativa: source.consegnaTassativa ?? false,
+          cantiere: source.cantiere,
+          dataOrdine: source.dataOrdine,
+          referente: source.referente,
+          telefono: source.telefono,
+          referente2: source.referente2,
+          telefono2: source.telefono2,
+          scarico: source.scarico,
+          vascheCav: source.vascheCav,
+          accessori: source.accessori,
+          operai: source.operai,
+          stato: source.stato ?? 'IN CORSO',
+          note: source.note,
+          trasporto: source.trasporto ?? false,
+          scaricoCarico: source.scaricoCarico ?? false,
+          accontoPagato: source.accontoPagato ?? false,
+          commercialeId: source.commercialeId ?? null,
+          responsabileInternoId: source.responsabileInternoId ?? null,
+          externalRef: null,
+          duplicatedFromId: source.id,
+          duplicatedFromRif,
+          rootOrderId: rootId,
+          trancheNumber,
+          folderLinkDocumenti: source.folderLinkDocumenti,
+          folderLinkFoto: source.folderLinkFoto,
+          disegnoSpeditoAt: source.disegnoSpeditoAt,
+          disegnoMittenteId: source.disegnoMittenteId ?? null,
+          disegnoNote: source.disegnoNote,
+          disegnoApprovatoAt: source.disegnoApprovatoAt,
+          massicciataNota: source.massicciataNota,
+          tipoCariciNota: source.tipoCariciNota,
+          lavorazioneAssegnataAt: source.lavorazioneAssegnataAt,
+          lavorazioneParziale: source.lavorazioneParziale ?? false,
+          attesaMateriale: source.attesaMateriale ?? false,
+          residuiLavorazioneNote: source.residuiLavorazioneNote,
+          consegnaDataEffettiva: source.consegnaDataEffettiva,
+          consegnaDataEffettivaSeconda: source.consegnaDataEffettivaSeconda,
+          problemiScaricoNota: source.problemiScaricoNota,
+          vettoreId: source.vettoreId ?? null,
+          vettoreSecondoId: source.vettoreSecondoId ?? null,
+          bilici: source.bilici ?? 0,
+          biliciSecondi: source.biliciSecondi ?? 0,
+          ddtPronti: source.ddtPronti ?? false,
+          bancale: source.bancale ?? false,
+          chiusini: source.chiusini ?? false,
+          caricoVerificato: source.caricoVerificato ?? false,
+          camSiNo: source.camSiNo ?? false,
+          cementiNote: source.cementiNote,
+        })
+        .returning()
+
+      const [operaiRows, cementiRows, accessoriRows] = await Promise.all([
+        tx
+          .select({ operaioId: orderOperai.operaioId })
+          .from(orderOperai)
+          .where(eq(orderOperai.orderId, source.id)),
+        tx
+          .select({
+            tipoId: orderCementi.tipoId,
+            ordinata: orderCementi.ordinata,
+            fatta: orderCementi.fatta,
+          })
+          .from(orderCementi)
+          .where(eq(orderCementi.orderId, source.id)),
+        tx
+          .select({
+            tipoId: orderAccessori.tipoId,
+            ordinata: orderAccessori.ordinata,
+            fatta: orderAccessori.fatta,
+          })
+          .from(orderAccessori)
+          .where(eq(orderAccessori.orderId, source.id)),
+      ])
+
+      if (operaiRows.length > 0) {
+        await tx.insert(orderOperai).values(operaiRows.map((row) => ({ orderId: created.id, operaioId: row.operaioId })))
+      }
+      if (cementiRows.length > 0) {
+        await tx.insert(orderCementi).values(
+          cementiRows.map((row) => ({
+            orderId: created.id,
+            tipoId: row.tipoId,
+            ordinata: row.ordinata,
+            fatta: row.fatta,
+          })),
+        )
+      }
+      if (accessoriRows.length > 0) {
+        await tx.insert(orderAccessori).values(
+          accessoriRows.map((row) => ({
+            orderId: created.id,
+            tipoId: row.tipoId,
+            ordinata: row.ordinata,
+            fatta: row.fatta,
+          })),
+        )
+      }
+
+      await addOrderEvent(
+        {
+          orderId: created.id,
+          eventType: 'ORDER_DUPLICATED',
+          note: `Duplicato da ${duplicatedFromRif ?? `ID ${source.id}`}`,
+          actor: req.user?.username ?? null,
+          details: {
+            duplicatedFromId: source.id,
+            duplicatedFromRif,
+            rootOrderId: rootId,
+            rootRif: rootRow?.rifto ?? duplicatedFromRif,
+            trancheNumber,
+            duplicatedRif,
+          },
+        },
+        tx,
+      )
+
+      return { notFound: false as const, created }
+    })
+
+    if (duplicateResult.notFound) {
+      return res.status(404).json({ message: 'Consegna not found' })
+    }
+
+    return res.status(201).json(normalizeRow(duplicateResult.created))
   } catch (error) {
     return next(error)
   }

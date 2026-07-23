@@ -651,7 +651,7 @@ const AGING_BANDS: AgingBand[] = [
 })
 export class DashboardChartsComponent implements OnInit {
   private readonly consegneService = inject(ConsegneService);
-  private readonly openAgingBands = new Set<string>(['PRONTI & AVVISATI:over30']);
+  private readonly openAgingBands = new Set<string>();
 
   @Input({ required: true }) stats!: ConsegnaStats;
   @Input({ required: true }) app!: AppComponent;
@@ -708,7 +708,7 @@ export class DashboardChartsComponent implements OnInit {
   }
 
   shouldUseAccordion(rowCount: number): boolean {
-    return rowCount > 3;
+    return true;
   }
 
   isAgingBandOpen(status: AgingStatus, bandKey: AgingBandKey): boolean {

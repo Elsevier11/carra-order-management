@@ -75,6 +75,10 @@ export const ordini = pgTable('ordini', {
   responsabileInternoId: integer('responsabile_interno_id').references(() => responsabiliInterni.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
   externalRef: text('external_ref'),
+  duplicatedFromId: integer('duplicated_from_id').references(() => ordini.id, { onDelete: 'set null' }),
+  duplicatedFromRif: text('duplicated_from_rif'),
+  rootOrderId: integer('root_order_id').references(() => ordini.id, { onDelete: 'set null' }),
+  trancheNumber: integer('tranche_number').notNull().default(0),
   // migrato da folder_link → folder_link_documenti
   folderLinkDocumenti: text('folder_link_documenti'),
   folderLinkFoto: text('folder_link_foto'),
