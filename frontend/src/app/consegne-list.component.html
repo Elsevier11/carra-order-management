@@ -133,6 +133,14 @@
                               </div>
                             }
                           }
+                          @if (item.editingBy && item.editingBy !== app.user?.username) {
+                            <div class="consegne-badge-column">
+                              <span class="consegne-pill consegne-pill--warning consegne-pill--lock">
+                                <span class="consegne-pill__icon" aria-hidden="true">🔒</span>
+                                <span>In modifica da {{ item.editingBy }}</span>
+                              </span>
+                            </div>
+                          }
                           <div class="consegne-badge-column">
                             <span class="consegne-pill" [class.consegne-pill--ok]="item.ddtPronti" [class.consegne-pill--muted]="!item.ddtPronti">DDT pronti</span>
                           </div>

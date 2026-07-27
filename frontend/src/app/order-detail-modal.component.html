@@ -27,7 +27,7 @@
               <button *ngIf="app.canWrite && app.allowedNextStatuses(detail.stato).length" type="button" class="detail-advance-btn" (click)="app.openNextStatusConfirm()">
                 Passa a {{ app.allowedNextStatuses(detail.stato)[0] }}
               </button>
-              <button *ngIf="app.canWrite && !app.editMode" type="button" (click)="app.openEdit()">Modifica</button>
+              <button *ngIf="app.canWrite && !app.editMode" type="button" [disabled]="!app.canOpenDetailEdit" (click)="app.openEdit()">Modifica</button>
               <button *ngIf="app.canWrite && app.editMode" type="button" class="ghost" (click)="app.cancelEdit()">Annulla</button>
               <button *ngIf="app.canWrite" type="button" [class.ghost]="!app.hasPendingChanges()" (click)="app.saveAll()">Salva</button>
               <button *ngIf="app.canWrite && !app.editMode" type="button" class="ghost" (click)="app.duplicateSelected()">Duplica</button>
@@ -42,6 +42,7 @@
 
           <div class="detail-feedback detail-feedback--success" *ngIf="app.operationSuccess">OK {{ app.operationSuccess }}</div>
           <div class="detail-feedback detail-feedback--error" *ngIf="app.operationError">{{ app.operationError }}</div>
+          <div class="detail-feedback detail-feedback--warning" *ngIf="app.detailLockMessage">{{ app.detailLockMessage }}</div>
 
           <div class="detail-tabs">
             <button type="button" class="detail-tab" [class.active]="app.activeDetailTab === 'dettagli'" (click)="app.setDetailTab('dettagli')">Dettagli</button>

@@ -143,6 +143,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private operationMessageTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly searchSubject = new Subject<void>();
   private readonly destroy$ = new Subject<void>();
+  private detailLockHeartbeat: ReturnType<typeof setInterval> | number | null = null;
 
   loginState = {
     username: '',
@@ -541,6 +542,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cancelAnimationFrame(this.kanbanScrollSyncRaf);
       this.kanbanScrollSyncRaf = null;
     }
+    this.clearDetailLockHeartbeat();
     if (this.operationMessageTimer) {
       clearTimeout(this.operationMessageTimer);
       this.operationMessageTimer = null;
@@ -600,6 +602,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   logout(): void {
+    this.releaseSelectedDetailLock();
     this.authService.logout();
     this.rows = [];
     this.selectedRow = null;
@@ -668,6 +671,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadDetail(id: number): void {
+    const previousDetailId = this.selectedDetail?.id ?? null;
+    if (previousDetailId !== null && previousDetailId !== id) {
+      this.releaseSelectedDetailLock(previousDetailId);
+      this.editMode = false;
+      this.dettagliSnapshot = '';
+    }
     this.loadingDetails = true;
     this.consegneService.getById(id).subscribe({
       next: (detail) => {
@@ -681,6 +690,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         this.camSnapshot = (detail as ConsegnaRecord).camSiNo ?? false;
         this.detailSectionsSnapshot = this.serializeDetailSections();
         this.operaiSnapshot = this.serializeOperaiSelection();
+        this.syncDetailLockState();
         this.loadHistory(id);
         this.loadAttachments(id);
         this.loadLookupLists();
@@ -688,6 +698,97 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: () => {
         this.loadingDetails = false;
+      },
+    });
+  }
+
+  get detailLockedByAnotherUser(): boolean {
+    return !!this.selectedDetail?.editingBy && this.selectedDetail.editingBy !== this.user?.username;
+  }
+
+  get detailLockMessage(): string | null {
+    if (!this.selectedDetail?.editingBy) return null;
+    if (this.selectedDetail.editingBy === this.user?.username) {
+      return null;
+    }
+    return `Questo ordine è già in modifica da ${this.selectedDetail.editingBy}.`;
+  }
+
+  get canOpenDetailEdit(): boolean {
+    return this.canWrite && !!this.selectedDetail && !this.detailLockedByAnotherUser;
+  }
+
+  private syncDetailLockState(): void {
+    this.clearDetailLockHeartbeat();
+    if (!this.selectedDetail || !this.user) return;
+    if (this.selectedDetail.editingBy === this.user.username) {
+      this.startDetailLockHeartbeat(this.selectedDetail.id);
+    }
+  }
+
+  private startDetailLockHeartbeat(orderId: number): void {
+    this.clearDetailLockHeartbeat();
+    this.detailLockHeartbeat = window.setInterval(() => {
+      if (!this.selectedDetail || this.selectedDetail.id !== orderId || !this.user) return;
+      this.consegneService.acquireOrderEditLock(orderId).subscribe({
+        next: (lock) => {
+          if (!this.selectedDetail || this.selectedDetail.id !== orderId) return;
+          this.selectedDetail = {
+            ...this.selectedDetail,
+            editingBy: lock.editingBy,
+            editingAt: lock.editingAt,
+            editingExpiresAt: lock.editingExpiresAt,
+            lockedByCurrentUser: lock.lockedByCurrentUser ?? lock.editingBy === this.user?.username,
+          };
+        },
+        error: (err: { status?: number; error?: { message?: string } }) => {
+          if (err?.status === 423) {
+            this.operationError = err?.error?.message ?? 'Ordine già in modifica da un altro utente';
+            this.scheduleOperationMessageClear(4000);
+            this.clearDetailLockHeartbeat();
+          }
+        },
+      });
+    }, 45000);
+  }
+
+  private clearDetailLockHeartbeat(): void {
+    if (this.detailLockHeartbeat !== null) {
+      clearInterval(this.detailLockHeartbeat);
+      this.detailLockHeartbeat = null;
+    }
+  }
+
+  private releaseSelectedDetailLock(orderId = this.selectedDetail?.id): void {
+    if (orderId === undefined || orderId === null) {
+      this.clearDetailLockHeartbeat();
+      return;
+    }
+
+    this.consegneService.releaseOrderEditLock(orderId).subscribe({
+      next: () => {
+        if (this.selectedDetail && this.selectedDetail.id === orderId) {
+          this.selectedDetail = {
+            ...this.selectedDetail,
+            editingBy: null,
+            editingAt: null,
+            editingExpiresAt: null,
+            lockedByCurrentUser: false,
+          };
+        }
+        this.clearDetailLockHeartbeat();
+      },
+      error: () => {
+        if (this.selectedDetail && this.selectedDetail.id === orderId) {
+          this.selectedDetail = {
+            ...this.selectedDetail,
+            editingBy: null,
+            editingAt: null,
+            editingExpiresAt: null,
+            lockedByCurrentUser: false,
+          };
+        }
+        this.clearDetailLockHeartbeat();
       },
     });
   }
@@ -779,6 +880,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   doCloseDetailModal(): void {
     const returnView = this.detailReturnView;
+    const orderId = this.selectedDetail?.id ?? null;
+    if (orderId !== null) {
+      this.releaseSelectedDetailLock(orderId);
+    }
     this.closeConfirmOpen = false;
     this.detailModalOpen = false;
     this.selectedDetail = null;
@@ -1365,6 +1470,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   openEdit(): void {
     if (!this.selectedDetail) return;
+    if (this.detailLockedByAnotherUser) {
+      this.operationError = this.detailLockMessage ?? 'Ordine già in modifica da un altro utente';
+      this.scheduleOperationMessageClear(4000);
+      return;
+    }
     this.formModel = {
       rif: this.selectedDetail.rif ?? '',
       cliente: this.selectedDetail.cliente ?? '',
@@ -1397,13 +1507,34 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       cementiNote: this.selectedDetail.cementiNote ?? '',
     };
     this.dettagliSnapshot = this.serializeDettagli();
-    this.editMode = true;
-    this.activeDetailTab = 'gestione';
+    const orderId = this.selectedDetail.id;
+    this.consegneService.acquireOrderEditLock(orderId).subscribe({
+      next: (lock) => {
+        if (!this.selectedDetail || this.selectedDetail.id !== orderId) {
+          return;
+        }
+        this.selectedDetail = {
+          ...this.selectedDetail,
+          editingBy: lock.editingBy,
+          editingAt: lock.editingAt,
+          editingExpiresAt: lock.editingExpiresAt,
+          lockedByCurrentUser: lock.lockedByCurrentUser ?? lock.editingBy === this.user?.username,
+        };
+        this.syncDetailLockState();
+        this.editMode = true;
+        this.activeDetailTab = 'gestione';
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.operationError = err?.error?.message ?? 'Ordine già in modifica da un altro utente';
+        this.scheduleOperationMessageClear(4000);
+      },
+    });
   }
 
   cancelEdit(): void {
     this.editMode = false;
     this.dettagliSnapshot = '';
+    this.releaseSelectedDetailLock();
   }
 
   closeForm(): void {
@@ -3534,6 +3665,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         if (accessoriDirty) this.accessoriSnapshot = this.serializeAccessori();
         this.loadBoard();
         if (this.editMode) this.editMode = false;
+        this.releaseSelectedDetailLock(id);
         this.operationSuccess = 'Modifiche salvate';
         setTimeout(() => { this.operationSuccess = ''; }, 3000);
       },

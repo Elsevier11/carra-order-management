@@ -190,6 +190,21 @@ export async function ensureDatabaseObjects() {
   `)
 
   await pgClient.unsafe(`
+    create table if not exists order_edit_locks (
+      order_id integer primary key references ordini(id) on delete cascade,
+      username text not null,
+      acquired_at timestamp not null default now(),
+      updated_at timestamp not null default now(),
+      expires_at timestamp not null
+    );
+  `)
+
+  await pgClient.unsafe(`
+    create index if not exists idx_order_edit_locks_expires_at
+    on order_edit_locks(expires_at);
+  `)
+
+  await pgClient.unsafe(`
     create table if not exists audit_logs (
       id serial primary key,
       username text,

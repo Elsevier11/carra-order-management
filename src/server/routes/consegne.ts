@@ -3,11 +3,11 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Router } from 'express'
-import { and, asc, count, desc, eq, gte, ilike, lt, lte, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, ilike, inArray, lt, lte, or, sql, type SQL } from 'drizzle-orm'
 import multer from 'multer'
 import XLSX from 'xlsx'
 import { z } from 'zod'
-import { accessoriTipi, cementiTipi, commerciali, mittentiDisegno, operai as operaiTable, orderAccessori, orderAttachments, orderCementi, orderOperai, ordini, responsabiliInterni, vettori } from '../../db/schema'
+import { accessoriTipi, cementiTipi, commerciali, mittentiDisegno, operai as operaiTable, orderAccessori, orderAttachments, orderCementi, orderEditLocks, orderOperai, ordini, responsabiliInterni, vettori } from '../../db/schema'
 import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
@@ -30,6 +30,7 @@ const allowedAttachmentMimeTypes = (process.env.ATTACHMENTS_ALLOWED_MIME ?? 'app
   .filter(Boolean)
 const completedStatuses = new Set(['CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA EFFETTUATA'])
 const ampRelevantStatuses = new Set(['CONCLUSI', 'PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'])
+const orderEditLockTtlMs = Number(process.env.ORDER_EDIT_LOCK_TTL_MS ?? 5 * 60 * 1000)
 const openFolderSchema = z.object({
   path: z.string().min(1),
 })
@@ -278,6 +279,7 @@ type Attachment = {
 }
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type OrderEditLockRow = typeof orderEditLocks.$inferSelect
 
 function toIsoDate(value: Date | null): string | null {
   return value ? value.toISOString().slice(0, 10) : null
@@ -303,6 +305,98 @@ function formatItalianDate(value: Date | null | undefined): string {
 
 function yesNo(value: boolean | null | undefined): string {
   return value ? 'Si' : 'No'
+}
+
+function toSafeIsoString(value: Date | string | null | undefined): string | null {
+  if (!value) return null
+  const parsed = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+function lockToResponse(lock: OrderEditLockRow | null) {
+  if (!lock) {
+    return {
+      editingBy: null,
+      editingAt: null,
+      editingExpiresAt: null,
+    }
+  }
+
+  return {
+    editingBy: lock.username,
+    editingAt: toSafeIsoString(lock.acquiredAt),
+    editingExpiresAt: toSafeIsoString(lock.expiresAt),
+  }
+}
+
+async function getActiveOrderEditLock(orderId: number): Promise<OrderEditLockRow | null> {
+  const [lock] = await db
+    .select()
+    .from(orderEditLocks)
+    .where(and(eq(orderEditLocks.orderId, orderId), sql`${orderEditLocks.expiresAt} > now()`))
+    .limit(1)
+
+  return lock ?? null
+}
+
+async function getActiveOrderEditLocksMap(orderIds: number[]): Promise<Map<number, OrderEditLockRow>> {
+  if (orderIds.length === 0) return new Map()
+
+  const locks = await db
+    .select()
+    .from(orderEditLocks)
+    .where(and(inArray(orderEditLocks.orderId, orderIds), sql`${orderEditLocks.expiresAt} > now()`))
+
+  return new Map(locks.map((lock) => [lock.orderId, lock]))
+}
+
+async function rejectIfOrderLockedByAnotherUser(orderId: number, username: string): Promise<OrderEditLockRow | null> {
+  const lock = await getActiveOrderEditLock(orderId)
+  if (lock && lock.username !== username) {
+    return lock
+  }
+  return null
+}
+
+async function acquireOrderEditLock(orderId: number, username: string): Promise<{ lock: OrderEditLockRow | null; conflict: OrderEditLockRow | null }> {
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + orderEditLockTtlMs)
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${orderId})`)
+    await tx.delete(orderEditLocks).where(and(eq(orderEditLocks.orderId, orderId), sql`${orderEditLocks.expiresAt} <= now()`))
+
+    const [activeLock] = await tx.select().from(orderEditLocks).where(eq(orderEditLocks.orderId, orderId)).limit(1)
+    if (activeLock && activeLock.username !== username) {
+      return { lock: null, conflict: activeLock }
+    }
+
+    if (activeLock) {
+      const [updatedLock] = await tx
+        .update(orderEditLocks)
+        .set({
+          updatedAt: now,
+          expiresAt,
+        })
+        .where(eq(orderEditLocks.orderId, orderId))
+        .returning()
+
+      return { lock: updatedLock ?? activeLock, conflict: null }
+    }
+
+    const [insertedLock] = await tx
+      .insert(orderEditLocks)
+      .values({
+        orderId,
+        username,
+        acquiredAt: now,
+        updatedAt: now,
+        expiresAt,
+      })
+      .returning()
+
+    return { lock: insertedLock ?? null, conflict: null }
+  })
 }
 
 function styleCell(sheet: XLSX.WorkSheet, ref: string, style: NonNullable<XLSX.CellObject['s']>) {
@@ -719,9 +813,13 @@ router.get('/', async (req, res, next) => {
         .offset(offset),
       db.select({ count: count() }).from(ordini).where(whereClause),
     ])
+    const locksByOrder = await getActiveOrderEditLocksMap(rows.map((row) => row.id))
 
     res.json({
-      data: rows.map(normalizeRow),
+      data: rows.map((row) => ({
+        ...normalizeRow(row),
+        ...lockToResponse(locksByOrder.get(row.id) ?? null),
+      })),
       pagination: {
         page: query.page,
         pageSize: query.pageSize,
@@ -757,10 +855,14 @@ router.get('/export', requireAuth, async (req: AuthenticatedRequest, res, next) 
       .where(whereClause)
       .orderBy(query.sortDir === 'asc' ? asc(sortColumn) : desc(sortColumn))
       .limit(10000)
+    const locksByOrder = await getActiveOrderEditLocksMap(rows.map((row) => row.id))
 
     const headers = ['rif', 'cliente', 'tipoImpianto', 'dataConsegna', 'cantiere', 'stato', 'note', 'referente2', 'telefono2', 'disegnoApprovatoAt', 'cementiNote']
     const csvRows = rows.map((row) => {
-      const normalized = normalizeRow(row)
+      const normalized = {
+        ...normalizeRow(row),
+        ...lockToResponse(locksByOrder.get(row.id) ?? null),
+      }
       const deliveryDate = normalized.consegnaTassativa
         ? (normalized.dataConsegnaTassativa ?? normalized.dataConsegna ?? '')
         : (normalized.dataConsegna ?? '')
@@ -1184,6 +1286,8 @@ router.get('/board', async (req, res, next) => {
       )
     }
 
+    const locksByOrder = await getActiveOrderEditLocksMap(rows.map((row) => row.id))
+
     const columns = allowedStatuses.map((status) => ({
       status,
       count: rows.filter((row) => (row.stato ?? 'IN CORSO') === status).length,
@@ -1193,6 +1297,7 @@ router.get('/board', async (req, res, next) => {
         lastModifiedByOrder,
       ).map((row) => ({
         ...normalizeRow(row),
+        ...lockToResponse(locksByOrder.get(row.id) ?? null),
         operaiAssegnati: operaiByOrder.get(row.id) ?? [],
         conclusiMode: conclusiByOrder.get(row.id)?.conclusiMode ?? null,
         conclusiWeek: conclusiByOrder.get(row.id)?.conclusiWeek ?? null,
@@ -1754,6 +1859,15 @@ router.post('/:id/attachments', requireAuth, requireRole(['admin', 'operativo'])
       return res.status(404).json({ message: 'Consegna not found' })
     }
 
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
+    }
+
     const file = req.file
     if (!file) {
       return res.status(400).json({ message: 'Missing file' })
@@ -1862,6 +1976,15 @@ router.delete('/:id/attachments/:attachmentId', requireAuth, requireRole(['admin
       return res.status(404).json({ message: 'Attachment not found' })
     }
 
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
+    }
+
     const absolutePath = resolveAttachmentPath(deleted.storagePath)
     await fs.rm(absolutePath, { force: true })
 
@@ -1890,6 +2013,15 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
 
     if (!row) {
       return res.status(404).json({ message: 'Consegna not found' })
+    }
+
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
     }
 
     const currentStatus = row.stato ?? 'IN CORSO'
@@ -2158,6 +2290,8 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ message: 'Consegna not found' })
     }
 
+    const lock = await getActiveOrderEditLock(id)
+
     const [operaiRows, cementiRows, accessoriRows] = await Promise.all([
       db
         .select({ id: operaiTable.id, nome: operaiTable.nome })
@@ -2209,7 +2343,62 @@ router.get('/:id', async (req, res, next) => {
       conclusiMode: ampDetails?.conclusiMode ?? null,
       conclusiWeek: ampDetails?.conclusiWeek ?? null,
       conclusiDate: ampDetails?.conclusiDate ?? null,
+      ...lockToResponse(lock),
     })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:id/edit-lock', requireAuth, requireRole(['admin', 'operativo']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const username = req.user?.username
+    if (!username) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
+    const [existing] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
+    if (!existing) {
+      return res.status(404).json({ message: 'Consegna not found' })
+    }
+
+    const { lock, conflict } = await acquireOrderEditLock(id, username)
+    if (conflict) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${conflict.username}`,
+        lockedBy: conflict.username,
+        ...lockToResponse(conflict),
+      })
+    }
+
+    return res.json({
+      ...lockToResponse(lock),
+      lockedByCurrentUser: lock?.username === username,
+    })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.delete('/:id/edit-lock', requireAuth, requireRole(['admin', 'operativo']), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Invalid id' })
+    }
+
+    const username = req.user?.username
+    if (!username) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
+    await db.delete(orderEditLocks).where(and(eq(orderEditLocks.orderId, id), eq(orderEditLocks.username, username)))
+    return res.status(204).send()
   } catch (error) {
     return next(error)
   }
@@ -2497,6 +2686,16 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if (!existing) {
       return res.status(404).json({ message: 'Consegna not found' })
     }
+
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
+    }
+
     const ampEvents = await db.execute(sql`
       select details
       from order_events
@@ -2738,6 +2937,15 @@ router.put('/:id/operai', requireAuth, requireRole(['admin', 'operativo']), asyn
     const [existing] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
+    }
+
     await db.transaction(async (tx) => {
       await replaceOrderOperai(tx, id, operaiIds)
       await tx.execute(sql`
@@ -2799,6 +3007,15 @@ router.put('/:id/cementi', requireAuth, requireRole(['admin', 'operativo']), asy
 
     const [existing] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
+
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
+    }
 
     await db.transaction(async (tx) => {
       await tx.delete(orderCementi).where(eq(orderCementi.orderId, id))
@@ -2872,6 +3089,15 @@ router.put('/:id/accessori', requireAuth, requireRole(['admin', 'operativo']), a
     const [existing] = await db.select({ id: ordini.id }).from(ordini).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).limit(1)
     if (!existing) return res.status(404).json({ message: 'Consegna not found' })
 
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
+    }
+
     await db.transaction(async (tx) => {
       await tx.delete(orderAccessori).where(eq(orderAccessori.orderId, id))
       if (items.length > 0) {
@@ -2925,6 +3151,15 @@ router.delete('/:id', requireAuth, requireRole(['admin', 'operativo']), async (r
 
     if (!existing) {
       return res.status(404).json({ message: 'Consegna not found' })
+    }
+
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
     }
 
     req.auditMeta = {

@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { AccessorioTipo, AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CementoTipo, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, DashboardAgingResponse, ErpOrderPreviewItem, FilterOptions, ImportConfig, MittenteDisegno, Operaio, OrderAccessorio, OrderActivityOptions, OrderActivityResponse, OrderCemento, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse, Vettore } from './consegne.types';
+import { AccessorioTipo, AppUserRecord, AttachmentRecord, AuditLogResponse, BoardResponse, CementoTipo, CommercialeRecord, ConsegnaFilters, ConsegneResponse, ConsegnaStats, DashboardAgingResponse, ErpOrderPreviewItem, FilterOptions, ImportConfig, MittenteDisegno, Operaio, OrderAccessorio, OrderActivityOptions, OrderActivityResponse, OrderCemento, OrderEditLockState, OrderEvent, ResponsabileRecord, SqlServerImportResult, SqlServerPreviewResponse, Vettore } from './consegne.types';
 
 @Injectable({ providedIn: 'root' })
 export class ConsegneService {
@@ -193,6 +193,14 @@ export class ConsegneService {
 
   duplicate(id: number) {
     return this.http.post(`${this.baseUrl}/${id}/duplicate`, {});
+  }
+
+  acquireOrderEditLock(id: number): Observable<OrderEditLockState> {
+    return this.http.post<OrderEditLockState>(`${this.baseUrl}/${id}/edit-lock`, {});
+  }
+
+  releaseOrderEditLock(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}/edit-lock`);
   }
 
   updateOperai(id: number, operaiIds: number[]): Observable<unknown> {

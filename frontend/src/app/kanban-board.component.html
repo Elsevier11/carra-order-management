@@ -135,6 +135,14 @@
                             </div>
                           }
                         }
+                        @if (item.editingBy && item.editingBy !== app.user?.username) {
+                          <div class="kanban-card-alerts">
+                            <span class="kanban-card-alert kanban-card-alert--warning kanban-card-alert--lock">
+                              <span class="kanban-card-alert__icon" aria-hidden="true">🔒</span>
+                              <span>In modifica da {{ item.editingBy }}</span>
+                            </span>
+                          </div>
+                        }
                         @if (app.boardOperaiWarning(item); as operaiWarning) {
                           <div class="kanban-card-alerts">
                             <span class="kanban-card-alert">{{ operaiWarning }}</span>
@@ -271,6 +279,14 @@
                             }
                           </div>
                         }
+                      }
+                      @if (item.editingBy && item.editingBy !== app.user?.username) {
+                        <div class="kanban-card-alerts">
+                          <span class="kanban-card-alert kanban-card-alert--warning kanban-card-alert--lock">
+                            <span class="kanban-card-alert__icon" aria-hidden="true">🔒</span>
+                            <span>In modifica da {{ item.editingBy }}</span>
+                          </span>
+                        </div>
                       }
                       @if (app.boardOperaiWarning(item); as operaiWarning) {
                         <div class="kanban-card-alerts">

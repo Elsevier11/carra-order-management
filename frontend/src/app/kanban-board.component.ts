@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
 import { Component, ElementRef, HostListener, Input, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { BoardColumn, ConsegnaFilters, ConsegnaRecord } from './consegne.types';
+import { BoardColumn, ConsegnaFilters, ConsegnaRecord, type AuthUser } from './consegne.types';
 import type { BoardInfoBadge, BoardInfoBadgeTone } from './order-formatters';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
 
@@ -37,6 +37,7 @@ export interface KanbanBoardHost {
   kanbanScrollContentWidth: number;
   kanbanDeliveryBadgeText(item: ConsegnaRecord): string;
   nomeVettore(id: number | null | undefined): string;
+  user: AuthUser | null;
   responsabiliRows: Array<{ id: number; nome: string }>;
   loadingBoard: boolean;
   boardOperaiSummary(item: ConsegnaRecord): string[];

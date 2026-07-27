@@ -115,6 +115,14 @@ export const ordini = pgTable('ordini', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+export const orderEditLocks = pgTable('order_edit_locks', {
+  orderId: integer('order_id').primaryKey().references(() => ordini.id, { onDelete: 'cascade' }),
+  username: text('username').notNull(),
+  acquiredAt: timestamp('acquired_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at').notNull(),
+})
+
 // --- Tabelle relazione per ordine ---
 
 export const orderOperai = pgTable('order_operai', {

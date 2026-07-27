@@ -112,6 +112,10 @@ export interface ConsegnaRecord {
   conclusiWeek?: string | null;
   conclusiDate?: string | null;
   prontiAvvisatiAt?: string | null;
+  editingBy?: string | null;
+  editingAt?: string | null;
+  editingExpiresAt?: string | null;
+  lockedByCurrentUser?: boolean;
   // Relazioni
   operaiAssegnati: { id: number; nome: string }[];
   cementi: OrderCemento[];
@@ -307,6 +311,13 @@ export interface OrderActivityOptions {
   actors: Array<{ value: string; label: string; count: number }>;
   orders: Array<{ value: string; label: string; count: number; deleted: boolean }>;
   clients: Array<{ value: string; label: string; count: number }>;
+}
+
+export interface OrderEditLockState {
+  editingBy: string | null;
+  editingAt: string | null;
+  editingExpiresAt: string | null;
+  lockedByCurrentUser?: boolean;
 }
 
 export interface AuditLogSummary {
