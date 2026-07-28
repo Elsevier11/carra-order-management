@@ -5,6 +5,7 @@ import { MittenteDisegno, Operaio, Vettore } from './consegne.types';
 import { NoteEditorComponent } from './note-editor.component';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
 import { validateTransitionState } from '../../../src/shared/transition-validation';
+import type { DeliveryPlanEntry } from '../../../src/shared/delivery-plan';
 
 export interface TransitionModalModel {
   open: boolean;
@@ -15,20 +16,21 @@ export interface TransitionModalModel {
   disegnoMittenteId: number | null;
   disegnoApprovatoAt: string;
   lavorazioneAssegnataAt: string;
-  consegnaDataEffettiva: string;
-  consegnaDataEffettivaSeconda: string;
+  consegnaDataEffettiva?: string;
+  consegnaDataEffettivaSeconda?: string;
   problemiScaricoNota: string;
-  vettoreId: number | null;
-  vettoreSecondoId: number | null;
-  bilici: number | null;
-  biliciSecondi: number | null;
+  vettoreId?: number | null;
+  vettoreSecondoId?: number | null;
+  bilici?: number | null;
+  biliciSecondi?: number | null;
   operaiIds: number[];
   skipAssegnazione: boolean;
   conclusiMode: 'week' | 'date';
   conclusiWeek: string;
   conclusiDate: string;
   accontoPagato: boolean;
-  secondaConsegna: boolean;
+  deliveryPlan: DeliveryPlanEntry[];
+  secondaConsegna?: boolean;
   note: string;
   error: string;
 }
@@ -55,6 +57,8 @@ export class TransitionModalComponent {
   @Output() cancel = new EventEmitter<void>();
   @Output() decideLater = new EventEmitter<void>();
 
+  readonly deliveryCountOptions = [1, 2, 3, 4];
+
   isOperaioSelected(id: number): boolean {
     return this.modal.operaiIds.includes(id);
   }
@@ -78,18 +82,34 @@ export class TransitionModalComponent {
     }
   }
 
-  toggleSecondaConsegna(enabled: boolean): void {
+  setDeliveryCount(count: number): void {
     if (!this.modal.open || this.modal.toStatus !== 'CONSEGNA PIANIFICATA') return;
-    this.modal.secondaConsegna = enabled;
-    if (enabled) {
-      this.modal.consegnaDataEffettivaSeconda = this.modal.consegnaDataEffettivaSeconda || this.modal.consegnaDataEffettiva || this.todayIsoDate();
-      this.modal.vettoreSecondoId = this.modal.vettoreSecondoId ?? this.modal.vettoreId;
-      this.modal.biliciSecondi = this.modal.biliciSecondi ?? 0;
-    } else {
-      this.modal.consegnaDataEffettivaSeconda = '';
-      this.modal.vettoreSecondoId = null;
-      this.modal.biliciSecondi = null;
+    const nextCount = Math.min(Math.max(Math.trunc(Number(count) || 1), 1), 4);
+    const plan = [...(this.modal.deliveryPlan ?? [])];
+    while (plan.length < nextCount) {
+      const previous = plan[plan.length - 1];
+      plan.push({
+        data: previous?.data || this.todayIsoDate(),
+        vettoreId: previous?.vettoreId ?? null,
+        bilici: previous?.bilici ?? 0,
+      });
     }
+    this.modal.deliveryPlan = plan.slice(0, nextCount);
+  }
+
+  updateDeliveryPlanEntry(index: number, patch: Partial<DeliveryPlanEntry>): void {
+    if (!this.modal.open || this.modal.toStatus !== 'CONSEGNA PIANIFICATA') return;
+    const current = this.modal.deliveryPlan[index];
+    if (!current) return;
+    this.modal.deliveryPlan[index] = {
+      data: patch.data ?? current.data,
+      vettoreId: patch.vettoreId ?? current.vettoreId,
+      bilici: patch.bilici ?? current.bilici,
+    };
+  }
+
+  deliveryLabel(index: number): string {
+    return `${index + 1}a consegna`;
   }
 
   requestConfirm(skipAssegnazione = false): void {

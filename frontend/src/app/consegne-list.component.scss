@@ -38,23 +38,25 @@
 .consegne-filters {
   width: 100%;
   grid-template-columns:
-    minmax(260px, 1.55fr)
-    minmax(180px, 1fr)
-    minmax(180px, 1fr)
-    minmax(180px, 1fr)
-    minmax(190px, 1fr);
+    minmax(180px, 1.25fr)
+    minmax(120px, 0.95fr)
+    minmax(120px, 0.95fr)
+    minmax(120px, 0.95fr)
+    minmax(130px, 0.85fr);
 }
 
 @media (max-width: 1440px) {
   .consegne-filters {
     grid-template-columns:
-      minmax(240px, 1.6fr)
-      minmax(180px, 1fr)
-      minmax(180px, 1fr);
-  }
+      minmax(165px, 1.2fr)
+      minmax(115px, 0.95fr)
+      minmax(115px, 0.95fr)
+      minmax(115px, 0.95fr)
+      minmax(125px, 0.85fr);
+}
 }
 
-@media (max-width: 1040px) {
+@media (max-width: 1180px) {
   .consegne-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -263,9 +265,9 @@
 }
 
 .consegne-pill--date {
-  background: linear-gradient(180deg, #eef4ff 0%, #e4edff 100%);
-  border-color: rgba(37, 99, 235, 0.18);
-  color: var(--primary-dark);
+  background: #fef2f2;
+  border-color: rgba(248, 113, 113, 0.24);
+  color: #b91c1c;
 }
 
 .consegne-pill--stimata {

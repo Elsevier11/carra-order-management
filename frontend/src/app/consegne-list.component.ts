@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import type { ConsegnaRecord } from './consegne.types';
 import type { KanbanBoardHost } from './kanban-board.component';
 import { deliveryBadgeText, deliveryDateValue } from './order-formatters';
+import { buildDeliveryPlanFromLegacy, normalizeDeliveryPlanEntries } from '../../../src/shared/delivery-plan';
 
 @Component({
   selector: 'app-consegne-list',
@@ -30,13 +31,9 @@ export class ConsegneListComponent {
   }
 
   deliveryDateLabel(item: ConsegnaRecord): string {
-    const value = this.deliveryDateValueForItem(item);
-    const second = this.deliveryDateSecondValue(item);
-    if (!value && !second) return 'â€”';
-    const firstLabel = value ? this.formatDate(value) : 'â€”';
-    if (!second) return firstLabel;
-    const secondLabel = this.formatDate(second);
-    return `${firstLabel} + ${secondLabel}`;
+    const entries = this.deliveryEntries(item);
+    if (!entries.length) return '—';
+    return entries.map((entry, index) => `${index + 1}a ${this.formatDate(entry.data)}`).join(' · ');
   }
 
   deliveryTypeLabel(item: ConsegnaRecord): string {
@@ -44,17 +41,24 @@ export class ConsegneListComponent {
   }
 
   vettoreLabel(item: ConsegnaRecord): string {
-    const first = this.app.nomeVettore(item.vettoreId);
-    const second = this.app.nomeVettore(item.vettoreSecondoId ?? null);
-    if (!second || second === 'â€”') return first;
-    return first && first !== 'â€”' ? `${first} + ${second}` : second;
+    const entries = this.deliveryEntries(item);
+    if (!entries.length) return this.app.nomeVettore(item.vettoreId);
+    const labels = entries
+      .map((entry, index) => {
+        const value = this.app.nomeVettore(entry.vettoreId);
+        return value && value !== '—' ? `${index + 1}a ${value}` : '';
+      })
+      .filter(Boolean);
+    return labels.length ? labels.join(' · ') : '—';
   }
 
   biliciLabel(item: ConsegnaRecord): string {
-    if (item.biliciSecondi != null && item.biliciSecondi > 0) {
-      return `${item.bilici} + ${item.biliciSecondi}`;
-    }
-    return `${item.bilici}`;
+    const entries = this.deliveryEntries(item);
+    if (!entries.length) return `${item.bilici}`;
+    const labels = entries
+      .map((entry, index) => (entry.bilici != null ? `${index + 1}a ${entry.bilici}` : ''))
+      .filter(Boolean);
+    return labels.length ? labels.join(' · ') : `${item.bilici}`;
   }
 
   problemiScaricoLabel(item: ConsegnaRecord): string | null {
@@ -68,8 +72,9 @@ export class ConsegneListComponent {
     return deliveryDateValue(item);
   }
 
-  private deliveryDateSecondValue(item: ConsegnaRecord): string | null {
-    return item.consegnaDataEffettivaSeconda ?? null;
+  private deliveryEntries(item: ConsegnaRecord): Array<{ data: string; vettoreId: number | null; bilici: number | null }> {
+    return normalizeDeliveryPlanEntries(item.deliveryPlan?.length ? item.deliveryPlan : buildDeliveryPlanFromLegacy(item))
+      .filter((entry) => !!entry.data || !!entry.vettoreId || (entry.bilici ?? 0) > 0);
   }
 
   private formatDate(value: string): string {

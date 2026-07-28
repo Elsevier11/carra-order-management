@@ -34,7 +34,7 @@
           }
         </select>
         <select [(ngModel)]="app.filters.vettoreId" (ngModelChange)="app.onFilterSelectChange()">
-          <option value="">Tutti i trasportatori</option>
+          <option value="">Trasportatori</option>
           @for (vettore of app.availableFilters.vettori; track vettore.id) {
             <option [value]="vettore.id">{{ vettore.nome }}</option>
           }

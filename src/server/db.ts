@@ -288,6 +288,7 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists consegna_data_effettiva_seconda timestamp;`)
   await pgClient.unsafe(`alter table ordini add column if not exists vettore_secondo_id integer references vettori(id) on delete set null;`)
   await pgClient.unsafe(`alter table ordini add column if not exists bilici_secondi integer not null default 0;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists consegne_programmate jsonb not null default '[]'::jsonb;`)
   await pgClient.unsafe(`alter table ordini add column if not exists deleted_at timestamp;`)
   await pgClient.unsafe(`alter table ordini add column if not exists deleted_by text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists updated_at timestamp not null default now();`)

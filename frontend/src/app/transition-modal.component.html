@@ -15,7 +15,7 @@
             <span>Data spedizione disegno</span>
             <div class="date-field">
               <input #disegnoSpeditoInput type="date" [(ngModel)]="modal.disegnoSpeditoAt" />
-              <button type="button" class="date-field__button ghost" (click)="openDatePicker(disegnoSpeditoInput)" aria-label="Apri calendario">📅</button>
+              <button type="button" class="date-field__button ghost" (click)="openDatePicker(disegnoSpeditoInput)" aria-label="Apri calendario">Cal</button>
             </div>
           </label>
           <label class="form-field">
@@ -32,7 +32,7 @@
             <span>Data approvazione disegno</span>
             <div class="date-field">
               <input #disegnoApprovatoInput type="date" [(ngModel)]="modal.disegnoApprovatoAt" />
-              <button type="button" class="date-field__button ghost" (click)="openDatePicker(disegnoApprovatoInput)" aria-label="Apri calendario">📅</button>
+              <button type="button" class="date-field__button ghost" (click)="openDatePicker(disegnoApprovatoInput)" aria-label="Apri calendario">Cal</button>
             </div>
           </label>
         } @else if (modal.toStatus === 'ASSEGNATO') {
@@ -40,10 +40,10 @@
             <span>Data assegnazione</span>
             <div class="date-field">
               <input #lavorazioneAssegnataInput type="date" [(ngModel)]="modal.lavorazioneAssegnataAt" />
-              <button type="button" class="date-field__button ghost" (click)="openDatePicker(lavorazioneAssegnataInput)" aria-label="Apri calendario">📅</button>
+              <button type="button" class="date-field__button ghost" (click)="openDatePicker(lavorazioneAssegnataInput)" aria-label="Apri calendario">Cal</button>
             </div>
           </label>
-          <div class="form-field" style="grid-column: 1 / -1;">
+          <div class="form-field form-field--full">
             <span>Operai da assegnare</span>
             <div class="transition-workers">
               @if (!operaiList.length) {
@@ -63,7 +63,7 @@
             </div>
           </div>
         } @else if (modal.toStatus === 'CONCLUSI' || modal.toStatus === 'PRONTI & AVVISATI') {
-          <div class="form-field" style="grid-column: 1 / -1;">
+          <div class="form-field form-field--full">
             <span class="transition-field-label">A.M.P.</span>
             <div class="transition-mode-switch transition-mode-switch--chip">
               <button
@@ -86,78 +86,86 @@
             @if (modal.conclusiMode === 'week') {
               <div class="date-field">
                 <input #conclusiWeekInput class="transition-week-input" type="week" [(ngModel)]="modal.conclusiWeek" />
-                <button type="button" class="date-field__button ghost" (click)="openDatePicker(conclusiWeekInput)" aria-label="Apri selettore settimana">📅</button>
+                <button type="button" class="date-field__button ghost" (click)="openDatePicker(conclusiWeekInput)" aria-label="Apri selettore settimana">Cal</button>
               </div>
             } @else {
               <div class="date-field">
                 <input #conclusiDateInput type="date" [(ngModel)]="modal.conclusiDate" />
-                <button type="button" class="date-field__button ghost" (click)="openDatePicker(conclusiDateInput)" aria-label="Apri calendario">📅</button>
+                <button type="button" class="date-field__button ghost" (click)="openDatePicker(conclusiDateInput)" aria-label="Apri calendario">Cal</button>
               </div>
             }
           </div>
         } @else if (modal.toStatus === 'CONSEGNA PIANIFICATA') {
-          <label class="form-field">
-            <span>Data consegna effettiva</span>
-            <div class="date-field">
-              <input #consegnaDataEffettivaInput type="date" [(ngModel)]="modal.consegnaDataEffettiva" />
-              <button type="button" class="date-field__button ghost" (click)="openDatePicker(consegnaDataEffettivaInput)" aria-label="Apri calendario">📅</button>
-            </div>
-          </label>
-          <label class="form-field">
-            <span>N° bilici</span>
-            <input type="number" min="0" step="1" [(ngModel)]="modal.bilici" />
-          </label>
-          <label class="form-field">
-            <span>Vettore</span>
-            <select [(ngModel)]="modal.vettoreId">
-              <option [ngValue]="null">Seleziona vettore</option>
-              @for (vettore of vettoriList; track vettore.id) {
-                <option [ngValue]="vettore.id">{{ vettore.nome }}</option>
+          <label class="form-field form-field--full form-field--compact">
+            <span>Numero consegne</span>
+            <select [ngModel]="modal.deliveryPlan.length" (ngModelChange)="setDeliveryCount($event)">
+              @for (count of deliveryCountOptions; track count) {
+                <option [ngValue]="count">{{ count }}</option>
               }
             </select>
           </label>
+
+          <div class="form-field form-field--full">
+            <div class="transition-delivery-stack">
+              @for (delivery of modal.deliveryPlan; track $index) {
+                <section class="transition-delivery-card" [class.transition-delivery-card--primary]="$index === 0">
+                  <div class="transition-delivery-card__header">
+                    <span class="transition-delivery-card__title">{{ deliveryLabel($index) }}</span>
+                  </div>
+                  <div class="transition-second-grid">
+                    <label class="form-field transition-field--tight">
+                      <span>Data {{ $index === 0 ? 'consegna effettiva' : ('consegna ' + ($index + 1)) }}</span>
+                      <div class="date-field">
+                        <input
+                          #deliveryDateInput
+                          type="date"
+                          [ngModel]="delivery.data"
+                          (ngModelChange)="updateDeliveryPlanEntry($index, { data: $event })"
+                        />
+                        <button type="button" class="date-field__button ghost" (click)="openDatePicker(deliveryDateInput)" aria-label="Apri calendario">Cal</button>
+                      </div>
+                    </label>
+                    <label class="form-field transition-field--tight">
+                      <span>Numero bilici</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        [ngModel]="delivery.bilici"
+                        (ngModelChange)="updateDeliveryPlanEntry($index, { bilici: $event })"
+                      />
+                    </label>
+                    <label class="form-field transition-field--tight">
+                      <span>Vettore</span>
+                      <select
+                        class="transition-select-compact"
+                        [ngModel]="delivery.vettoreId"
+                        (ngModelChange)="updateDeliveryPlanEntry($index, { vettoreId: $event })"
+                      >
+                        <option [ngValue]="null">Seleziona vettore</option>
+                        @for (vettore of vettoriList; track vettore.id) {
+                          <option [ngValue]="vettore.id">{{ vettore.nome }}</option>
+                        }
+                      </select>
+                    </label>
+                  </div>
+                </section>
+              }
+            </div>
+          </div>
+
           <div class="form-field form-field--full">
             <label class="transition-inline-check">
               <input type="checkbox" [(ngModel)]="modal.accontoPagato" />
               <span>Acconto pagato</span>
             </label>
           </div>
-          <div class="form-field form-field--full">
-            <label class="transition-second-toggle">
-              <input type="checkbox" [(ngModel)]="modal.secondaConsegna" (ngModelChange)="toggleSecondaConsegna($event)" />
-              <span>Seconda consegna</span>
-            </label>
-            @if (modal.secondaConsegna) {
-              <div class="transition-second-grid">
-                <label class="form-field">
-                  <span>Data seconda consegna</span>
-                  <div class="date-field">
-                    <input #secondaConsegnaDataInput type="date" [(ngModel)]="modal.consegnaDataEffettivaSeconda" />
-                    <button type="button" class="date-field__button ghost" (click)="openDatePicker(secondaConsegnaDataInput)" aria-label="Apri calendario">📅</button>
-                  </div>
-                </label>
-                <label class="form-field">
-                  <span>N° bilici seconda consegna</span>
-                  <input type="number" min="0" step="1" [(ngModel)]="modal.biliciSecondi" />
-                </label>
-                <label class="form-field">
-                  <span>Vettore seconda consegna</span>
-                  <select [(ngModel)]="modal.vettoreSecondoId">
-                    <option [ngValue]="null">Seleziona vettore</option>
-                    @for (vettore of vettoriList; track vettore.id) {
-                      <option [ngValue]="vettore.id">{{ vettore.nome }}</option>
-                    }
-                  </select>
-                </label>
-              </div>
-            }
-          </div>
         } @else if (modal.toStatus === 'CONSEGNA EFFETTUATA') {
           <label class="form-field">
             <span>Data consegna effettiva</span>
             <div class="date-field">
               <input #consegnaEffettivaInput type="date" [(ngModel)]="modal.consegnaDataEffettiva" />
-              <button type="button" class="date-field__button ghost" (click)="openDatePicker(consegnaEffettivaInput)" aria-label="Apri calendario">📅</button>
+              <button type="button" class="date-field__button ghost" (click)="openDatePicker(consegnaEffettivaInput)" aria-label="Apri calendario">Cal</button>
             </div>
           </label>
           <label class="form-field">
@@ -165,7 +173,7 @@
             <app-note-editor [value]="modal.problemiScaricoNota" (valueChange)="modal.problemiScaricoNota = $event" placeholder="Eventuali problemi riscontrati in scarico"></app-note-editor>
           </label>
         }
-        <label class="form-field" style="grid-column: 1 / -1;">
+        <label class="form-field form-field--full">
           <span>Nota</span>
           <app-note-editor
             [value]="modal.note"

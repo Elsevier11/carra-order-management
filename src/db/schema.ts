@@ -1,4 +1,6 @@
 import { bigint, boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import type { DeliveryPlanEntry } from '../shared/delivery-plan'
 
 export const commerciali = pgTable('commerciali', {
   id: serial('id').primaryKey(),
@@ -103,6 +105,7 @@ export const ordini = pgTable('ordini', {
   vettoreSecondoId: integer('vettore_secondo_id').references(() => vettori.id, { onDelete: 'set null' }),
   bilici: integer('bilici').notNull().default(0),
   biliciSecondi: integer('bilici_secondi').notNull().default(0),
+  consegneProgrammate: jsonb('consegne_programmate').$type<DeliveryPlanEntry[]>().notNull().default(sql`'[]'::jsonb`),
   ddtPronti: boolean('ddt_pronti').notNull().default(false),
   bancale: boolean('bancale').notNull().default(false),
   chiusini: boolean('chiusini').notNull().default(false),

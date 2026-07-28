@@ -63,6 +63,7 @@ import {
   orderWarnings as orderWarningsHelper,
 } from './order-formatters';
 import { SettingsService } from './settings.service';
+import { buildDeliveryPlanFromLegacy, deliveryPlanHasAnyValue, normalizeDeliveryPlanEntries, splitDeliveryPlanToLegacy } from '../../../src/shared/delivery-plan';
 import { ORDER_STATUS_FLOW, allowedNextStatuses, statusClass, type ConsegnaStatus } from '../../../src/shared/order-flow';
 import { validateTransitionState } from '../../../src/shared/transition-validation';
 
@@ -192,6 +193,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     lavorazioneAssegnataAt: '',
     consegnaDataEffettiva: '',
     consegnaDataEffettivaSeconda: '',
+    deliveryPlan: buildDeliveryPlanFromLegacy({}),
     problemiScaricoNota: '',
     vettoreId: null,
     vettoreSecondoId: null,
@@ -1155,7 +1157,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       const deliveryDate = deliveryDateValueHelper(item);
       const badges: Array<{
         text: string;
-        tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet';
+        tone: 'info' | 'warning' | 'positive' | 'muted' | 'danger';
         multiline?: boolean;
         kind?: 'note';
         html?: string;
@@ -1176,7 +1178,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         badges.push({
           text: note,
           html: composeNoteBadgeHtml('Problemi scarico:', note),
-          tone: 'violet',
+          tone: 'danger',
           multiline: true,
           kind: 'note',
         });
@@ -1195,6 +1197,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   showKanbanEstimatedDelivery(item: ConsegnaRecord): boolean {
+    if (item.stato === 'CONSEGNA EFFETTUATA') {
+      return false;
+    }
     return !!deliveryDateValueHelper(item) && !this.orderWarnings(item).includes('Data consegna mancante');
   }
 
@@ -1219,11 +1224,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return renderRichTextHtml(value);
   }
 
-  boardInfoBadgeClass(tone: 'info' | 'warning' | 'positive' | 'muted' | 'violet'): string {
+  boardInfoBadgeClass(tone: 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam'): string {
     if (tone === 'positive') return 'kanban-card-alert--positive';
     if (tone === 'info') return 'kanban-card-alert--info';
     if (tone === 'muted') return 'kanban-card-alert--muted';
-    if (tone === 'violet') return 'kanban-card-alert--violet';
+    if (tone === 'danger') return 'kanban-card-alert--danger';
+    if (tone === 'cam') return 'kanban-card-alert--cam';
     return '';
   }
 
@@ -1303,6 +1309,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       lavorazioneAssegnataAt: '',
       consegnaDataEffettiva: '',
       consegnaDataEffettivaSeconda: '',
+      deliveryPlan: buildDeliveryPlanFromLegacy({}),
       vettoreId: null,
       vettoreSecondoId: null,
       bilici: null,
@@ -1323,6 +1330,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private openTransitionModal(order: ConsegnaRecord, fromStatus: ConsegnaStatus, toStatus: ConsegnaStatus, note = ''): void {
     const conclusiMode = order.conclusiMode ?? 'week';
     const transitionsNeedLookupLists = ['DISEGNO IN GESTIONE', 'ASSEGNATO', 'CONSEGNA PIANIFICATA'].includes(toStatus);
+    const deliveryPlan = toStatus === 'CONSEGNA PIANIFICATA'
+      ? normalizeDeliveryPlanEntries(
+        deliveryPlanHasAnyValue(order.deliveryPlan)
+          ? order.deliveryPlan
+          : buildDeliveryPlanFromLegacy(order),
+      )
+      : buildDeliveryPlanFromLegacy({});
     this.dropTransitionModal = {
       open: true,
       order,
@@ -1334,6 +1348,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       lavorazioneAssegnataAt: toStatus === 'ASSEGNATO' ? (order.lavorazioneAssegnataAt ?? this.todayIsoDate()) : '',
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(toStatus) ? (order.consegnaDataEffettiva ?? deliveryDateValueHelper(order) ?? this.todayIsoDate()) : '',
       consegnaDataEffettivaSeconda: toStatus === 'CONSEGNA PIANIFICATA' ? (order.consegnaDataEffettivaSeconda ?? '') : '',
+      deliveryPlan,
       problemiScaricoNota: toStatus === 'CONSEGNA EFFETTUATA' ? (order.problemiScaricoNota ?? '') : '',
       vettoreId: ['CONSEGNA PIANIFICATA'].includes(toStatus) ? (order.vettoreId ?? null) : null,
       vettoreSecondoId: toStatus === 'CONSEGNA PIANIFICATA' ? (order.vettoreSecondoId ?? null) : null,
@@ -1372,11 +1387,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       lavorazioneAssegnataAt: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.lavorazioneAssegnataAt : undefined,
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(modal.toStatus) ? modal.consegnaDataEffettiva : undefined,
       problemiScaricoNota: modal.toStatus === 'CONSEGNA EFFETTUATA' ? (modal.problemiScaricoNota.trim() || null) : undefined,
-      vettoreId: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.vettoreId : undefined,
-      consegnaDataEffettivaSeconda: modal.toStatus === 'CONSEGNA PIANIFICATA' && modal.secondaConsegna ? modal.consegnaDataEffettivaSeconda : undefined,
-      vettoreSecondoId: modal.toStatus === 'CONSEGNA PIANIFICATA' && modal.secondaConsegna ? modal.vettoreSecondoId : undefined,
-      bilici: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.bilici : undefined,
-      biliciSecondi: modal.toStatus === 'CONSEGNA PIANIFICATA' && modal.secondaConsegna ? modal.biliciSecondi : undefined,
+      ...(modal.toStatus === 'CONSEGNA PIANIFICATA' ? splitDeliveryPlanToLegacy(modal.deliveryPlan) : {}),
+      deliveryPlan: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.deliveryPlan : undefined,
       accontoPagato: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.accontoPagato : undefined,
       secondaConsegna: modal.toStatus === 'CONSEGNA PIANIFICATA' ? modal.secondaConsegna : undefined,
       operaiIds: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.operaiIds : undefined,
@@ -1522,7 +1534,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         };
         this.syncDetailLockState();
         this.editMode = true;
-        this.activeDetailTab = 'gestione';
       },
       error: (err: { error?: { message?: string } }) => {
         this.operationError = err?.error?.message ?? 'Ordine già in modifica da un altro utente';
@@ -1845,17 +1856,16 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   deleteAttachment(item: AttachmentRecord): void {
     if (!this.selectedDetail) return;
     const id = this.selectedDetail.id;
-    this.openConfirm(`Eliminare allegato "${item.fileName}"?`, () => {
-      this.consegneService.deleteAttachment(id, item.id).subscribe({
-        next: () => {
-          this.notifySuccess('Allegato eliminato');
-          this.loadAttachments(this.selectedDetail!.id);
-          this.loadHistory(this.selectedDetail!.id);
-        },
-        error: (error) => {
-          this.notifyError(error?.error?.message ?? 'Errore eliminazione allegato');
-        },
-      });
+    if (!window.confirm(`Eliminare allegato "${item.fileName}"?`)) return;
+    this.consegneService.deleteAttachment(id, item.id).subscribe({
+      next: () => {
+        this.notifySuccess('Allegato eliminato');
+        this.loadAttachments(this.selectedDetail!.id);
+        this.loadHistory(this.selectedDetail!.id);
+      },
+      error: (error) => {
+        this.notifyError(error?.error?.message ?? 'Errore eliminazione allegato');
+      },
     });
   }
 

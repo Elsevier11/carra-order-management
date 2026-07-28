@@ -1,5 +1,7 @@
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
 
+import type { DeliveryPlanEntry } from '../../../src/shared/delivery-plan';
+
 export interface OrderCemento {
   id: number;
   tipoId: number;
@@ -49,6 +51,7 @@ export interface AccessorioTipo {
 }
 
 export type { ConsegnaStatus } from '../../../src/shared/order-flow';
+export type { DeliveryPlanEntry } from '../../../src/shared/delivery-plan';
 
 export interface ConsegnaRecord {
   id: number;
@@ -95,6 +98,7 @@ export interface ConsegnaRecord {
   // Consegna
   consegnaDataEffettiva: string | null;
   consegnaDataEffettivaSeconda?: string | null;
+  deliveryPlan?: DeliveryPlanEntry[];
   problemiScaricoNota: string | null;
   vettoreId: number | null;
   vettoreSecondoId?: number | null;

@@ -12,6 +12,7 @@ import { db } from '../db'
 import { BadRequestError } from '../errors'
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth'
 import { scanBufferWithAntivirus } from '../security/antivirus'
+import { buildDeliveryPlanFromLegacy, deliveryPlanHasAnyValue, normalizeDeliveryPlanEntries, splitDeliveryPlanToLegacy, type DeliveryPlanEntry } from '../../../src/shared/delivery-plan'
 import { ORDER_STATUS_FLOW, ORDER_TRANSITIONS, type ConsegnaStatus } from '../../../src/shared/order-flow'
 
 const router = Router()
@@ -19,6 +20,12 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/
 const dateOrDateTimeRegex = /^\d{4}-\d{2}-\d{2}(?:T.*)?$/
 const allowedStatuses = ORDER_STATUS_FLOW
+const deliveryPlanEntrySchema = z.object({
+  data: z.string().regex(dateOrDateTimeRegex, 'deliveryPlan[].data must be YYYY-MM-DD or ISO datetime').optional().nullable().default(''),
+  vettoreId: z.number().int().positive().optional().nullable().default(null),
+  bilici: z.number().int().min(0).optional().nullable().default(null),
+})
+const deliveryPlanSchema = z.array(deliveryPlanEntrySchema).max(4).optional()
 const attachmentsRoot = path.resolve(process.env.ATTACHMENTS_DIR ?? './data/uploads')
 const allowedAttachmentExtensions = (process.env.ATTACHMENTS_ALLOWED_EXTENSIONS ?? 'pdf,xls,xlsx,csv,txt,jpg,jpeg,png,doc,docx')
   .split(',')
@@ -202,6 +209,7 @@ const consegnaInputSchema = z.object({
   vettoreSecondoId: z.number().int().positive().optional().nullable(),
   bilici: z.number().int().min(0).optional().default(0),
   biliciSecondi: z.number().int().min(0).optional().default(0),
+  deliveryPlan: deliveryPlanSchema,
   ddtPronti: z.boolean().optional().default(false),
   bancale: z.boolean().optional().default(false),
   chiusini: z.boolean().optional().default(false),
@@ -231,6 +239,7 @@ const transitionSchema = z.object({
   bilici: z.number().int().min(0).optional(),
   biliciSecondi: z.number().int().min(0).optional(),
   accontoPagato: z.boolean().optional(),
+  deliveryPlan: deliveryPlanSchema,
   secondaConsegna: z.boolean().optional().default(false),
   operaiIds: z.array(z.number().int().positive()).optional(),
   skipAssegnazione: z.boolean().optional().default(false),
@@ -333,10 +342,14 @@ async function getActiveOrderEditLock(orderId: number): Promise<OrderEditLockRow
   const [lock] = await db
     .select()
     .from(orderEditLocks)
-    .where(and(eq(orderEditLocks.orderId, orderId), sql`${orderEditLocks.expiresAt} > now()`))
+    .where(eq(orderEditLocks.orderId, orderId))
     .limit(1)
 
-  return lock ?? null
+  if (!lock) {
+    return null
+  }
+
+  return lock.expiresAt > new Date() ? lock : null
 }
 
 async function getActiveOrderEditLocksMap(orderIds: number[]): Promise<Map<number, OrderEditLockRow>> {
@@ -345,9 +358,10 @@ async function getActiveOrderEditLocksMap(orderIds: number[]): Promise<Map<numbe
   const locks = await db
     .select()
     .from(orderEditLocks)
-    .where(and(inArray(orderEditLocks.orderId, orderIds), sql`${orderEditLocks.expiresAt} > now()`))
+    .where(inArray(orderEditLocks.orderId, orderIds))
 
-  return new Map(locks.map((lock) => [lock.orderId, lock]))
+  const now = new Date()
+  return new Map(locks.filter((lock) => lock.expiresAt > now).map((lock) => [lock.orderId, lock]))
 }
 
 async function rejectIfOrderLockedByAnotherUser(orderId: number, username: string): Promise<OrderEditLockRow | null> {
@@ -364,7 +378,8 @@ async function acquireOrderEditLock(orderId: number, username: string): Promise<
 
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${orderId})`)
-    await tx.delete(orderEditLocks).where(and(eq(orderEditLocks.orderId, orderId), sql`${orderEditLocks.expiresAt} <= now()`))
+    const now = new Date()
+    await tx.delete(orderEditLocks).where(and(eq(orderEditLocks.orderId, orderId), sql`${orderEditLocks.expiresAt} <= ${now}`))
 
     const [activeLock] = await tx.select().from(orderEditLocks).where(eq(orderEditLocks.orderId, orderId)).limit(1)
     if (activeLock && activeLock.username !== username) {
@@ -421,6 +436,10 @@ function formatRelationItem(name: string, ordinata?: boolean | null, fatta?: boo
 }
 
 function normalizeRow(row: typeof ordini.$inferSelect) {
+  const deliveryPlanSource = Array.isArray(row.consegneProgrammate) ? row.consegneProgrammate : null
+  const deliveryPlan = deliveryPlanSource && deliveryPlanHasAnyValue(deliveryPlanSource)
+    ? normalizeDeliveryPlanEntries(deliveryPlanSource as Array<Partial<DeliveryPlanEntry> | null | undefined>)
+    : buildDeliveryPlanFromLegacy(row)
   return {
     id: row.id,
     rif: row.rifto,
@@ -468,6 +487,7 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     // campi CONSEGNA PIANIFICATA
     consegnaDataEffettiva: toIsoDate(row.consegnaDataEffettiva),
     consegnaDataEffettivaSeconda: toIsoDate(row.consegnaDataEffettivaSeconda),
+    deliveryPlan,
     problemiScaricoNota: row.problemiScaricoNota ?? null,
     vettoreId: row.vettoreId ?? null,
     vettoreSecondoId: row.vettoreSecondoId ?? null,
@@ -1963,6 +1983,15 @@ router.delete('/:id/attachments/:attachmentId', requireAuth, requireRole(['admin
       return res.status(400).json({ message: 'Invalid id' })
     }
 
+    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
+    if (lock) {
+      return res.status(423).json({
+        message: `L'ordine è già in modifica da ${lock.username}`,
+        lockedBy: lock.username,
+        ...lockToResponse(lock),
+      })
+    }
+
     const [deleted] = await db
       .delete(orderAttachments)
       .where(and(eq(orderAttachments.id, attachmentId), eq(orderAttachments.orderId, id)))
@@ -1974,15 +2003,6 @@ router.delete('/:id/attachments/:attachmentId', requireAuth, requireRole(['admin
 
     if (!deleted) {
       return res.status(404).json({ message: 'Attachment not found' })
-    }
-
-    const lock = await rejectIfOrderLockedByAnotherUser(id, req.user?.username ?? '')
-    if (lock) {
-      return res.status(423).json({
-        message: `L'ordine è già in modifica da ${lock.username}`,
-        lockedBy: lock.username,
-        ...lockToResponse(lock),
-      })
     }
 
     const absolutePath = resolveAttachmentPath(deleted.storagePath)
@@ -2058,7 +2078,20 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       }
     }
 
+    const normalizedDeliveryPlan = payload.toStatus === 'CONSEGNA PIANIFICATA'
+      ? (deliveryPlanHasAnyValue(payload.deliveryPlan)
+        ? normalizeDeliveryPlanEntries(payload.deliveryPlan)
+        : buildDeliveryPlanFromLegacy(payload))
+      : []
     if (payload.toStatus === 'CONSEGNA PIANIFICATA') {
+      const legacyDeliveryPlan = splitDeliveryPlanToLegacy(normalizedDeliveryPlan)
+      payload.consegnaDataEffettiva = legacyDeliveryPlan.consegnaDataEffettiva ?? undefined
+      payload.vettoreId = legacyDeliveryPlan.vettoreId ?? undefined
+      payload.bilici = legacyDeliveryPlan.bilici ?? undefined
+      payload.consegnaDataEffettivaSeconda = legacyDeliveryPlan.consegnaDataEffettivaSeconda ?? undefined
+      payload.vettoreSecondoId = legacyDeliveryPlan.vettoreSecondoId ?? undefined
+      payload.biliciSecondi = legacyDeliveryPlan.biliciSecondi ?? undefined
+      payload.secondaConsegna = normalizedDeliveryPlan.length > 1
       if (!payload.consegnaDataEffettiva) {
         return res.status(400).json({ message: 'Data consegna effettiva obbligatoria' })
       }
@@ -2087,6 +2120,26 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         const secondDate = parseInputDate(payload.consegnaDataEffettivaSeconda)
         if (secondDate.getTime() < firstDate.getTime()) {
           return res.status(400).json({ message: 'La seconda consegna non può precedere la prima.' })
+        }
+      }
+    }
+
+    if (payload.toStatus === 'CONSEGNA PIANIFICATA' && normalizedDeliveryPlan.length > 2) {
+      for (let index = 2; index < normalizedDeliveryPlan.length; index += 1) {
+        const currentDelivery = normalizedDeliveryPlan[index]
+        if (!currentDelivery.data) {
+          return res.status(400).json({ message: `Inserisci la data della consegna ${index + 1}.` })
+        }
+        if (!currentDelivery.vettoreId) {
+          return res.status(400).json({ message: `Seleziona il vettore della consegna ${index + 1}.` })
+        }
+        if (!Number.isFinite(currentDelivery.bilici ?? NaN) || Number(currentDelivery.bilici) < 0) {
+          return res.status(400).json({ message: `Inserisci i bilici della consegna ${index + 1}.` })
+        }
+        const previousDate = parseInputDate(normalizedDeliveryPlan[index - 1].data)
+        const currentDate = parseInputDate(currentDelivery.data)
+        if (currentDate.getTime() < previousDate.getTime()) {
+          return res.status(400).json({ message: `La consegna ${index + 1} non può precedere la precedente.` })
         }
       }
     }
@@ -2123,12 +2176,14 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         updateData.problemiScaricoNota = payload.problemiScaricoNota ?? null
       }
       if (payload.toStatus === 'CONSEGNA PIANIFICATA') {
+        const legacyDeliveryPlan = splitDeliveryPlanToLegacy(normalizedDeliveryPlan)
         updateData.vettoreId = payload.vettoreId ?? null
         updateData.bilici = payload.bilici ?? 0
         updateData.accontoPagato = payload.accontoPagato ?? row.accontoPagato
-        updateData.consegnaDataEffettivaSeconda = payload.secondaConsegna ? parseInputDate(payload.consegnaDataEffettivaSeconda!) : null
-        updateData.vettoreSecondoId = payload.secondaConsegna ? (payload.vettoreSecondoId ?? null) : null
-        updateData.biliciSecondi = payload.secondaConsegna ? (payload.biliciSecondi ?? 0) : 0
+        updateData.consegnaDataEffettivaSeconda = legacyDeliveryPlan.consegnaDataEffettivaSeconda ? parseInputDate(legacyDeliveryPlan.consegnaDataEffettivaSeconda) : null
+        updateData.vettoreSecondoId = legacyDeliveryPlan.vettoreSecondoId ?? null
+        updateData.biliciSecondi = legacyDeliveryPlan.biliciSecondi ?? 0
+        updateData.consegneProgrammate = normalizedDeliveryPlan as never
       }
 
       const [result] = await tx.update(ordini).set(updateData).where(and(eq(ordini.id, id), sql`${ordini.deletedAt} is null`)).returning()
@@ -2170,6 +2225,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
             consegnaDataEffettivaSeconda: payload.secondaConsegna ? payload.consegnaDataEffettivaSeconda ?? null : null,
             vettoreSecondoId: payload.secondaConsegna ? payload.vettoreSecondoId ?? null : null,
             biliciSecondi: payload.secondaConsegna ? payload.biliciSecondi ?? 0 : 0,
+            consegneProgrammate: normalizedDeliveryPlan,
           }
         : payload.toStatus === 'CONSEGNA EFFETTUATA'
           ? {

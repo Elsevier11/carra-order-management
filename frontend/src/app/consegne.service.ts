@@ -78,6 +78,7 @@ export class ConsegneService {
       lavorazioneAssegnataAt?: string | null;
       consegnaDataEffettiva?: string | null;
       consegnaDataEffettivaSeconda?: string | null;
+      deliveryPlan?: Array<{ data: string; vettoreId: number | null; bilici: number | null }> | null;
       problemiScaricoNota?: string | null;
       vettoreId?: number | null;
       vettoreSecondoId?: number | null;

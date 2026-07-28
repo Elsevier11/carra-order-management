@@ -19,6 +19,7 @@ export interface TransitionStateLike {
   biliciSecondi?: number | null;
   accontoPagato?: boolean | null;
   secondaConsegna?: boolean;
+  deliveryPlan?: Array<{ data: string; vettoreId: number | null; bilici: number | null }> | null;
 }
 
 export function validateTransitionState(state: TransitionStateLike): string | null {
@@ -59,32 +60,45 @@ export function validateTransitionState(state: TransitionStateLike): string | nu
   }
 
   if (state.toStatus === 'CONSEGNA PIANIFICATA') {
-    if (!state.consegnaDataEffettiva) {
-      return 'Inserisci la data consegna effettiva.';
+    const deliveryPlan = state.deliveryPlan?.length
+      ? state.deliveryPlan
+      : [{
+        data: state.consegnaDataEffettiva ?? '',
+        vettoreId: state.vettoreId ?? null,
+        bilici: state.bilici ?? null,
+      }, ...(state.secondaConsegna ? [{
+        data: state.consegnaDataEffettivaSeconda ?? '',
+        vettoreId: state.vettoreSecondoId ?? null,
+        bilici: state.biliciSecondi ?? null,
+      }] : [])]
+
+    if (!deliveryPlan[0]?.data) {
+      return 'Inserisci la data consegna effettiva.'
     }
-    if (!Number.isFinite(state.bilici ?? NaN) || Number(state.bilici) < 0) {
-      return 'Inserisci il numero di bilici.';
+    if (!deliveryPlan[0].vettoreId) {
+      return 'Seleziona il vettore.'
     }
-    if (!state.vettoreId) {
-      return 'Seleziona il vettore.';
+    if (!Number.isFinite(deliveryPlan[0].bilici ?? NaN) || Number(deliveryPlan[0].bilici) < 0) {
+      return 'Inserisci il numero di bilici.'
     }
     if (state.accontoPagato === false) {
-      return 'L\'acconto deve risultare pagato prima della pianificazione consegna.';
+      return 'L\'acconto deve risultare pagato prima della pianificazione consegna.'
     }
-    if (state.secondaConsegna) {
-      if (!state.consegnaDataEffettivaSeconda) {
-        return 'Inserisci la seconda data di consegna.';
+    for (let index = 1; index < deliveryPlan.length; index += 1) {
+      const entry = deliveryPlan[index]
+      if (!entry.data) {
+        return `Inserisci la data della consegna ${index + 1}.`
       }
-      if (!Number.isFinite(state.biliciSecondi ?? NaN) || Number(state.biliciSecondi) < 0) {
-        return 'Inserisci il numero di bilici per la seconda consegna.';
+      if (!entry.vettoreId) {
+        return `Seleziona il vettore della consegna ${index + 1}.`
       }
-      if (!state.vettoreSecondoId) {
-        return 'Seleziona il vettore per la seconda consegna.';
+      if (!Number.isFinite(entry.bilici ?? NaN) || Number(entry.bilici) < 0) {
+        return `Inserisci il numero di bilici della consegna ${index + 1}.`
       }
-      const firstDate = new Date(state.consegnaDataEffettiva);
-      const secondDate = new Date(state.consegnaDataEffettivaSeconda);
-      if (!Number.isNaN(firstDate.getTime()) && !Number.isNaN(secondDate.getTime()) && secondDate.getTime() < firstDate.getTime()) {
-        return 'La seconda consegna non puÃ² precedere la prima.';
+      const previousDate = new Date(deliveryPlan[index - 1].data)
+      const currentDate = new Date(entry.data)
+      if (!Number.isNaN(previousDate.getTime()) && !Number.isNaN(currentDate.getTime()) && currentDate.getTime() < previousDate.getTime()) {
+        return `La consegna ${index + 1} non può precedere la precedente.`
       }
     }
   }

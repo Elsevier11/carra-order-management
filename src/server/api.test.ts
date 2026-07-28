@@ -13,6 +13,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
   let accessoriTipi: (typeof import('../db/schema'))['accessoriTipi']
   let auditLogs: (typeof import('../db/schema'))['auditLogs']
   let appUsers: (typeof import('../db/schema'))['appUsers']
+  let orderEditLocks: (typeof import('../db/schema'))['orderEditLocks']
   let eq: (typeof import('drizzle-orm'))['eq']
   let ilike: (typeof import('drizzle-orm'))['ilike']
   let gte: (typeof import('drizzle-orm'))['gte']
@@ -42,6 +43,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
     accessoriTipi = schemaModule.accessoriTipi
     auditLogs = schemaModule.auditLogs
     appUsers = schemaModule.appUsers
+    orderEditLocks = schemaModule.orderEditLocks
     eq = drizzleModule.eq
     ilike = drizzleModule.ilike
     gte = drizzleModule.gte
@@ -1151,6 +1153,48 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(listAfterDelete.status).toBe(200)
     expect(listAfterDelete.body.data).toHaveLength(0)
 
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('keeps attachment delete blocked when the order is locked by another user', async () => {
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__F-ATT-LOCK',
+      cliente: 'Cliente Allegati Lock',
+      stato: 'IN CORSO',
+      dataConsegna: '2026-06-16',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const upload = await request(app)
+      .post(`/api/consegne/${id}/attachments`)
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('contenuto allegato lock test', 'utf8'), 'lock-test.txt')
+    expect(upload.status).toBe(201)
+    const attachmentId = upload.body.id as number
+
+    await db.insert(orderEditLocks).values({
+      orderId: id,
+      username: 'test_user_lock',
+      acquiredAt: new Date(),
+      updatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60 * 60_000),
+    })
+    const activeLock = await db.select().from(orderEditLocks).where(eq(orderEditLocks.orderId, id)).limit(1)
+    expect(activeLock).toHaveLength(1)
+    expect(activeLock[0]?.username).toBe('test_user_lock')
+
+    const deleteAttachment = await request(app)
+      .delete(`/api/consegne/${id}/attachments/${attachmentId}`)
+      .set('Authorization', `Bearer ${token}`)
+    expect(deleteAttachment.status).toBe(423)
+
+    const list = await request(app).get(`/api/consegne/${id}/attachments`).set('Authorization', `Bearer ${token}`)
+    expect(list.status).toBe(200)
+    expect(list.body.data).toHaveLength(1)
+
+    await db.delete(orderEditLocks).where(eq(orderEditLocks.orderId, id))
+    await request(app).delete(`/api/consegne/${id}/attachments/${attachmentId}`).set('Authorization', `Bearer ${token}`)
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })
 

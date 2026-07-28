@@ -1,6 +1,7 @@
 import type { ConsegnaRecord } from './consegne.types';
+import { buildDeliveryPlanFromLegacy, normalizeDeliveryPlanEntries } from '../../../src/shared/delivery-plan';
 
-export type BoardInfoBadgeTone = 'info' | 'warning' | 'positive' | 'muted' | 'violet';
+export type BoardInfoBadgeTone = 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam';
 
 export type BoardInfoBadge = {
   text: string;
@@ -89,15 +90,15 @@ export function boardOperaiWarning(item: ConsegnaRecord): string | null {
 
 export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBadge[] {
   const badges: BoardInfoBadge[] = [];
-  if (item.camSiNo) badges.push({ text: 'C.A.M.', tone: 'positive' });
-  if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'violet' });
-  if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'violet' });
+  if (item.camSiNo) badges.push({ text: 'C.A.M.', tone: 'cam' });
+  if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'danger' });
+  if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'danger' });
   const note = item.residuiLavorazioneNote?.trim();
   if (note) {
     badges.push({
       text: note,
       html: composeNoteBadgeHtml('Note residui:', note),
-      tone: 'violet',
+      tone: 'danger',
       kind: 'note',
       multiline: true,
     });
@@ -105,41 +106,38 @@ export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBa
   return badges;
 }
 
+function deliveryPlanForItem(item: ConsegnaRecord) {
+  return normalizeDeliveryPlanEntries(item.deliveryPlan?.length ? item.deliveryPlan : buildDeliveryPlanFromLegacy(item));
+}
+
 export function boardConsegnaPianificataBadges(
   item: ConsegnaRecord,
   nomeVettore?: (id: number | null | undefined) => string,
 ): BoardInfoBadge[] {
   if (!['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(item.stato)) return [];
-  const activeDeliveryDate = deliveryDateValue(item);
-  const dataPianificataText = deliveryBadgeText(item, activeDeliveryDate);
-  const dataEffettivaText = item.consegnaDataEffettiva
-    ? `Cons. effettiva ${new Date(item.consegnaDataEffettiva).toLocaleDateString('it-IT')}`
-    : 'Cons. effettiva';
-  const biliciText = `NÂ° bilici ${item.bilici ?? 0}`;
-  const vettoreNome = nomeVettore?.(item.vettoreId) ?? '';
-  const vettoreText = vettoreNome && vettoreNome !== 'â€”' ? `Vettore ${vettoreNome}` : 'Vettore';
-  const badges: BoardInfoBadge[] = [
-    { text: dataPianificataText, tone: activeDeliveryDate ? 'info' : 'muted' },
-    { text: dataEffettivaText, tone: item.consegnaDataEffettiva ? 'info' : 'muted' },
-    { text: biliciText, tone: (item.bilici ?? 0) > 0 ? 'info' : 'muted' },
-    { text: vettoreText, tone: item.vettoreId ? 'info' : 'muted' },
-    { text: 'DDT pronti', tone: item.ddtPronti ? 'positive' : 'muted' },
-  ];
-  if (item.consegnaDataEffettivaSeconda) {
-    const dataSeconda = new Date(item.consegnaDataEffettivaSeconda);
-    const dataSecondaText = Number.isNaN(dataSeconda.getTime())
-      ? `2a consegna ${item.consegnaDataEffettivaSeconda}`
-      : `2a consegna ${dataSeconda.toLocaleDateString('it-IT')}`;
-    badges.unshift({ text: dataSecondaText, tone: 'violet' });
-  }
-  if (item.biliciSecondi != null && item.biliciSecondi > 0) {
-    badges.splice(2, 0, { text: `2o bilici ${item.biliciSecondi}`, tone: 'info' });
-  }
-  if (item.vettoreSecondoId) {
-    const vettoreSecondoNome = nomeVettore?.(item.vettoreSecondoId) ?? '';
-    const vettoreSecondoText = vettoreSecondoNome && vettoreSecondoNome !== 'â€”' ? `2o vettore ${vettoreSecondoNome}` : '2o vettore';
-    badges.splice(3, 0, { text: vettoreSecondoText, tone: 'info' });
-  }
+  const deliveryPlan = deliveryPlanForItem(item);
+  const badges: BoardInfoBadge[] = [];
+  const actualDate = item.consegnaDataEffettiva?.trim() ?? '';
+
+  badges.push({
+    text: actualDate ? `Cons. effettiva ${new Date(actualDate).toLocaleDateString('it-IT')}` : 'Cons. effettiva',
+    tone: actualDate ? 'info' : 'muted',
+  });
+
+  deliveryPlan.forEach((entry, index) => {
+    if (index === 0 && actualDate && entry.data === actualDate) {
+      return;
+    }
+
+    const label = `${index + 1}a consegna`;
+    const dateText = entry.data ? new Date(entry.data).toLocaleDateString('it-IT') : 'data mancante';
+    const biliciText = entry.bilici != null ? ` · ${entry.bilici} bilici` : '';
+    const vettoreNome = nomeVettore?.(entry.vettoreId ?? null) ?? '';
+    const vettoreText = vettoreNome && vettoreNome !== '—' ? ` · ${vettoreNome}` : '';
+    badges.push({ text: `${label} ${dateText}${biliciText}${vettoreText}`, tone: entry.data ? 'danger' : 'muted' });
+  });
+
+  badges.push({ text: 'DDT pronti', tone: item.ddtPronti ? 'positive' : 'muted' });
   return badges;
 }
 
@@ -215,3 +213,5 @@ export function conclusiWeekLabel(value: string | null | undefined): string {
 export function conclusiDateLabel(value: string | null | undefined): string {
   return value ? value : 'â€”';
 }
+
+

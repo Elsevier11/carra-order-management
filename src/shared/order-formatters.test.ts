@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardCementiSummary, boardResiduiLavorazioneBadges, deliveryBadgeText, orderWarnings } from '../../frontend/src/app/order-formatters'
+import { boardCementiSummary, boardConsegnaPianificataBadges, boardResiduiLavorazioneBadges, deliveryBadgeText, orderWarnings } from '../../frontend/src/app/order-formatters'
 
 describe('order-formatters', () => {
   it('shows late warning only from PRONTI & AVVISATI onward', () => {
@@ -33,6 +33,24 @@ describe('order-formatters', () => {
 
     expect(deliveryBadgeText(item)).toContain('Consegna TASSATIVA')
     expect(deliveryBadgeText(item)).toContain('20/07/2026')
+  })
+
+  it('shows consegna effettiva as the primary badge in CONSEGNA PIANIFICATA', () => {
+    const item = {
+      stato: 'CONSEGNA PIANIFICATA',
+      consegnaDataEffettiva: '2026-08-06',
+      dataConsegnaTassativa: '2026-08-09',
+      deliveryPlan: [
+        { data: '2026-08-06', vettoreId: null, bilici: 1 },
+      ],
+      ddtPronti: true,
+    } as never
+
+    const badges = boardConsegnaPianificataBadges(item)
+
+    expect(badges[0]?.text).toContain('Cons. effettiva')
+    expect(badges[0]?.text).toContain('06/08/2026')
+    expect(badges.some((badge) => badge.text.includes('TASSATIVA'))).toBe(false)
   })
 
   it('shows CAM badge only when camSiNo is true', () => {
