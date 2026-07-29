@@ -66,6 +66,10 @@ function parseInputDate(value: string): Date {
   return parsed
 }
 
+function toSqlTimestamp(value: Date): string {
+  return value.toISOString()
+}
+
 function normalizeComparableText(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
@@ -150,13 +154,13 @@ function buildListFilters(query: ListQuery) {
   }
 
   if (query.fromDate) {
-    filters.push(gte(effectiveDeliveryDateExpr(), parseInputDate(query.fromDate)))
+    filters.push(gte(effectiveDeliveryDateExpr(), toSqlTimestamp(parseInputDate(query.fromDate))))
   }
 
   if (query.toDate) {
     const endOfDay = parseInputDate(query.toDate)
     endOfDay.setHours(23, 59, 59, 999)
-    filters.push(lte(effectiveDeliveryDateExpr(), endOfDay))
+    filters.push(lte(effectiveDeliveryDateExpr(), toSqlTimestamp(endOfDay)))
   }
 
   return filters.length ? and(...filters) : undefined
@@ -379,7 +383,7 @@ async function acquireOrderEditLock(orderId: number, username: string): Promise<
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${orderId})`)
     const now = new Date()
-    await tx.delete(orderEditLocks).where(and(eq(orderEditLocks.orderId, orderId), sql`${orderEditLocks.expiresAt} <= ${now}`))
+    await tx.delete(orderEditLocks).where(and(eq(orderEditLocks.orderId, orderId), sql`${orderEditLocks.expiresAt} <= ${toSqlTimestamp(now)}`))
 
     const [activeLock] = await tx.select().from(orderEditLocks).where(eq(orderEditLocks.orderId, orderId)).limit(1)
     if (activeLock && activeLock.username !== username) {
@@ -1391,14 +1395,14 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ count: count() })
         .from(ordini)
-        .where(and(activeOrderClause, gte(deliveryDateExpr, startOfWeek), lte(deliveryDateExpr, endOfWeek))),
+        .where(and(activeOrderClause, gte(deliveryDateExpr, toSqlTimestamp(startOfWeek)), lte(deliveryDateExpr, toSqlTimestamp(endOfWeek)))),
       db
         .select({ count: count() })
         .from(ordini)
         .where(
           and(
             activeOrderClause,
-            lte(deliveryDateExpr, now),
+            lte(deliveryDateExpr, toSqlTimestamp(now)),
             or(sql`${ordini.stato} is null`, sql`upper(${ordini.stato}) not in ('CONSEGNATO', 'CHIUSO')`),
           ),
         ),
@@ -1427,7 +1431,7 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ count: count() })
         .from(ordini)
-        .where(and(gte(deliveryDateExpr, nextMonday), lte(deliveryDateExpr, nextSunday), activeFilter)),
+        .where(and(gte(deliveryDateExpr, toSqlTimestamp(nextMonday)), lte(deliveryDateExpr, toSqlTimestamp(nextSunday)), activeFilter)),
       // acconti da incassare
       db.select({ count: count() }).from(ordini).where(and(eq(ordini.accontoPagato, false), activeFilter)),
       // ordini incompleti
@@ -1463,7 +1467,7 @@ router.get('/stats', async (_req, res, next) => {
       db
         .select({ stato: sql<string>`coalesce(${ordini.stato}, 'IN CORSO')`, late: count() })
         .from(ordini)
-        .where(and(lt(deliveryDateExpr, startOfToday), activeFilter))
+        .where(and(lt(deliveryDateExpr, toSqlTimestamp(startOfToday)), activeFilter))
         .groupBy(sql`coalesce(${ordini.stato}, 'IN CORSO')`),
       // carico prossime 8 settimane
       db
@@ -1475,8 +1479,8 @@ router.get('/stats', async (_req, res, next) => {
         .where(
           and(
             sql`${deliveryDateExpr} is not null`,
-            gte(deliveryDateExpr, startOfToday),
-            lte(deliveryDateExpr, eightWeeksOut),
+            gte(deliveryDateExpr, toSqlTimestamp(startOfToday)),
+            lte(deliveryDateExpr, toSqlTimestamp(eightWeeksOut)),
             activeFilter,
           ),
         )
@@ -1677,12 +1681,12 @@ router.get('/activity', async (req, res, next) => {
       }
     }
     if (query.fromDate) {
-      filters.push(gte(sql`oe.created_at`, new Date(query.fromDate)))
+      filters.push(gte(sql`oe.created_at`, toSqlTimestamp(new Date(query.fromDate))))
     }
     if (query.toDate) {
       const to = new Date(query.toDate)
       to.setHours(23, 59, 59, 999)
-      filters.push(lte(sql`oe.created_at`, to))
+      filters.push(lte(sql`oe.created_at`, toSqlTimestamp(to)))
     }
 
     const whereClause = filters.length ? and(...filters) : undefined

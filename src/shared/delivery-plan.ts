@@ -15,8 +15,17 @@ export interface LegacyDeliveryPlanFields {
   biliciSecondi?: number | null;
 }
 
-function normalizeDate(value: string | null | undefined): string {
-  return value?.trim() ?? '';
+function normalizeDate(value: string | Date | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10);
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? trimmed : parsed.toISOString().slice(0, 10);
 }
 
 function normalizeNumber(value: number | string | null | undefined): number | null {
