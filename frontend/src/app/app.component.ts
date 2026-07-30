@@ -63,7 +63,7 @@ import {
   orderWarnings as orderWarningsHelper,
 } from './order-formatters';
 import { SettingsService } from './settings.service';
-import { buildDeliveryPlanFromLegacy, deliveryPlanHasAnyValue, normalizeDeliveryPlanEntries, splitDeliveryPlanToLegacy } from '../../../src/shared/delivery-plan';
+import { MAX_DELIVERY_PLAN_ENTRIES, buildDeliveryPlanFromLegacy, deliveryPlanHasAnyValue, normalizeDeliveryPlanEntries, splitDeliveryPlanToLegacy, type DeliveryPlanEntry } from '../../../src/shared/delivery-plan';
 import { ORDER_STATUS_FLOW, allowedNextStatuses, statusClass, type ConsegnaStatus } from '../../../src/shared/order-flow';
 import { validateTransitionState } from '../../../src/shared/transition-validation';
 
@@ -134,6 +134,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedUploadFile: File | null = null;
   operationError = '';
   operationSuccess = '';
+  readonly deliveryPlanCountOptions = Array.from({ length: MAX_DELIVERY_PLAN_ENTRIES }, (_, index) => index + 1);
   activeView: ViewMode = 'kanban';
   activeRegistryTab: RegistryTab = 'persone';
   activePersoneSubTab: string = 'utenti';
@@ -249,6 +250,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     upcomingByWeek: [],
     byClienteAttivi: [],
   };
+  dashboardStatsError = '';
 
   auditRows: AuditLogRecord[] = [];
   auditSummary: AuditLogSummary = {
@@ -317,10 +319,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   commercialiRows: CommercialeRecord[] = [];
   commercialiLoading = false;
+  commercialiError = '';
   newComercialeModel = { nome: '' };
 
   responsabiliRows: ResponsabileRecord[] = [];
   responsabiliLoading = false;
+  responsabiliError = '';
   newResponsabileModel = { nome: '' };
 
   usersRows: AppUserRecord[] = [];
@@ -345,6 +349,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Admin CRUD: Mittenti Disegno ──────────────────────────────────────────
   mittentiDisegnoRows: MittenteDisegno[] = [];
   mittentiDisegnoLoading = false;
+  mittentiDisegnoError = '';
   newMittenteDisegnoNome = '';
   editingMittenteDisegno: MittenteDisegno | null = null;
   editMittenteDisegnoNome = '';
@@ -352,6 +357,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Admin CRUD: Operai ────────────────────────────────────────────────────
   operaiRows: Operaio[] = [];
   operaiLoading = false;
+  operaiError = '';
   newOperaioNome = '';
   editingOperaio: Operaio | null = null;
   editOperaioNome = '';
@@ -359,6 +365,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Admin CRUD: Vettori ───────────────────────────────────────────────────
   vettoriRows: Vettore[] = [];
   vettoriLoading = false;
+  vettoriError = '';
   newVettoreNome = '';
   editingVettore: Vettore | null = null;
   editVettoreNome = '';
@@ -366,6 +373,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Admin CRUD: Tipi Cemento ──────────────────────────────────────────────
   cementiTipiRows: CementoTipo[] = [];
   cementiTipiLoading = false;
+  cementiTipiError = '';
   newCementoTipoNome = '';
   newCementoTipoOrdine = 0;
   editingCementoTipo: CementoTipo | null = null;
@@ -375,6 +383,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Admin CRUD: Tipi Accessorio ───────────────────────────────────────────
   accessoriTipiRows: AccessorioTipo[] = [];
   accessoriTipiLoading = false;
+  accessoriTipiError = '';
   newAccessorioTipoNome = '';
   newAccessorioTipoOrdine = 0;
   editingAccessorioTipo: AccessorioTipo | null = null;
@@ -655,6 +664,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.consegneService.stats().subscribe({
       next: (stats) => {
         this.stats = stats;
+        this.dashboardStatsError = '';
+      },
+      error: (error) => {
+        this.dashboardStatsError = error?.error?.message ?? 'Impossibile caricare i dati della dashboard';
       },
     });
 
@@ -830,6 +843,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private serializeDetailSections(): string {
+    const deliveryPlan = this.normalizeDetailDeliveryPlan(this.selectedDetail);
     return JSON.stringify({
       folderLinkDocumenti: this.selectedDetail?.folderLinkDocumenti ?? '',
       folderLinkFoto: this.selectedDetail?.folderLinkFoto ?? '',
@@ -844,9 +858,17 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       attesaMateriale: !!this.selectedDetail?.attesaMateriale,
       residuiLavorazioneNote: this.selectedDetail?.residuiLavorazioneNote ?? '',
       consegnaDataEffettiva: this.selectedDetail?.consegnaDataEffettiva ?? '',
+      consegnaDataEffettivaSeconda: this.selectedDetail?.consegnaDataEffettivaSeconda ?? '',
+      deliveryPlan: deliveryPlan.map((entry) => ({
+        data: entry.data,
+        vettoreId: entry.vettoreId,
+        bilici: entry.bilici,
+      })),
       problemiScaricoNota: this.selectedDetail?.problemiScaricoNota ?? '',
       vettoreId: this.selectedDetail?.vettoreId ?? null,
+      vettoreSecondoId: this.selectedDetail?.vettoreSecondoId ?? null,
       bilici: this.selectedDetail?.bilici ?? 0,
+      biliciSecondi: this.selectedDetail?.biliciSecondi ?? 0,
       ddtPronti: !!this.selectedDetail?.ddtPronti,
       bancale: !!this.selectedDetail?.bancale,
       chiusini: !!this.selectedDetail?.chiusini,
@@ -1335,7 +1357,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         deliveryPlanHasAnyValue(order.deliveryPlan)
           ? order.deliveryPlan
           : buildDeliveryPlanFromLegacy(order),
-      )
+      ).slice(0, 1)
       : buildDeliveryPlanFromLegacy({});
     this.dropTransitionModal = {
       open: true,
@@ -1360,7 +1382,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       conclusiWeek: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'week' ? order.conclusiWeek ?? this.todayIsoWeek() : order.conclusiWeek ?? this.todayIsoWeek()) : '',
       conclusiDate: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'date' ? order.conclusiDate ?? this.todayIsoDate() : order.conclusiDate ?? this.todayIsoDate()) : '',
       accontoPagato: toStatus === 'CONSEGNA PIANIFICATA' ? !!order.accontoPagato : false,
-      secondaConsegna: toStatus === 'CONSEGNA PIANIFICATA' ? !!(order.consegnaDataEffettivaSeconda || order.vettoreSecondoId || (order.biliciSecondi ?? 0)) : false,
+      secondaConsegna: false,
       note,
       error: '',
     };
@@ -1778,28 +1800,113 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedDetail.conclusiWeek = null;
   }
 
-  hasSecondaConsegna(detail: Pick<ConsegnaRecord, 'consegnaDataEffettivaSeconda' | 'vettoreSecondoId' | 'biliciSecondi'>): boolean {
-    return !!detail.consegnaDataEffettivaSeconda || !!detail.vettoreSecondoId || (detail.biliciSecondi ?? 0) > 0;
+  private normalizeDetailDeliveryPlan(detail: Pick<ConsegnaRecord, 'deliveryPlan' | 'consegnaDataEffettiva' | 'consegnaDataEffettivaSeconda' | 'vettoreId' | 'vettoreSecondoId' | 'bilici' | 'biliciSecondi'> | null | undefined): DeliveryPlanEntry[] {
+    if (!detail) {
+      return normalizeDeliveryPlanEntries([]);
+    }
+    const source = detail.deliveryPlan && detail.deliveryPlan.length > 0 ? detail.deliveryPlan : buildDeliveryPlanFromLegacy(detail);
+    return normalizeDeliveryPlanEntries(source);
+  }
+
+  private applyDeliveryPlanToDetail(detail: ConsegnaRecord, plan: DeliveryPlanEntry[]): ConsegnaRecord {
+    const legacy = splitDeliveryPlanToLegacy(plan);
+    return {
+      ...detail,
+      deliveryPlan: plan,
+      consegnaDataEffettiva: legacy.consegnaDataEffettiva ?? null,
+      consegnaDataEffettivaSeconda: legacy.consegnaDataEffettivaSeconda ?? null,
+      vettoreId: legacy.vettoreId ?? null,
+      vettoreSecondoId: legacy.vettoreSecondoId ?? null,
+      bilici: legacy.bilici ?? 0,
+      biliciSecondi: legacy.biliciSecondi ?? 0,
+    };
+  }
+
+  private normalizeSelectedDeliveryPlan(): DeliveryPlanEntry[] {
+    if (!this.selectedDetail) {
+      return normalizeDeliveryPlanEntries([]);
+    }
+    const plan = this.normalizeDetailDeliveryPlan(this.selectedDetail);
+    this.selectedDetail = this.applyDeliveryPlanToDetail(this.selectedDetail, plan);
+    return plan;
+  }
+
+  syncDetailDeliveryPlanFields(): void {
+    this.normalizeSelectedDeliveryPlan();
+  }
+
+  setDetailDeliveryPlanCount(count: number): void {
+    if (!this.selectedDetail || !this.canWrite || !this.editMode) return;
+    const nextCount = Math.min(MAX_DELIVERY_PLAN_ENTRIES, Math.max(1, Math.trunc(Number(count) || 1)));
+    const currentPlan = this.normalizeSelectedDeliveryPlan();
+    const nextPlan = currentPlan.slice(0, nextCount);
+    while (nextPlan.length < nextCount) {
+      nextPlan.push({ data: '', vettoreId: null, bilici: null });
+    }
+    this.selectedDetail = this.applyDeliveryPlanToDetail(this.selectedDetail, nextPlan);
+  }
+
+  getDetailDeliveryPlanCount(detail: Pick<ConsegnaRecord, 'deliveryPlan' | 'consegnaDataEffettiva' | 'consegnaDataEffettivaSeconda' | 'vettoreId' | 'vettoreSecondoId' | 'bilici' | 'biliciSecondi'> | null | undefined): number {
+    return this.normalizeDetailDeliveryPlan(detail).length;
+  }
+
+  updateDetailDeliveryPlanEntry(index: number, field: keyof DeliveryPlanEntry, value: string | number | null): void {
+    if (!this.selectedDetail || !this.canWrite || !this.editMode) return;
+    const plan = this.normalizeSelectedDeliveryPlan();
+    const entry = plan[index];
+    if (!entry) return;
+    plan[index] = {
+      ...entry,
+      [field]: field === 'bilici'
+        ? (value === '' || value === null ? null : Math.max(0, Math.trunc(Number(value) || 0)))
+        : field === 'vettoreId'
+          ? (value === '' || value === null ? null : Math.trunc(Number(value) || 0))
+          : String(value ?? ''),
+    };
+    this.selectedDetail = this.applyDeliveryPlanToDetail(this.selectedDetail, plan);
+  }
+
+  private prepareDetailDeliveryPlan(detail: ConsegnaRecord): ConsegnaRecord {
+    return this.applyDeliveryPlanToDetail(detail, this.normalizeDetailDeliveryPlan(detail));
+  }
+
+  deliveryPlanEntryLabel(index: number): string {
+    return `${index + 1}ª consegna`;
+  }
+
+  hasSecondaConsegna(detail: Pick<ConsegnaRecord, 'deliveryPlan' | 'consegnaDataEffettivaSeconda' | 'vettoreSecondoId' | 'biliciSecondi'>): boolean {
+    return this.normalizeDetailDeliveryPlan(detail as Pick<ConsegnaRecord, 'deliveryPlan' | 'consegnaDataEffettiva' | 'consegnaDataEffettivaSeconda' | 'vettoreId' | 'vettoreSecondoId' | 'bilici' | 'biliciSecondi'>).length > 1
+      || !!detail.consegnaDataEffettivaSeconda
+      || !!detail.vettoreSecondoId
+      || (detail.biliciSecondi ?? 0) > 0;
   }
 
   enableSecondaConsegna(): void {
     if (!this.selectedDetail || !this.canWrite || !this.editMode) return;
+    const plan = this.normalizeSelectedDeliveryPlan();
+    if (plan.length >= 2) return;
+    const first = plan[0] ?? {
+      data: this.selectedDetail.consegnaDataEffettiva ?? this.todayIsoDate(),
+      vettoreId: this.selectedDetail.vettoreId ?? null,
+      bilici: this.selectedDetail.bilici ?? 0,
+    };
     this.selectedDetail = {
       ...this.selectedDetail,
-      consegnaDataEffettivaSeconda: this.selectedDetail.consegnaDataEffettivaSeconda ?? this.selectedDetail.consegnaDataEffettiva ?? this.todayIsoDate(),
-      vettoreSecondoId: this.selectedDetail.vettoreSecondoId ?? this.selectedDetail.vettoreId ?? null,
-      biliciSecondi: this.selectedDetail.biliciSecondi ?? 0,
+      ...this.applyDeliveryPlanToDetail(this.selectedDetail, [
+        { ...first },
+        {
+          data: this.selectedDetail.consegnaDataEffettivaSeconda ?? '',
+          vettoreId: this.selectedDetail.vettoreSecondoId ?? null,
+          bilici: this.selectedDetail.biliciSecondi ?? null,
+        },
+      ]),
     };
   }
 
   disableSecondaConsegna(): void {
     if (!this.selectedDetail || !this.canWrite || !this.editMode) return;
-    this.selectedDetail = {
-      ...this.selectedDetail,
-      consegnaDataEffettivaSeconda: null,
-      vettoreSecondoId: null,
-      biliciSecondi: 0,
-    };
+    const plan = this.normalizeSelectedDeliveryPlan().slice(0, 1);
+    this.selectedDetail = this.applyDeliveryPlanToDetail(this.selectedDetail, plan);
   }
 
   onAttachmentSelected(event: Event): void {
@@ -2419,6 +2526,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadCommerciali(): void {
     this.commercialiLoading = true;
+    this.commercialiError = '';
     this.consegneService.listCommerciali().subscribe({
       next: (response) => {
         this.commercialiRows = response.data;
@@ -2427,7 +2535,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (error) => {
         this.commercialiLoading = false;
-        this.operationError = error?.error?.message ?? 'Errore caricamento commerciali';
+        this.commercialiError = error?.error?.message ?? 'Errore caricamento commerciali';
       },
     });
   }
@@ -2461,6 +2569,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadResponsabili(): void {
     this.responsabiliLoading = true;
+    this.responsabiliError = '';
     this.consegneService.listResponsabili().subscribe({
       next: (response) => {
         this.responsabiliRows = response.data;
@@ -2468,7 +2577,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (error) => {
         this.responsabiliLoading = false;
-        this.operationError = error?.error?.message ?? 'Errore caricamento responsabili';
+        this.responsabiliError = error?.error?.message ?? 'Errore caricamento responsabili';
       },
     });
   }
@@ -2522,9 +2631,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadMittentiDisegnoAdmin(): void {
     this.mittentiDisegnoLoading = true;
+    this.mittentiDisegnoError = '';
     this.consegneService.listMittentiDisegno().subscribe({
       next: (response) => { this.mittentiDisegnoRows = response.data; this.mittentiDisegnoLoading = false; },
-      error: (error) => { this.mittentiDisegnoLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento mittenti disegno'; },
+      error: (error) => { this.mittentiDisegnoLoading = false; this.mittentiDisegnoError = error?.error?.message ?? 'Errore caricamento mittenti disegno'; },
     });
   }
 
@@ -2590,9 +2700,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadOperaiAdmin(): void {
     this.operaiLoading = true;
+    this.operaiError = '';
     this.consegneService.listOperai().subscribe({
       next: (response) => { this.operaiRows = response.data; this.operaiLoading = false; },
-      error: (error) => { this.operaiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento operai'; },
+      error: (error) => { this.operaiLoading = false; this.operaiError = error?.error?.message ?? 'Errore caricamento operai'; },
     });
   }
 
@@ -2658,9 +2769,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadVettoriAdmin(): void {
     this.vettoriLoading = true;
+    this.vettoriError = '';
     this.consegneService.listVettori().subscribe({
       next: (response) => { this.vettoriRows = response.data; this.vettoriLoading = false; },
-      error: (error) => { this.vettoriLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento vettori'; },
+      error: (error) => { this.vettoriLoading = false; this.vettoriError = error?.error?.message ?? 'Errore caricamento vettori'; },
     });
   }
 
@@ -2726,9 +2838,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadCementiTipiAdmin(): void {
     this.cementiTipiLoading = true;
+    this.cementiTipiError = '';
     this.consegneService.listCementiTipi().subscribe({
       next: (response) => { this.cementiTipiRows = response.data; this.cementiTipiLoading = false; },
-      error: (error) => { this.cementiTipiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento tipi cemento'; },
+      error: (error) => { this.cementiTipiLoading = false; this.cementiTipiError = error?.error?.message ?? 'Errore caricamento tipi cemento'; },
     });
   }
 
@@ -2778,9 +2891,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadAccessoriTipiAdmin(): void {
     this.accessoriTipiLoading = true;
+    this.accessoriTipiError = '';
     this.consegneService.listAccessoriTipi().subscribe({
       next: (response) => { this.accessoriTipiRows = response.data; this.accessoriTipiLoading = false; },
-      error: (error) => { this.accessoriTipiLoading = false; this.operationError = error?.error?.message ?? 'Errore caricamento tipi accessorio'; },
+      error: (error) => { this.accessoriTipiLoading = false; this.accessoriTipiError = error?.error?.message ?? 'Errore caricamento tipi accessorio'; },
     });
   }
 
@@ -3556,6 +3670,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const taskObs: Observable<unknown>[] = [];
     const payload: Partial<ConsegnaRecord> = {};
+    const detailDeliveryPlan = this.normalizeDetailDeliveryPlan(this.selectedDetail);
+    const legacyDeliveryPlan = splitDeliveryPlanToLegacy(detailDeliveryPlan);
 
     if (dettagliDirty) {
       Object.assign(payload, {
@@ -3587,9 +3703,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         folderLinkDocumenti: this.selectedDetail.folderLinkDocumenti || null,
         folderLinkFoto: this.selectedDetail.folderLinkFoto || null,
         dataConsegnaTassativa: this.selectedDetail.dataConsegnaTassativa || null,
-        consegnaDataEffettivaSeconda: this.selectedDetail.consegnaDataEffettivaSeconda || null,
-        vettoreSecondoId: this.selectedDetail.vettoreSecondoId ?? null,
-        biliciSecondi: this.selectedDetail.biliciSecondi ?? 0,
         disegnoSpeditoAt: this.selectedDetail.disegnoSpeditoAt || null,
         disegnoMittenteId: this.selectedDetail.disegnoMittenteId || null,
         disegnoNote: this.selectedDetail.disegnoNote || null,
@@ -3600,10 +3713,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         lavorazioneParziale: this.selectedDetail.lavorazioneParziale,
         attesaMateriale: this.selectedDetail.attesaMateriale,
         residuiLavorazioneNote: this.selectedDetail.residuiLavorazioneNote || null,
-        consegnaDataEffettiva: this.selectedDetail.consegnaDataEffettiva || null,
+        consegnaDataEffettiva: legacyDeliveryPlan.consegnaDataEffettiva,
+        consegnaDataEffettivaSeconda: legacyDeliveryPlan.consegnaDataEffettivaSeconda,
+        deliveryPlan: detailDeliveryPlan,
         problemiScaricoNota: this.selectedDetail.problemiScaricoNota || null,
-        vettoreId: this.selectedDetail.vettoreId || null,
-        bilici: this.selectedDetail.bilici,
+        vettoreId: legacyDeliveryPlan.vettoreId,
+        vettoreSecondoId: legacyDeliveryPlan.vettoreSecondoId,
+        bilici: legacyDeliveryPlan.bilici,
+        biliciSecondi: legacyDeliveryPlan.biliciSecondi,
         ddtPronti: this.selectedDetail.ddtPronti,
         bancale: this.selectedDetail.bancale,
         chiusini: this.selectedDetail.chiusini,
@@ -3639,7 +3756,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       next: () => {
         if (dettagliDirty) {
           // Aggiorna selectedDetail con i valori salvati e chiudi editMode
-          Object.assign(this.selectedDetail!, {
+        Object.assign(this.selectedDetail!, {
             rif: this.formModel.rif,
             cliente: this.formModel.cliente,
             tipoImpianto: this.formModel.tipoImpianto || null,
@@ -3661,9 +3778,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             responsabileInternoId: this.formModel.responsabileInternoId,
             folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
             folderLinkFoto: this.formModel.folderLinkFoto || null,
-            consegnaDataEffettivaSeconda: this.formModel.consegnaDataEffettivaSeconda || null,
-            vettoreSecondoId: this.formModel.vettoreSecondoId,
-            biliciSecondi: this.formModel.biliciSecondi ?? 0,
+            deliveryPlan: detailDeliveryPlan,
+            ...legacyDeliveryPlan,
             cementiNote: this.formModel.cementiNote || null,
           });
           this.dettagliSnapshot = this.serializeDettagli();

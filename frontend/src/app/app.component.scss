@@ -630,6 +630,20 @@
   white-space: nowrap;
 }
 
+.delivery-plan-stack {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 12px;
+}
+
+.delivery-plan-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.98));
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
 .detail-worker-badges {
   display: flex;
   flex-wrap: wrap;

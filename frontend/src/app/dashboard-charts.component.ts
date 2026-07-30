@@ -61,6 +61,16 @@ const AGING_BANDS: AgingBand[] = [
         gap: 12px;
       }
 
+      .dashboard-alert {
+        border-radius: 14px;
+        border: 1px solid #fecaca;
+        background: linear-gradient(180deg, #fff5f5 0%, #fffafa 100%);
+        color: #991b1b;
+        padding: 10px 12px;
+        font-size: 0.84rem;
+        font-weight: 700;
+      }
+
       .kpi-row {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -487,6 +497,10 @@ const AGING_BANDS: AgingBand[] = [
   ],
   template: `
     <div class="dashboard-shell">
+      @if (app.dashboardStatsError) {
+        <div class="dashboard-alert">{{ app.dashboardStatsError }}</div>
+      }
+
       <div class="kpi-row">
         <div class="kpi-card">
           <span class="kpi-value">{{ stats.kpi.totaleAttivi }}</span>

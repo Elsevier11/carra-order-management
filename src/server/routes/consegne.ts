@@ -2123,7 +2123,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         const firstDate = parseInputDate(payload.consegnaDataEffettiva)
         const secondDate = parseInputDate(payload.consegnaDataEffettivaSeconda)
         if (secondDate.getTime() < firstDate.getTime()) {
-          return res.status(400).json({ message: 'La seconda consegna non può precedere la prima.' })
+          return res.status(400).json({ message: 'La seconda consegna non puo precedere la prima.' })
         }
       }
     }

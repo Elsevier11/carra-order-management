@@ -8,7 +8,7 @@
         }
       </div>
       <p class="consegne-hero__subtitle">
-        Vista tabellare ordinata per data consegna effettiva decrescente, con le informazioni chiave raccolte in modo piu leggibile.
+        Vista raggruppata per settimana sulla data di consegna, con le card ordinate dentro ogni gruppo come nel Kanban.
       </p>
     </div>
 
@@ -45,115 +45,91 @@
 
   <div class="consegne-sections">
     @for (section of sections; track section.status) {
-      @if (sectionItems(section.status); as items) {
-        <section class="consegne-section">
-          <header class="consegne-section__header">
-            <div class="consegne-section__title-wrap">
-              <span class="consegne-section__eyebrow">{{ section.status }}</span>
-              <h2>{{ section.label }}</h2>
-              <p class="consegne-section__description">
-                @if (section.status === 'CONSEGNA PIANIFICATA') {
-                  Ordinamento dalla data piu recente alla meno recente.
-                } @else {
-                  Elenco delle consegne completate con la stessa logica di lettura.
-                }
-              </p>
-            </div>
-            <span class="kanban-header-meta"><span>{{ items.length }}</span></span>
-          </header>
+      <section class="consegne-section">
+        <header class="consegne-section__header">
+          <div class="consegne-section__title-wrap">
+            <span class="consegne-section__eyebrow">{{ section.status }}</span>
+            <h2>{{ section.label }}</h2>
+            <p class="consegne-section__description">
+              Raggruppamento settimanale sulla data di consegna, con ordinamento interno dalla più recente alla meno recente.
+            </p>
+          </div>
+          <span class="kanban-header-meta"><span>{{ sectionItems(section.status).length }}</span></span>
+        </header>
 
-          @if (items.length === 0) {
+        @if (sectionWeekGroups(section.status); as weekGroups) {
+          @if (weekGroups.length === 0) {
             <div class="kanban-empty consegne-empty">Nessun ordine</div>
           } @else {
-            <div class="consegne-table-wrap">
-              <table class="consegne-table">
-                <thead>
-                  <tr>
-                    <th>Codice</th>
-                    <th>Cliente / Ragione Sociale</th>
-                    <th>Cantiere</th>
-                    <th>Descrizione Prodotto</th>
-                    <th>Data Cons.</th>
-                    <th>Num. bilici</th>
-                    <th>Vettore</th>
-                    <th>Tag / Stato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (item of items; track item.id) {
-                    <tr
-                      class="consegne-row"
-                      role="button"
-                      tabindex="0"
-                      (click)="app.selectFromBoard(item)"
-                      (keydown.enter)="app.selectFromBoard(item)"
-                      (keydown.space)="$event.preventDefault(); app.selectFromBoard(item)"
-                    >
-                      <td class="consegne-cell consegne-cell--code" data-label="Codice">
-                        <span class="consegne-code">{{ item.rif }}</span>
-                      </td>
-                      <td class="consegne-cell consegne-cell--cliente" data-label="Cliente / Ragione Sociale">
-                        <span class="consegne-cliente">{{ item.cliente }}</span>
-                      </td>
-                      <td class="consegne-cell consegne-cell--cantiere" data-label="Cantiere">
-                        <span class="consegne-cantiere">{{ item.cantiere || '-' }}</span>
-                      </td>
-                      <td class="consegne-cell consegne-cell--prodotto" data-label="Descrizione Prodotto">
-                        <span class="consegne-prodotto">{{ item.tipoImpianto || '-' }}</span>
-                      </td>
-                      <td class="consegne-cell consegne-cell--date" data-label="Data Cons.">
-                        <span class="consegne-pill consegne-pill--date">{{ deliveryDateLabel(item) }}</span>
-                      </td>
-                      <td class="consegne-cell consegne-cell--bilici" data-label="Num. bilici">
-                        <span class="consegne-bilici">{{ biliciLabel(item) }}</span>
-                      </td>
-                      <td class="consegne-cell consegne-cell--vettore" data-label="Vettore">
-                        <span class="consegne-vettore">{{ vettoreLabel(item) }}</span>
-                      </td>
-                      <td class="consegne-cell consegne-cell--tags" data-label="Tag / Stato">
-                        <div class="consegne-badge-stack">
-                          <div class="consegne-badge-column">
-                            <span
-                              class="consegne-pill"
-                              [class.consegne-pill--tassativa]="item.consegnaTassativa"
-                              [class.consegne-pill--stimata]="!item.consegnaTassativa"
-                            >{{ deliveryTypeLabel(item) }}</span>
-                          </div>
+            <div class="consegne-week-groups">
+              @for (group of weekGroups; track group.key) {
+                <section class="consegne-week-group">
+                  <div class="kanban-week-separator">{{ group.label }}</div>
+                  <div class="consegne-week-group__cards">
+                    @for (item of group.items; track item.id) {
+                      <button
+                        type="button"
+                        class="kanban-card consegne-card"
+                        (click)="app.selectFromBoard(item)"
+                      >
+                        <strong>{{ item.rif }}</strong>
+                        <span class="kanban-card-cliente">{{ item.cliente }}</span>
+                        @if (item.tipoImpianto) {
+                          <span class="kanban-card-impianto">{{ item.tipoImpianto }}</span>
+                        }
+                        <div class="kanban-card-meta">
+                          <span class="kanban-card-meta__date">{{ deliveryBadgeText(item) }}</span>
+                          @if (app.boardConclusiBadge(item); as conclusiBadge) {
+                            <span class="kanban-card-meta__date">{{ conclusiBadge }}</span>
+                          }
+                        </div>
+                        <div class="consegne-card-badges">
+                          <span
+                            class="consegne-pill"
+                            [class.consegne-pill--tassativa]="item.consegnaTassativa"
+                            [class.consegne-pill--stimata]="!item.consegnaTassativa"
+                          >
+                            {{ deliveryTypeLabel(item) }}
+                          </span>
+                          @if (deliveryPlanBadges(item); as planBadges) {
+                            @if (planBadges.length) {
+                              @for (badge of planBadges; track badge.text) {
+                                <span class="kanban-card-alert" [ngClass]="app.boardInfoBadgeClass(badge.tone)">{{ badge.text }}</span>
+                              }
+                            }
+                          }
                           @if (problemiScaricoLabel(item); as scaricoNote) {
-                            <div class="consegne-badge-column">
-                              <span class="consegne-pill consegne-pill--scarico">{{ scaricoNote }}</span>
-                            </div>
+                            <span class="consegne-pill consegne-pill--scarico">{{ scaricoNote }}</span>
                           }
                           @if (app.orderWarnings(item); as warnings) {
                             @if (warnings.length) {
-                              <div class="consegne-badge-column">
-                                @for (warning of warnings; track warning) {
-                                  <span class="consegne-pill consegne-pill--warning">{{ warning }}</span>
-                                }
-                              </div>
+                              @for (warning of warnings; track warning) {
+                                <span class="consegne-pill consegne-pill--warning">{{ warning }}</span>
+                              }
                             }
                           }
                           @if (item.editingBy && item.editingBy !== app.user?.username) {
-                            <div class="consegne-badge-column">
-                              <span class="consegne-pill consegne-pill--warning consegne-pill--lock">
-                                <span class="consegne-pill__icon" aria-hidden="true">🔒</span>
-                                <span>In modifica da {{ item.editingBy }}</span>
-                              </span>
-                            </div>
+                            <span class="consegne-pill consegne-pill--warning consegne-pill--lock">
+                              <span class="consegne-pill__icon" aria-hidden="true">🔒</span>
+                              <span>In modifica da {{ item.editingBy }}</span>
+                            </span>
                           }
-                          <div class="consegne-badge-column">
-                            <span class="consegne-pill" [class.consegne-pill--ok]="item.ddtPronti" [class.consegne-pill--muted]="!item.ddtPronti">DDT pronti</span>
-                          </div>
+                          <span class="consegne-pill" [class.consegne-pill--ok]="item.ddtPronti" [class.consegne-pill--muted]="!item.ddtPronti">DDT pronti</span>
                         </div>
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
+                        <div class="consegne-card-footer">
+                          <span class="consegne-card-footer__item">Scadenze: {{ deliveryDateLabel(item) }}</span>
+                          <span class="consegne-card-footer__item">Bilici: {{ biliciLabel(item) }}</span>
+                          <span class="consegne-card-footer__item">Vettore: {{ vettoreLabel(item) }}</span>
+                        </div>
+                      </button>
+                    }
+                  </div>
+                </section>
+              }
             </div>
           }
-        </section>
-      }
+        }
+      </section>
     }
   </div>
 </div>

@@ -96,6 +96,77 @@
     <ng-container *ngSwitchCase="'CONSEGNA PIANIFICATA'">
       <div class="detail-section-title">Consegna Pianificata</div>
       <div class="detail-kv-grid">
+        <div class="detail-kv detail-kv--full">
+          <label class="kv-label">Numero consegne</label>
+          <select *ngIf="app.canWrite && app.editMode; else consegneCountRead" [ngModel]="detail.deliveryPlan?.length || 1" (ngModelChange)="app.setDetailDeliveryPlanCount($event)">
+            <option *ngFor="let count of app.deliveryPlanCountOptions" [ngValue]="count">{{ count }}</option>
+          </select>
+          <ng-template #consegneCountRead>
+            <span class="kv-value">{{ detail.deliveryPlan?.length || 1 }}</span>
+          </ng-template>
+        </div>
+      </div>
+      <div class="delivery-plan-stack">
+        <div class="delivery-plan-card" *ngFor="let entry of detail.deliveryPlan; let i = index">
+          <div class="detail-section-title detail-section-title--inline">
+            <span>{{ i + 1 }} consegna</span>
+          </div>
+          <div class="detail-kv-grid">
+            <div class="detail-kv">
+              <label class="kv-label">Data consegna effettiva</label>
+              <input *ngIf="app.canWrite && app.editMode; else consegnaPianificataDataRead" type="date" [(ngModel)]="entry.data" (ngModelChange)="app.syncDetailDeliveryPlanFields()" />
+              <ng-template #consegnaPianificataDataRead>
+                <span class="kv-value">{{ entry.data ? (entry.data | date:'dd/MM/yyyy') : 'â€”' }}</span>
+              </ng-template>
+            </div>
+            <div class="detail-kv">
+              <label class="kv-label">N&deg; bilici</label>
+              <input *ngIf="app.canWrite && app.editMode; else consegnaPianificataBiliciRead" type="number" min="0" step="1" [(ngModel)]="entry.bilici" (ngModelChange)="app.syncDetailDeliveryPlanFields()" />
+              <ng-template #consegnaPianificataBiliciRead>
+                <span class="kv-value">{{ entry.bilici ?? 'â€”' }}</span>
+              </ng-template>
+            </div>
+            <div class="detail-kv">
+              <label class="kv-label">Vettore</label>
+              <select *ngIf="app.canWrite && app.editMode; else consegnaPianificataVettoreRead" [(ngModel)]="entry.vettoreId" (ngModelChange)="app.syncDetailDeliveryPlanFields()">
+                <option [ngValue]="null">â€” seleziona â€”</option>
+                <option *ngFor="let vettore of app.vettoriList" [ngValue]="vettore.id">{{ vettore.nome }}</option>
+              </select>
+              <ng-template #consegnaPianificataVettoreRead>
+                <span class="kv-value">{{ app.nomeVettore(entry.vettoreId) }}</span>
+              </ng-template>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-kv-grid">
+        <div class="detail-kv detail-kv--full">
+          <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite && app.editMode ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.ddtPronti" [disabled]="!app.canWrite || !app.editMode" />
+              DDT pronti
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite && app.editMode ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.bancale" [disabled]="!app.canWrite || !app.editMode" />
+              Bancale
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite && app.editMode ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.chiusini" [disabled]="!app.canWrite || !app.editMode" />
+              Chiusini
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem" [style.cursor]="app.canWrite && app.editMode ? 'pointer' : 'default'">
+              <input type="checkbox" [(ngModel)]="detail.caricoVerificato" [disabled]="!app.canWrite || !app.editMode" />
+              Carico verificato
+            </label>
+          </div>
+        </div>
+      </div>
+      <p *ngIf="app.canWrite && app.editMode" class="tab-save-hint">Le modifiche vengono salvate con il pulsante <strong>Salva</strong> in alto.</p>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'CONSEGNA PIANIFICATA_OLD'">
+      <div class="detail-section-title">Consegna Pianificata</div>
+      <div class="detail-kv-grid">
         <div class="detail-kv">
           <label class="kv-label">Data consegna effettiva</label>
           <input *ngIf="app.canWrite && app.editMode; else consegnaEffettivaRead" type="date" [(ngModel)]="detail.consegnaDataEffettiva" />

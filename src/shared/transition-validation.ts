@@ -98,7 +98,7 @@ export function validateTransitionState(state: TransitionStateLike): string | nu
       const previousDate = new Date(deliveryPlan[index - 1].data)
       const currentDate = new Date(entry.data)
       if (!Number.isNaN(previousDate.getTime()) && !Number.isNaN(currentDate.getTime()) && currentDate.getTime() < previousDate.getTime()) {
-        return `La consegna ${index + 1} non può precedere la precedente.`
+        return `La consegna ${index + 1} non puo precedere la precedente.`
       }
     }
   }

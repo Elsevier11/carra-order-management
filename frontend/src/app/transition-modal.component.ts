@@ -132,7 +132,7 @@ export class TransitionModalComponent {
   }
 
   isConfirmDisabled(): boolean {
-    return !!this.pendingTransitionId || !!validateTransitionState({ ...this.modal, skipAssegnazione: false });
+    return !!this.pendingTransitionId;
   }
 
   private todayIsoDate(): string {

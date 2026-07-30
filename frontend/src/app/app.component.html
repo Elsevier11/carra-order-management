@@ -390,6 +390,9 @@
           <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Commerciali</h2>
+              @if (commercialiError) {
+                <div class="error">{{ commercialiError }}</div>
+              }
               @if (commercialiLoading) {
                 <p class="settings-loading">Caricamento...</p>
               } @else {
@@ -420,6 +423,9 @@
           <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Responsabili</h2>
+              @if (responsabiliError) {
+                <div class="error">{{ responsabiliError }}</div>
+              }
               @if (responsabiliLoading) {
                 <p class="settings-loading">Caricamento...</p>
               } @else {
@@ -450,6 +456,9 @@
           <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Mittenti Disegno</h2>
+              @if (mittentiDisegnoError) {
+                <div class="error">{{ mittentiDisegnoError }}</div>
+              }
               @if (mittentiDisegnoLoading) {
                 <p class="settings-loading">Caricamento...</p>
               } @else {
@@ -491,6 +500,9 @@
           <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Operai</h2>
+              @if (operaiError) {
+                <div class="error">{{ operaiError }}</div>
+              }
               @if (operaiLoading) {
                 <p class="settings-loading">Caricamento...</p>
               } @else {
@@ -532,6 +544,9 @@
           <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Vettori</h2>
+              @if (vettoriError) {
+                <div class="error">{{ vettoriError }}</div>
+              }
               @if (vettoriLoading) {
                 <p class="settings-loading">Caricamento...</p>
               } @else {
@@ -573,6 +588,9 @@
           <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Tipi Cemento</h2>
+              @if (cementiTipiError) {
+                <div class="error">{{ cementiTipiError }}</div>
+              }
               @if (cementiTipiLoading) {
                 <p class="settings-loading">Caricamento...</p>
               } @else {
@@ -617,6 +635,9 @@
           <div class="settings-page">
             <div class="settings-card">
               <h2 class="settings-card-title">Tipi Accessorio</h2>
+              @if (accessoriTipiError) {
+                <div class="error">{{ accessoriTipiError }}</div>
+              }
               @if (accessoriTipiLoading) {
                 <p class="settings-loading">Caricamento...</p>
               } @else {

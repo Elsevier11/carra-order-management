@@ -1,15 +1,16 @@
 @if (modal.open && modal.order) {
   <div class="modal-backdrop">
     <div class="modal">
-      <h2>Conferma cambio stato</h2>
-      <p>
-        Ordine <strong>{{ modal.order.rif }}</strong>:
-        <strong>{{ modal.fromStatus }}</strong> -> <strong>{{ modal.toStatus }}</strong>
-      </p>
-      <p class="transition-confirm-note">
-        Il cambio stato aggiorna il Kanban e viene registrato nello storico dell'ordine.
-      </p>
-      <div class="modal-grid">
+      <div class="modal-body">
+        <h2>Conferma cambio stato</h2>
+        <p>
+          Ordine <strong>{{ modal.order.rif }}</strong>:
+          <strong>{{ modal.fromStatus }}</strong> -> <strong>{{ modal.toStatus }}</strong>
+        </p>
+        <p class="transition-confirm-note">
+          Il cambio stato aggiorna il Kanban e viene registrato nello storico dell'ordine.
+        </p>
+        <div class="modal-grid">
         @if (modal.toStatus === 'DISEGNO IN GESTIONE') {
           <label class="form-field">
             <span>Data spedizione disegno</span>
@@ -96,13 +97,15 @@
             }
           </div>
         } @else if (modal.toStatus === 'CONSEGNA PIANIFICATA') {
-          <label class="form-field form-field--full form-field--compact">
-            <span>Numero consegne</span>
-            <select [ngModel]="modal.deliveryPlan.length" (ngModelChange)="setDeliveryCount($event)">
-              @for (count of deliveryCountOptions; track count) {
-                <option [ngValue]="count">{{ count }}</option>
-              }
-            </select>
+          <label class="form-field form-field--full transition-count-field">
+            <div class="transition-count-field__row">
+              <span>Numero consegne</span>
+              <select class="transition-count-field__select" [ngModel]="modal.deliveryPlan.length" (ngModelChange)="setDeliveryCount($event)">
+                @for (count of deliveryCountOptions; track count) {
+                  <option [ngValue]="count">{{ count }}</option>
+                }
+              </select>
+            </div>
           </label>
 
           <div class="form-field form-field--full">
@@ -173,18 +176,19 @@
             <app-note-editor [value]="modal.problemiScaricoNota" (valueChange)="modal.problemiScaricoNota = $event" placeholder="Eventuali problemi riscontrati in scarico"></app-note-editor>
           </label>
         }
-        <label class="form-field form-field--full">
-          <span>Nota</span>
-          <app-note-editor
-            [value]="modal.note"
-            (valueChange)="modal.note = $event"
-            [placeholder]="modal.toStatus === 'SOSPESO' ? 'Motivo sospensione (obbligatorio)' : 'Nota opzionale'"
-          ></app-note-editor>
-        </label>
+          <label class="form-field form-field--full">
+            <span>Nota</span>
+            <app-note-editor
+              [value]="modal.note"
+              (valueChange)="modal.note = $event"
+              [placeholder]="modal.toStatus === 'SOSPESO' ? 'Motivo sospensione (obbligatorio)' : 'Nota opzionale'"
+            ></app-note-editor>
+          </label>
+        </div>
+        @if (modal.error) {
+          <div class="error">{{ modal.error }}</div>
+        }
       </div>
-      @if (modal.error) {
-        <div class="error">{{ modal.error }}</div>
-      }
       <div class="modal-actions">
         @if (modal.toStatus === 'ASSEGNATO') {
           <button
