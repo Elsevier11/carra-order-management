@@ -1,17 +1,24 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { buildDeliveryPlanFromLegacy, normalizeDeliveryPlanEntries } from '../../../src/shared/delivery-plan';
 import type { ConsegnaRecord } from './consegne.types';
 import type { KanbanBoardHost } from './kanban-board.component';
-import type { BoardInfoBadge } from './order-formatters';
-import { boardConsegnaPianificataBadges, deliveryBadgeText as formatDeliveryBadgeText, deliveryDateValue } from './order-formatters';
-import { buildDeliveryPlanFromLegacy, normalizeDeliveryPlanEntries } from '../../../src/shared/delivery-plan';
 
 interface WeekGroup {
   key: number;
   label: string;
   items: ConsegnaRecord[];
 }
+
+interface MonthGroup {
+  key: number;
+  label: string;
+  items: ConsegnaRecord[];
+  expanded: boolean;
+}
+
+type ConsegneMode = 'planned' | 'performed';
 
 @Component({
   selector: 'app-consegne-list',
@@ -22,73 +29,82 @@ interface WeekGroup {
 })
 export class ConsegneListComponent {
   @Input({ required: true }) app!: KanbanBoardHost;
+  @Input() mode: ConsegneMode = 'planned';
+  readonly currentMonthKey = this.monthKey(new Date());
+  private readonly monthExpandedState = new Map<number, boolean>();
+  private monthAccordionTouched = false;
 
-  readonly sections: Array<{ status: string; label: string }> = [
-    { status: 'CONSEGNA PIANIFICATA', label: 'Consegna Pianificata' },
-    { status: 'CONSEGNA EFFETTUATA', label: 'Consegna Effettuata' },
-  ];
-
-  itemsForStatus(status: string): ConsegnaRecord[] {
-    return this.app.boardColumns.find((column) => column.status === status)?.items ?? [];
+  get section(): { status: string; label: string; subtitle: string } {
+    if (this.mode === 'performed') {
+      return {
+        status: 'CONSEGNA EFFETTUATA',
+        label: 'Consegne Effettuate',
+        subtitle: 'Raggruppamento settimanale sulla data di consegna effettiva.',
+      };
+    }
+    return {
+      status: 'CONSEGNA PIANIFICATA',
+      label: 'Consegne Pianificate',
+      subtitle: 'Raggruppamento settimanale sulla data di consegna pianificata.',
+    };
   }
 
-  sectionItems(status: string): ConsegnaRecord[] {
-    const items = this.app.filteredKanbanItems(this.itemsForStatus(status));
+  sectionItems(): ConsegnaRecord[] {
+    const items = this.app.filteredKanbanItems(this.itemsForStatus(this.section.status));
     return [...items].sort((a, b) => this.deliverySortValue(b) - this.deliverySortValue(a) || a.rif.localeCompare(b.rif, 'it'));
   }
 
-  sectionWeekGroups(status: string): WeekGroup[] {
-    return this.buildWeekGroups(this.sectionItems(status));
+  sectionWeekGroups(): WeekGroup[] {
+    return this.buildWeekGroups(this.sectionItems());
+  }
+
+  sectionMonthGroups(): MonthGroup[] {
+    return this.buildMonthGroups(this.sectionItems());
+  }
+
+  toggleMonthGroup(group: MonthGroup): void {
+    this.monthAccordionTouched = true;
+    const nextState = !this.monthExpandedState.get(group.key);
+    this.monthExpandedState.clear();
+    if (nextState) {
+      this.monthExpandedState.set(group.key, true);
+    }
   }
 
   deliveryDateLabel(item: ConsegnaRecord): string {
     const entries = this.deliveryEntries(item);
     if (!entries.length) return '—';
-    return entries.map((entry, index) => `${index + 1}a ${this.formatDate(entry.data)}`).join(' · ');
-  }
-
-  deliveryTypeLabel(item: ConsegnaRecord): string {
-    return formatDeliveryBadgeText(item);
-  }
-
-  deliveryBadgeText(item: ConsegnaRecord): string {
-    return formatDeliveryBadgeText(item);
-  }
-
-  deliveryPlanBadges(item: ConsegnaRecord): BoardInfoBadge[] {
-    return boardConsegnaPianificataBadges(item, (id: number | null | undefined) => this.app.nomeVettore(id));
-  }
-
-  vettoreLabel(item: ConsegnaRecord): string {
-    const entries = this.deliveryEntries(item);
-    if (!entries.length) return this.app.nomeVettore(item.vettoreId);
-    const labels = entries
+    return entries
       .map((entry, index) => {
-        const value = this.app.nomeVettore(entry.vettoreId);
-        return value && value !== '—' ? `${index + 1}a ${value}` : '';
+        const value = this.formatDate(entry.data);
+        return index < entries.length - 1 ? `${value} +` : value;
       })
-      .filter(Boolean);
-    return labels.length ? labels.join(' · ') : '—';
+      .join('\n');
   }
 
   biliciLabel(item: ConsegnaRecord): string {
     const entries = this.deliveryEntries(item);
     if (!entries.length) return `${item.bilici}`;
     const labels = entries
-      .map((entry, index) => (entry.bilici != null ? `${index + 1}a ${entry.bilici}` : ''))
+      .map((entry) => (entry.bilici != null ? `${entry.bilici}` : ''))
       .filter(Boolean);
-    return labels.length ? labels.join(' · ') : `${item.bilici}`;
+    return labels.length ? labels.join(' + ') : `${item.bilici}`;
   }
 
-  problemiScaricoLabel(item: ConsegnaRecord): string | null {
-    if (item.stato !== 'CONSEGNA EFFETTUATA') return null;
-    const note = item.problemiScaricoNota?.trim();
-    if (!note) return null;
-    return `Problemi scarico: ${note}`;
+  vettoreLabel(item: ConsegnaRecord): string {
+    const entries = this.deliveryEntries(item);
+    if (!entries.length) return this.app.nomeVettore(item.vettoreId);
+    const labels = entries
+      .map((entry) => {
+        const value = this.app.nomeVettore(entry.vettoreId);
+        return value && value !== '—' ? value : '';
+      })
+      .filter(Boolean);
+    return labels.length ? labels.join(' + ') : this.app.nomeVettore(item.vettoreId);
   }
 
-  private deliveryDateValueForItem(item: ConsegnaRecord): string | null {
-    return deliveryDateValue(item);
+  private itemsForStatus(status: string): ConsegnaRecord[] {
+    return this.app.boardColumns.find((column) => column.status === status)?.items ?? [];
   }
 
   private deliveryEntries(item: ConsegnaRecord): Array<{ data: string; vettoreId: number | null; bilici: number | null }> {
@@ -102,7 +118,7 @@ export class ConsegneListComponent {
   }
 
   private deliverySortValue(item: ConsegnaRecord): number {
-    const value = this.deliveryDateValueForItem(item);
+    const value = item.consegnaDataEffettiva;
     if (!value) return Number.NEGATIVE_INFINITY;
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? Number.NEGATIVE_INFINITY : parsed.getTime();
@@ -113,7 +129,7 @@ export class ConsegneListComponent {
     const noDate: ConsegnaRecord[] = [];
 
     for (const item of items) {
-      const value = this.deliveryDateValueForItem(item);
+      const value = item.consegnaDataEffettiva;
       if (!value) {
         noDate.push(item);
         continue;
@@ -132,7 +148,7 @@ export class ConsegneListComponent {
         const { mon, sun } = this.weekRange(parsed);
         groups.set(key, {
           key,
-          label: `SETT. ${String(week).padStart(2, '0')} — DAL ${mon} AL ${sun}`,
+          label: `SETT. ${String(week).padStart(2, '0')} - DAL ${mon} AL ${sun}`,
           items: [],
         });
       }
@@ -146,16 +162,78 @@ export class ConsegneListComponent {
           (a, b) => this.deliverySortValue(b) - this.deliverySortValue(a) || a.rif.localeCompare(b.rif, 'it'),
         ),
       }))
-      .sort((a, b) => a.key - b.key);
+      .sort((a, b) => b.key - a.key);
 
     if (noDate.length) {
       sorted.push({
-        key: Number.MAX_SAFE_INTEGER,
+        key: Number.MIN_SAFE_INTEGER,
         label: 'DATA NON DEFINITA',
         items: [...noDate].sort(
           (a, b) => this.deliverySortValue(b) - this.deliverySortValue(a) || a.rif.localeCompare(b.rif, 'it'),
         ),
       });
+    }
+
+    return sorted;
+  }
+
+  private buildMonthGroups(items: ConsegnaRecord[]): MonthGroup[] {
+    const groups = new Map<number, MonthGroup>();
+    const noDate: ConsegnaRecord[] = [];
+
+    for (const item of items) {
+      const value = item.consegnaDataEffettiva;
+      if (!value) {
+        noDate.push(item);
+        continue;
+      }
+
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        noDate.push(item);
+        continue;
+      }
+
+      const key = this.monthKey(parsed);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          label: this.monthLabel(parsed),
+          items: [],
+          expanded: this.monthExpandedState.has(key)
+            ? this.monthExpandedState.get(key) === true
+            : !this.monthAccordionTouched && key === this.currentMonthKey,
+        });
+      }
+      groups.get(key)!.items.push(item);
+    }
+
+    const sorted = [...groups.values()]
+      .map((group) => ({
+        ...group,
+        items: [...group.items].sort(
+          (a, b) => this.deliverySortValue(b) - this.deliverySortValue(a) || a.rif.localeCompare(b.rif, 'it'),
+        ),
+      }))
+      .sort((a, b) => b.key - a.key);
+
+    if (noDate.length) {
+      sorted.push({
+        key: Number.MIN_SAFE_INTEGER,
+        label: 'DATA NON DEFINITA',
+        items: [...noDate].sort(
+          (a, b) => this.deliverySortValue(b) - this.deliverySortValue(a) || a.rif.localeCompare(b.rif, 'it'),
+        ),
+        expanded: false,
+      });
+    }
+
+    for (const group of sorted) {
+      if (!this.monthExpandedState.has(group.key)) {
+        this.monthExpandedState.set(group.key, group.expanded);
+      } else {
+        group.expanded = this.monthExpandedState.get(group.key) === true;
+      }
     }
 
     return sorted;
@@ -188,5 +266,15 @@ export class ConsegneListComponent {
 
   private formatDayMonth(value: Date): string {
     return new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }).format(value);
+  }
+
+  private monthKey(date: Date): number {
+    return date.getUTCFullYear() * 100 + (date.getUTCMonth() + 1);
+  }
+
+  private monthLabel(date: Date): string {
+    return new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+      .format(date)
+      .toUpperCase();
   }
 }

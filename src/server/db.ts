@@ -30,6 +30,7 @@ export async function ensureDatabaseObjects() {
     create table if not exists responsabili_interni (
       id serial primary key,
       nome text not null,
+      colore text,
       created_at timestamp not null default now()
     );
   `)
@@ -93,6 +94,7 @@ export async function ensureDatabaseObjects() {
       note text,
       trasporto boolean not null default false,
       scarico_carico boolean not null default false,
+      acconto_richiesto boolean not null default true,
       acconto_pagato boolean not null default false,
       commerciale_id integer references commerciali(id) on delete set null,
       responsabile_interno_id integer references responsabili_interni(id) on delete set null,
@@ -271,6 +273,8 @@ export async function ensureDatabaseObjects() {
   await pgClient.unsafe(`alter table ordini add column if not exists consegna_tassativa boolean not null default false;`)
   await pgClient.unsafe(`alter table ordini add column if not exists scarico_carico boolean not null default false;`)
   await pgClient.unsafe(`alter table ordini add column if not exists acconto_pagato boolean not null default false;`)
+  await pgClient.unsafe(`alter table ordini add column if not exists acconto_richiesto boolean not null default true;`)
+  await pgClient.unsafe(`alter table responsabili_interni add column if not exists colore text;`)
   await pgClient.unsafe(`alter table ordini add column if not exists commerciale_id integer references commerciali(id) on delete set null;`)
   await pgClient.unsafe(`alter table ordini add column if not exists responsabile_interno_id integer references responsabili_interni(id) on delete set null;`)
   await pgClient.unsafe(`alter table ordini add column if not exists referente text;`)

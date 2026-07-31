@@ -1,30 +1,14 @@
 <div class="kanban-hero">
-  <div class="kanban-hero__top">
-    <div class="kanban-page-header-title">
-      @if (app.isReadOnly) {
-        <span class="read-only-badge">Sola lettura</span>
-      }
-      @if (app.activeFiltersCount > 0) {
-        <span class="kanban-active-filters-badge">{{ app.activeFiltersCount }} filtri attivi</span>
-      }
-    </div>
-    <div class="kanban-col-toggles kanban-col-toggles--inline">
-      @for (status of app.statusFlow; track status) {
-        <button
-          type="button"
-          class="status-chip kanban-col-chip"
-          [class.kanban-col-chip--off]="!app.isColumnVisible(status)"
-          [ngClass]="app.columnClass(status)"
-          (click)="app.toggleColumnVisibility(status)"
-          [attr.aria-pressed]="app.isColumnVisible(status)"
-          [title]="status"
-        >
-          <span class="kanban-col-chip__flag" [class.kanban-col-chip__flag--on]="app.isColumnVisible(status)" aria-hidden="true"></span>
-          <span class="kanban-col-chip__label">{{ app.columnShortLabel(status) }}</span>
-        </button>
-      }
-    </div>
-    <div class="kanban-top-controls">
+  <div class="kanban-hero__panel kanban-hero__panel--main">
+    <div class="kanban-hero__main">
+      <div class="kanban-page-header-title">
+        @if (app.isReadOnly) {
+          <span class="read-only-badge">Sola lettura</span>
+        }
+        @if (app.activeFiltersCount > 0) {
+          <span class="kanban-active-filters-badge">{{ app.activeFiltersCount }} filtri attivi</span>
+        }
+      </div>
       <div class="kanban-top-actions">
         @if (app.canWrite) {
           <button type="button" class="kanban-top-action kanban-top-action--primary" (click)="app.openCreate()">Nuovo ordine</button>
@@ -54,6 +38,26 @@
             }
           </select>
         </div>
+      </div>
+    </div>
+  </div>
+  <div class="kanban-hero__panel kanban-hero__panel--statuses">
+    <div class="kanban-hero__statuses">
+      <div class="kanban-col-toggles kanban-col-toggles--inline">
+        @for (status of app.statusFlow; track status) {
+          <button
+            type="button"
+            class="status-chip kanban-col-chip"
+            [class.kanban-col-chip--off]="!app.isColumnVisible(status)"
+            [ngClass]="app.columnClass(status)"
+            (click)="app.toggleColumnVisibility(status)"
+            [attr.aria-pressed]="app.isColumnVisible(status)"
+            [title]="status"
+          >
+            <span class="kanban-col-chip__flag" [class.kanban-col-chip__flag--on]="app.isColumnVisible(status)" aria-hidden="true"></span>
+            <span class="kanban-col-chip__label">{{ app.columnShortLabel(status) }}</span>
+          </button>
+        }
       </div>
     </div>
   </div>
@@ -101,10 +105,16 @@
                         type="button"
                         class="kanban-card"
                         [class.kanban-card--compact]="app.kanbanCompactMode"
+                        [style.--responsabile-color]="app.responsabileColor(item.responsabileInternoId)"
                         cdkDrag
-                        [disabled]="!app.canWrite"
-                        (click)="app.selectFromBoard(item)"
-                      >
+                      [disabled]="!app.canWrite"
+                      (click)="app.selectFromBoard(item)"
+                    >
+                        @if (app.nomeResponsabile(item.responsabileInternoId) !== '-') {
+                          <div class="kanban-card-responsabile-band">
+                            <span class="kanban-card-responsabile">{{ app.nomeResponsabile(item.responsabileInternoId) }}</span>
+                          </div>
+                        }
                         <strong>{{ item.rif }}</strong>
                         <span class="kanban-card-cliente">{{ item.cliente }}</span>
                         @if (item.tipoImpianto) {
@@ -165,6 +175,7 @@
                                     class="kanban-card-alert"
                                     [class.kanban-card-alert--multiline]="badge.multiline"
                                     [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                    [class.kanban-card-alert--note-danger]="badge.kind === 'note-danger'"
                                     [innerHTML]="badge.html"
                                   ></span>
                                 } @else {
@@ -187,6 +198,7 @@
                                     class="kanban-card-alert"
                                     [class.kanban-card-alert--multiline]="badge.multiline"
                                     [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                    [class.kanban-card-alert--note-danger]="badge.kind === 'note-danger'"
                                     [innerHTML]="badge.html"
                                   ></span>
                                 } @else {
@@ -246,10 +258,16 @@
                       type="button"
                       class="kanban-card"
                       [class.kanban-card--compact]="app.kanbanCompactMode"
+                      [style.--responsabile-color]="app.responsabileColor(item.responsabileInternoId)"
                       cdkDrag
                       [disabled]="!app.canWrite"
                       (click)="app.selectFromBoard(item)"
                     >
+                      @if (app.nomeResponsabile(item.responsabileInternoId) !== '-') {
+                        <div class="kanban-card-responsabile-band">
+                          <span class="kanban-card-responsabile">{{ app.nomeResponsabile(item.responsabileInternoId) }}</span>
+                        </div>
+                      }
                       <strong>{{ item.rif }}</strong>
                       <span class="kanban-card-cliente">{{ item.cliente }}</span>
                       @if (item.tipoImpianto) {
@@ -310,6 +328,7 @@
                                   class="kanban-card-alert"
                                   [class.kanban-card-alert--multiline]="badge.multiline"
                                   [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                  [class.kanban-card-alert--note-danger]="badge.kind === 'note-danger'"
                                   [innerHTML]="badge.html"
                                 ></span>
                               } @else {
@@ -332,6 +351,7 @@
                                   class="kanban-card-alert"
                                   [class.kanban-card-alert--multiline]="badge.multiline"
                                   [class.kanban-card-alert--note]="badge.kind === 'note'"
+                                  [class.kanban-card-alert--note-danger]="badge.kind === 'note-danger'"
                                   [innerHTML]="badge.html"
                                 ></span>
                               } @else {

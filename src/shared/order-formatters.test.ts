@@ -53,13 +53,13 @@ describe('order-formatters', () => {
     expect(badges.some((badge) => badge.text.includes('TASSATIVA'))).toBe(false)
   })
 
-  it('shows CAM badge only when camSiNo is true', () => {
+  it('shows CAM badge only when camSiNo is true and the status supports it', () => {
     const onItem = {
-      stato: 'IN CORSO',
+      stato: 'ASSEGNATO',
       camSiNo: true,
     } as never
     const offItem = {
-      stato: 'IN CORSO',
+      stato: 'ASSEGNATO',
       camSiNo: false,
     } as never
 
@@ -77,8 +77,8 @@ describe('order-formatters', () => {
       residuiLavorazioneNote: 'Prima riga\nSeconda riga',
     } as never
 
-    const assignedBadge = boardResiduiLavorazioneBadges(assignedItem).find((badge) => badge.kind === 'note')
-    const readyBadge = boardResiduiLavorazioneBadges(readyItem).find((badge) => badge.kind === 'note')
+    const assignedBadge = boardResiduiLavorazioneBadges(assignedItem).find((badge) => badge.kind === 'note-danger')
+    const readyBadge = boardResiduiLavorazioneBadges(readyItem).find((badge) => badge.kind === 'note-danger')
 
     expect(assignedBadge?.multiline).toBe(true)
     expect(readyBadge?.multiline).toBe(true)

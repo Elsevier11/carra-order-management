@@ -49,9 +49,13 @@
             <span class="sidebar-nav__icon" aria-hidden="true">O</span>
             <span class="sidebar-nav__label">Ordini</span>
           </button>
-          <button type="button" [class.active]="activeView === 'consegne'" (click)="changeView('consegne')" title="Consegne" [attr.aria-label]="sidebarCollapsed ? 'Consegne' : null">
-            <span class="sidebar-nav__icon" aria-hidden="true">C</span>
-            <span class="sidebar-nav__label">Consegne</span>
+          <button type="button" [class.active]="activeView === 'consegne-pianificate'" (click)="changeView('consegne-pianificate')" title="Consegne Pianificate" [attr.aria-label]="sidebarCollapsed ? 'Consegne Pianificate' : null">
+            <span class="sidebar-nav__icon" aria-hidden="true">CP</span>
+            <span class="sidebar-nav__label">Consegne Pianificate</span>
+          </button>
+          <button type="button" [class.active]="activeView === 'consegne-effettuate'" (click)="changeView('consegne-effettuate')" title="Consegne Effettuate" [attr.aria-label]="sidebarCollapsed ? 'Consegne Effettuate' : null">
+            <span class="sidebar-nav__icon" aria-hidden="true">CE</span>
+            <span class="sidebar-nav__label">Consegne Effettuate</span>
           </button>
           <button type="button" [class.active]="activeView === 'dashboard'" (click)="changeView('dashboard')" title="Dashboard" [attr.aria-label]="sidebarCollapsed ? 'Dashboard' : null">
             <span class="sidebar-nav__icon" aria-hidden="true">D</span>
@@ -92,7 +96,7 @@
       </div>
     </nav>
 
-    <div class="content" [class.content--kanban]="activeView === 'kanban' || activeView === 'consegne'">
+    <div class="content" [class.content--kanban]="activeView === 'kanban' || activeView === 'consegne-pianificate' || activeView === 'consegne-effettuate'">
       @if (activeView === 'audit' || activeView === 'anagrafiche') {
         <div class="content-header">
           <h1 class="content-title">
@@ -114,8 +118,10 @@
         }
       } @else if (activeView === 'kanban') {
         <app-kanban-board [app]="kanbanHost"></app-kanban-board>
-      } @else if (activeView === 'consegne') {
-        <app-consegne-list [app]="kanbanHost"></app-consegne-list>
+      } @else if (activeView === 'consegne-pianificate') {
+        <app-consegne-list [app]="kanbanHost" mode="planned"></app-consegne-list>
+      } @else if (activeView === 'consegne-effettuate') {
+        <app-consegne-list [app]="kanbanHost" mode="performed"></app-consegne-list>
       }
 
     @if (activeView === 'audit') {
@@ -430,21 +436,38 @@
                 <p class="settings-loading">Caricamento...</p>
               } @else {
                 <table class="audit-table">
-                  <thead><tr><th>Nome</th><th>Azioni</th></tr></thead>
+                  <thead><tr><th>Nome</th><th>Colore</th><th>Azioni</th></tr></thead>
                   <tbody>
                     @for (item of responsabiliRows; track item.id) {
                       <tr>
-                        <td>{{ item.nome }}</td>
-                        <td><button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button></td>
+                        @if (editingResponsabile?.id === item.id) {
+                          <td><input type="text" [(ngModel)]="editResponsabileNome" /></td>
+                          <td><input type="color" [(ngModel)]="editResponsabileColore" /></td>
+                          <td>
+                            <button type="button" [disabled]="!editResponsabileNome.trim()" (click)="saveResponsabile()">Salva</button>
+                            <button type="button" class="ghost" (click)="cancelEditResponsabile()">Annulla</button>
+                          </td>
+                        } @else {
+                          <td>{{ item.nome }}</td>
+                          <td>
+                            <span class="color-swatch" [style.background]="item.colore || '#cbd5e1'"></span>
+                            <span class="color-swatch__hex">{{ item.colore || 'default' }}</span>
+                          </td>
+                          <td>
+                            <button type="button" class="ghost" (click)="startEditResponsabile(item)">Modifica</button>
+                            <button type="button" class="danger" (click)="deleteResponsabile(item.id)">Elimina</button>
+                          </td>
+                        }
                       </tr>
                     }
                     @if (!responsabiliRows.length) {
-                      <tr><td colspan="2">Nessun responsabile.</td></tr>
+                      <tr><td colspan="3">Nessun responsabile.</td></tr>
                     }
                   </tbody>
                 </table>
                 <div class="settings-inline-add">
                   <input type="text" [(ngModel)]="newResponsabileModel.nome" placeholder="Nome responsabile" />
+                  <input type="color" [(ngModel)]="newResponsabileModel.colore" aria-label="Colore responsabile" />
                   <button type="button" [disabled]="!newResponsabileModel.nome.trim()" (click)="createResponsabile()">Aggiungi</button>
                 </div>
               }
@@ -907,10 +930,13 @@
           <input type="checkbox" [(ngModel)]="formModel.scaricoCarico" />
           <span>Scarico a nostro carico</span>
         </label>
-        <label class="kanban-toggle">
-          <input type="checkbox" [(ngModel)]="formModel.accontoPagato" />
-          <span>Acconto pagato</span>
-        </label>
+        <div class="form-field form-field--span2">
+          <label class="form-field__label">Acconto</label>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+            <button type="button" class="segmented-toggle-btn" [class.active]="formModel.accontoRichiesto" (click)="setAccontoRichiesto(true)">SI</button>
+            <button type="button" class="segmented-toggle-btn" [class.active]="!formModel.accontoRichiesto" (click)="setAccontoRichiesto(false)">NO</button>
+          </div>
+        </div>
         <app-note-editor [value]="formModel.note" (valueChange)="formModel.note = $event" placeholder="Note operative..."></app-note-editor>
         <div class="detail-section">
           <div class="detail-section-title">Cartelle di riferimento</div>

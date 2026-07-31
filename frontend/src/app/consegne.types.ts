@@ -73,6 +73,7 @@ export interface ConsegnaRecord {
   note: string | null;
   trasporto: boolean;
   scaricoCarico: boolean;
+  accontoRichiesto: boolean;
   accontoPagato: boolean;
   commercialeId: number | null;
   responsabileInternoId: number | null;
@@ -152,6 +153,7 @@ export interface CommercialeRecord {
 export interface ResponsabileRecord {
   id: number;
   nome: string;
+  colore: string | null;
   createdAt: string | null;
 }
 

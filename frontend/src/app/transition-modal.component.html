@@ -157,7 +157,7 @@
             </div>
           </div>
 
-          <div class="form-field form-field--full">
+          <div class="form-field form-field--full" *ngIf="modal.accontoRichiesto">
             <label class="transition-inline-check">
               <input type="checkbox" [(ngModel)]="modal.accontoPagato" />
               <span>Acconto pagato</span>

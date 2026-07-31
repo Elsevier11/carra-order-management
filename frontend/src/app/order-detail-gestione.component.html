@@ -13,7 +13,7 @@
         <div class="detail-kv">
           <label class="kv-label">Mittente</label>
           <select *ngIf="app.canWrite && app.editMode; else mittenteRead" [(ngModel)]="detail.disegnoMittenteId">
-            <option [ngValue]="null">— seleziona —</option>
+            <option [ngValue="null">- seleziona -</option>
             <option *ngFor="let mittente of app.mittentiDisegno" [ngValue]="mittente.id">{{ mittente.nome }}</option>
           </select>
           <ng-template #mittenteRead>
@@ -116,20 +116,20 @@
               <label class="kv-label">Data consegna effettiva</label>
               <input *ngIf="app.canWrite && app.editMode; else consegnaPianificataDataRead" type="date" [(ngModel)]="entry.data" (ngModelChange)="app.syncDetailDeliveryPlanFields()" />
               <ng-template #consegnaPianificataDataRead>
-                <span class="kv-value">{{ entry.data ? (entry.data | date:'dd/MM/yyyy') : 'â€”' }}</span>
+                <span class="kv-value">{{ entry.data ? (entry.data | date:'dd/MM/yyyy') : '-' }}</span>
               </ng-template>
             </div>
             <div class="detail-kv">
               <label class="kv-label">N&deg; bilici</label>
               <input *ngIf="app.canWrite && app.editMode; else consegnaPianificataBiliciRead" type="number" min="0" step="1" [(ngModel)]="entry.bilici" (ngModelChange)="app.syncDetailDeliveryPlanFields()" />
               <ng-template #consegnaPianificataBiliciRead>
-                <span class="kv-value">{{ entry.bilici ?? 'â€”' }}</span>
+                <span class="kv-value">{{ entry.bilici ?? '-' }}</span>
               </ng-template>
             </div>
             <div class="detail-kv">
               <label class="kv-label">Vettore</label>
               <select *ngIf="app.canWrite && app.editMode; else consegnaPianificataVettoreRead" [(ngModel)]="entry.vettoreId" (ngModelChange)="app.syncDetailDeliveryPlanFields()">
-                <option [ngValue]="null">â€” seleziona â€”</option>
+                <option [ngValue]="null">- seleziona -</option>
                 <option *ngFor="let vettore of app.vettoriList" [ngValue]="vettore.id">{{ vettore.nome }}</option>
               </select>
               <ng-template #consegnaPianificataVettoreRead>

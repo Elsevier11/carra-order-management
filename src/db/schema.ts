@@ -11,6 +11,7 @@ export const commerciali = pgTable('commerciali', {
 export const responsabiliInterni = pgTable('responsabili_interni', {
   id: serial('id').primaryKey(),
   nome: text('nome').notNull(),
+  colore: text('colore'),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -72,6 +73,7 @@ export const ordini = pgTable('ordini', {
   note: text('note'),
   trasporto: boolean('trasporto').notNull().default(false),
   scaricoCarico: boolean('scarico_carico').notNull().default(false),
+  accontoRichiesto: boolean('acconto_richiesto').notNull().default(true),
   accontoPagato: boolean('acconto_pagato').notNull().default(false),
   commercialeId: integer('commerciale_id').references(() => commerciali.id, { onDelete: 'set null' }),
   responsabileInternoId: integer('responsabile_interno_id').references(() => responsabiliInterni.id, { onDelete: 'set null' }),

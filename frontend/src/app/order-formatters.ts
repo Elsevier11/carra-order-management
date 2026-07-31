@@ -1,13 +1,13 @@
 import type { ConsegnaRecord } from './consegne.types';
 import { buildDeliveryPlanFromLegacy, normalizeDeliveryPlanEntries } from '../../../src/shared/delivery-plan';
 
-export type BoardInfoBadgeTone = 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam';
+export type BoardInfoBadgeTone = 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam' | 'residui';
 
 export type BoardInfoBadge = {
   text: string;
   tone: BoardInfoBadgeTone;
   multiline?: boolean;
-  kind?: 'note';
+  kind?: 'note' | 'note-danger';
   html?: string;
 };
 
@@ -89,17 +89,19 @@ export function boardOperaiWarning(item: ConsegnaRecord): string | null {
 }
 
 export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBadge[] {
+  if (!['ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI'].includes(item.stato)) return [];
+
   const badges: BoardInfoBadge[] = [];
   if (item.camSiNo) badges.push({ text: 'C.A.M.', tone: 'cam' });
-  if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'danger' });
-  if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'danger' });
+  if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'residui' });
+  if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'residui' });
   const note = item.residuiLavorazioneNote?.trim();
   if (note) {
     badges.push({
       text: note,
       html: composeNoteBadgeHtml('Note residui:', note),
-      tone: 'danger',
-      kind: 'note',
+      tone: 'residui',
+      kind: 'note-danger',
       multiline: true,
     });
   }
@@ -110,31 +112,41 @@ function deliveryPlanForItem(item: ConsegnaRecord) {
   return normalizeDeliveryPlanEntries(item.deliveryPlan?.length ? item.deliveryPlan : buildDeliveryPlanFromLegacy(item));
 }
 
+function formatDeliveryDate(value: string | null | undefined): string {
+  if (!value) return 'Data consegna mancante';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('it-IT');
+}
+
+function formatConsegnaBadge(value: string | null | undefined): string {
+  return `Cons. effettiva ${formatDeliveryDate(value)}`;
+}
+
 export function boardConsegnaPianificataBadges(
   item: ConsegnaRecord,
-  nomeVettore?: (id: number | null | undefined) => string,
+  _nomeVettore?: (id: number | null | undefined) => string,
 ): BoardInfoBadge[] {
   if (!['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(item.stato)) return [];
   const deliveryPlan = deliveryPlanForItem(item);
   const badges: BoardInfoBadge[] = [];
   const actualDate = item.consegnaDataEffettiva?.trim() ?? '';
 
-  badges.push({
-    text: actualDate ? `Cons. effettiva ${new Date(actualDate).toLocaleDateString('it-IT')}` : 'Cons. effettiva',
-    tone: actualDate ? 'info' : 'muted',
-  });
+  if (actualDate) {
+    badges.push({
+      text: formatConsegnaBadge(actualDate),
+      tone: 'info',
+    });
+  }
 
   deliveryPlan.forEach((entry, index) => {
     if (index === 0 && actualDate && entry.data === actualDate) {
       return;
     }
 
-    const label = `${index + 1}a consegna`;
-    const dateText = entry.data ? new Date(entry.data).toLocaleDateString('it-IT') : 'data mancante';
-    const biliciText = entry.bilici != null ? ` · ${entry.bilici} bilici` : '';
-    const vettoreNome = nomeVettore?.(entry.vettoreId ?? null) ?? '';
-    const vettoreText = vettoreNome && vettoreNome !== '—' ? ` · ${vettoreNome}` : '';
-    badges.push({ text: `${label} ${dateText}${biliciText}${vettoreText}`, tone: entry.data ? 'danger' : 'muted' });
+    badges.push({
+      text: formatConsegnaBadge(entry.data),
+      tone: entry.data ? 'info' : 'muted',
+    });
   });
 
   badges.push({ text: 'DDT pronti', tone: item.ddtPronti ? 'positive' : 'muted' });
@@ -143,12 +155,8 @@ export function boardConsegnaPianificataBadges(
 
 export function boardProntiAvvisatiBadges(item: ConsegnaRecord): BoardInfoBadge[] {
   if (item.stato !== 'PRONTI & AVVISATI') return [];
-  return [
-    { text: 'Bancale', tone: item.bancale ? 'positive' : 'muted' },
-    { text: 'Chiusini', tone: item.chiusini ? 'positive' : 'muted' },
-  ];
+  return [];
 }
-
 export function boardConclusiBadge(item: ConsegnaRecord, conclusiWeekLabel: (value: string | null | undefined) => string): string | null {
   if (!item.conclusiMode || item.stato === 'CONSEGNA PIANIFICATA') return null;
   if (item.conclusiMode === 'week') {
@@ -168,7 +176,7 @@ export function detailMissingItems(item: ConsegnaRecord): string[] {
     if (!item.consegnaDataEffettiva) missing.push('Data consegna effettiva');
     if (!item.vettoreId) missing.push('Vettore');
     if (!item.ddtPronti) missing.push('DDT pronti');
-    if (!item.accontoPagato) missing.push('Acconto pagato');
+    if (item.accontoRichiesto !== false && !item.accontoPagato) missing.push('Acconto pagato');
   }
   return missing;
 }
@@ -213,5 +221,10 @@ export function conclusiWeekLabel(value: string | null | undefined): string {
 export function conclusiDateLabel(value: string | null | undefined): string {
   return value ? value : 'â€”';
 }
+
+
+
+
+
 
 

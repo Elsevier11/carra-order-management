@@ -88,6 +88,7 @@ type EditableConsegna = {
   note: string;
   trasporto: boolean;
   scaricoCarico: boolean;
+  accontoRichiesto: boolean;
   accontoPagato: boolean;
   commercialeId: number | null;
   responsabileInternoId: number | null;
@@ -107,7 +108,7 @@ type ConfirmModalState = {
   onConfirm: () => void;
 };
 
-type ViewMode = 'dashboard' | 'kanban' | 'consegne' | 'audit' | 'anagrafiche' | 'settings';
+type ViewMode = 'dashboard' | 'kanban' | 'consegne-pianificate' | 'consegne-effettuate' | 'audit' | 'anagrafiche' | 'settings';
 type RegistryTab = 'persone' | 'produzione';
 
 @Component({
@@ -199,14 +200,15 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     vettoreId: null,
     vettoreSecondoId: null,
     bilici: null,
-    biliciSecondi: null,
-    operaiIds: [],
-    skipAssegnazione: false,
-    conclusiMode: 'week',
-    conclusiWeek: '',
-    conclusiDate: '',
-    accontoPagato: false,
-    secondaConsegna: false,
+      biliciSecondi: null,
+      operaiIds: [],
+      skipAssegnazione: false,
+      conclusiMode: 'week',
+      conclusiWeek: '',
+      conclusiDate: '',
+      accontoRichiesto: true,
+      accontoPagato: false,
+      secondaConsegna: false,
     note: '',
     error: '',
   };
@@ -325,7 +327,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   responsabiliRows: ResponsabileRecord[] = [];
   responsabiliLoading = false;
   responsabiliError = '';
-  newResponsabileModel = { nome: '' };
+  newResponsabileModel = { nome: '', colore: '#3b82f6' };
+  editingResponsabile: ResponsabileRecord | null = null;
+  editResponsabileNome = '';
+  editResponsabileColore = '#3b82f6';
 
   usersRows: AppUserRecord[] = [];
   usersLoading = false;
@@ -826,6 +831,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       note: this.formModel.note,
       trasporto: this.formModel.trasporto,
       scaricoCarico: this.formModel.scaricoCarico,
+      accontoRichiesto: this.formModel.accontoRichiesto,
       accontoPagato: this.formModel.accontoPagato,
       commercialeId: this.formModel.commercialeId,
       responsabileInternoId: this.formModel.responsabileInternoId,
@@ -869,6 +875,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       vettoreSecondoId: this.selectedDetail?.vettoreSecondoId ?? null,
       bilici: this.selectedDetail?.bilici ?? 0,
       biliciSecondi: this.selectedDetail?.biliciSecondi ?? 0,
+      accontoRichiesto: !!this.selectedDetail?.accontoRichiesto,
       ddtPronti: !!this.selectedDetail?.ddtPronti,
       bancale: !!this.selectedDetail?.bancale,
       chiusini: !!this.selectedDetail?.chiusini,
@@ -936,7 +943,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.activeView = view;
     if (view === 'dashboard') {
       this.ensureDashboardChartsLoaded();
-    } else if (view === 'kanban' || view === 'consegne') {
+    } else if (view === 'kanban' || view === 'consegne-pianificate' || view === 'consegne-effettuate') {
       this.loadBoard();
     } else if (view === 'audit') {
       this.activityMode = 'user';
@@ -1179,15 +1186,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       const deliveryDate = deliveryDateValueHelper(item);
       const badges: Array<{
         text: string;
-        tone: 'info' | 'warning' | 'positive' | 'muted' | 'danger';
+        tone: 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam' | 'residui';
         multiline?: boolean;
-        kind?: 'note';
+        kind?: 'note' | 'note-danger';
         html?: string;
       }> = [
-        {
-          text: deliveryBadgeTextHelper(item, deliveryDate),
-          tone: deliveryDate ? 'info' : 'muted',
-        },
         {
           text: item.consegnaDataEffettiva
             ? `Cons. effettiva ${this.formatShortDate(item.consegnaDataEffettiva)}`
@@ -1200,9 +1203,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         badges.push({
           text: note,
           html: composeNoteBadgeHtml('Problemi scarico:', note),
-          tone: 'danger',
+          tone: 'residui',
           multiline: true,
-          kind: 'note',
+          kind: 'note-danger',
         });
       }
       return badges;
@@ -1246,12 +1249,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return renderRichTextHtml(value);
   }
 
-  boardInfoBadgeClass(tone: 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam'): string {
+  boardInfoBadgeClass(tone: 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam' | 'residui'): string {
     if (tone === 'positive') return 'kanban-card-alert--positive';
     if (tone === 'info') return 'kanban-card-alert--info';
     if (tone === 'muted') return 'kanban-card-alert--muted';
     if (tone === 'danger') return 'kanban-card-alert--danger';
     if (tone === 'cam') return 'kanban-card-alert--cam';
+    if (tone === 'residui') return 'kanban-card-alert--residui';
     return '';
   }
 
@@ -1341,6 +1345,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       conclusiMode: 'week',
       conclusiWeek: '',
       conclusiDate: '',
+      accontoRichiesto: true,
       accontoPagato: false,
       secondaConsegna: false,
       problemiScaricoNota: '',
@@ -1381,6 +1386,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       conclusiMode,
       conclusiWeek: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'week' ? order.conclusiWeek ?? this.todayIsoWeek() : order.conclusiWeek ?? this.todayIsoWeek()) : '',
       conclusiDate: ['CONCLUSI', 'PRONTI & AVVISATI'].includes(toStatus) ? (order.conclusiMode === 'date' ? order.conclusiDate ?? this.todayIsoDate() : order.conclusiDate ?? this.todayIsoDate()) : '',
+      accontoRichiesto: order.accontoRichiesto ?? true,
       accontoPagato: toStatus === 'CONSEGNA PIANIFICATA' ? !!order.accontoPagato : false,
       secondaConsegna: false,
       note,
@@ -1509,6 +1515,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       this.scheduleOperationMessageClear(4000);
       return;
     }
+    const openGestioneByDefault = !['IN CORSO', 'DA ASSEGNARE'].includes(this.selectedDetail.stato ?? '');
     this.formModel = {
       rif: this.selectedDetail.rif ?? '',
       cliente: this.selectedDetail.cliente ?? '',
@@ -1530,6 +1537,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       note: this.selectedDetail.note ?? '',
       trasporto: this.selectedDetail.trasporto ?? false,
       scaricoCarico: this.selectedDetail.scaricoCarico ?? false,
+      accontoRichiesto: this.selectedDetail.accontoRichiesto ?? true,
       accontoPagato: this.selectedDetail.accontoPagato ?? false,
       commercialeId: this.selectedDetail.commercialeId ?? null,
       responsabileInternoId: this.selectedDetail.responsabileInternoId ?? null,
@@ -1555,6 +1563,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
           lockedByCurrentUser: lock.lockedByCurrentUser ?? lock.editingBy === this.user?.username,
         };
         this.syncDetailLockState();
+        this.activeDetailTab = openGestioneByDefault ? 'gestione' : 'dettagli';
         this.editMode = true;
       },
       error: (err: { error?: { message?: string } }) => {
@@ -1597,7 +1606,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       note: this.formModel.note || null,
       trasporto: this.formModel.trasporto,
       scaricoCarico: this.formModel.scaricoCarico,
-      accontoPagato: this.formModel.accontoPagato,
+      accontoRichiesto: this.formModel.accontoRichiesto,
+      accontoPagato: this.formModel.accontoRichiesto ? this.formModel.accontoPagato : false,
       commercialeId: this.formModel.commercialeId,
       responsabileInternoId: this.formModel.responsabileInternoId,
       folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
@@ -2489,6 +2499,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       note: 'Note',
       trasporto: 'Trasporto ns. carico',
       scaricoCarico: 'Scarico ns. carico',
+      accontoRichiesto: 'Acconto richiesto',
       accontoPagato: 'Acconto pagato',
       commercialeId: 'Commerciale',
       responsabileInternoId: 'Responsabile',
@@ -2586,10 +2597,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.isAdmin || !this.newResponsabileModel.nome.trim()) return;
     this.operationError = '';
     this.operationSuccess = '';
-    this.consegneService.createResponsabile({ nome: this.newResponsabileModel.nome.trim() }).subscribe({
+    this.consegneService.createResponsabile({
+      nome: this.newResponsabileModel.nome.trim(),
+      colore: this.newResponsabileModel.colore || null,
+    }).subscribe({
       next: () => {
         this.operationSuccess = `Responsabile "${this.newResponsabileModel.nome}" creato`;
-        this.newResponsabileModel = { nome: '' };
+        this.newResponsabileModel = { nome: '', colore: '#3b82f6' };
         this.loadResponsabili();
       },
       error: (error) => {
@@ -2609,12 +2623,49 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  startEditResponsabile(item: ResponsabileRecord): void {
+    this.editingResponsabile = item;
+    this.editResponsabileNome = item.nome;
+    this.editResponsabileColore = item.colore || '#3b82f6';
+  }
+
+  cancelEditResponsabile(): void {
+    this.editingResponsabile = null;
+    this.editResponsabileNome = '';
+    this.editResponsabileColore = '#3b82f6';
+  }
+
+  saveResponsabile(): void {
+    if (!this.isAdmin || !this.editingResponsabile || !this.editResponsabileNome.trim()) return;
+    const id = this.editingResponsabile.id;
+    this.operationError = '';
+    this.operationSuccess = '';
+    this.consegneService.updateResponsabile(id, {
+      nome: this.editResponsabileNome.trim(),
+      colore: this.editResponsabileColore || null,
+    }).subscribe({
+      next: () => {
+        this.operationSuccess = 'Responsabile aggiornato';
+        this.cancelEditResponsabile();
+        this.loadResponsabili();
+      },
+      error: (error) => {
+        this.operationError = error?.error?.message ?? 'Errore aggiornamento responsabile';
+      },
+    });
+  }
+
   nomeCommerciale(id: number | null): string {
     return this.commercialiRows.find((c) => c.id === id)?.nome ?? '-';
   }
 
   nomeResponsabile(id: number | null): string {
     return this.responsabiliRows.find((r) => r.id === id)?.nome ?? '-';
+  }
+
+  responsabileColor(id: number | null | undefined): string | null {
+    if (!id) return null;
+    return this.responsabiliRows.find((r) => r.id === id)?.colore ?? null;
   }
 
   nomeMittente(id: number | null | undefined): string {
@@ -3492,6 +3543,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       note: '',
       trasporto: false,
       scaricoCarico: false,
+      accontoRichiesto: true,
       accontoPagato: false,
       commercialeId: null,
       responsabileInternoId: null,
@@ -3513,6 +3565,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       this.formModel.dataConsegna = this.formModel.dataConsegnaTassativa || '';
     }
     this.formModel.consegnaTassativa = enabled;
+  }
+
+  setAccontoRichiesto(enabled: boolean): void {
+    if (this.formModel.accontoRichiesto === enabled) return;
+    this.formModel.accontoRichiesto = enabled;
+    if (!enabled) {
+      this.formModel.accontoPagato = false;
+    }
   }
 
   deliveryDateLabel(item: { dataConsegna?: string | null; dataConsegnaTassativa?: string | null; consegnaTassativa?: boolean }): string {
@@ -3671,7 +3731,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const taskObs: Observable<unknown>[] = [];
     const payload: Partial<ConsegnaRecord> = {};
     const detailDeliveryPlan = this.normalizeDetailDeliveryPlan(this.selectedDetail);
-    const legacyDeliveryPlan = splitDeliveryPlanToLegacy(detailDeliveryPlan);
+    const detailDeliveryPlanPayload = detailDeliveryPlan.filter((entry) => !!entry.data || !!entry.vettoreId || (entry.bilici ?? 0) > 0);
+    const legacyDeliveryPlan = splitDeliveryPlanToLegacy(detailDeliveryPlanPayload);
 
     if (dettagliDirty) {
       Object.assign(payload, {
@@ -3691,7 +3752,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         note: this.formModel.note || null,
         trasporto: this.formModel.trasporto,
         scaricoCarico: this.formModel.scaricoCarico,
-        accontoPagato: this.formModel.accontoPagato,
+        accontoRichiesto: this.formModel.accontoRichiesto,
+        accontoPagato: this.formModel.accontoRichiesto ? this.formModel.accontoPagato : false,
         commercialeId: this.formModel.commercialeId,
         responsabileInternoId: this.formModel.responsabileInternoId,
         folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
@@ -3715,7 +3777,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         residuiLavorazioneNote: this.selectedDetail.residuiLavorazioneNote || null,
         consegnaDataEffettiva: legacyDeliveryPlan.consegnaDataEffettiva,
         consegnaDataEffettivaSeconda: legacyDeliveryPlan.consegnaDataEffettivaSeconda,
-        deliveryPlan: detailDeliveryPlan,
+        deliveryPlan: detailDeliveryPlanPayload,
         problemiScaricoNota: this.selectedDetail.problemiScaricoNota || null,
         vettoreId: legacyDeliveryPlan.vettoreId,
         vettoreSecondoId: legacyDeliveryPlan.vettoreSecondoId,
@@ -3773,12 +3835,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             note: this.formModel.note || null,
             trasporto: this.formModel.trasporto,
             scaricoCarico: this.formModel.scaricoCarico,
-            accontoPagato: this.formModel.accontoPagato,
+            accontoRichiesto: this.formModel.accontoRichiesto,
+            accontoPagato: this.formModel.accontoRichiesto ? this.formModel.accontoPagato : false,
             commercialeId: this.formModel.commercialeId,
             responsabileInternoId: this.formModel.responsabileInternoId,
             folderLinkDocumenti: this.formModel.folderLinkDocumenti || null,
             folderLinkFoto: this.formModel.folderLinkFoto || null,
-            deliveryPlan: detailDeliveryPlan,
+            deliveryPlan: detailDeliveryPlanPayload,
             ...legacyDeliveryPlan,
             cementiNote: this.formModel.cementiNote || null,
           });

@@ -45,6 +45,7 @@ describe('validateTransitionState', () => {
         consegnaDataEffettiva: '2026-07-01',
         vettoreId: 4,
         bilici: 2,
+        accontoRichiesto: true,
         accontoPagato: false,
       }),
     ).toMatch(/acconto/i)
@@ -55,7 +56,19 @@ describe('validateTransitionState', () => {
         consegnaDataEffettiva: '2026-07-01',
         vettoreId: 4,
         bilici: 2,
+        accontoRichiesto: true,
         accontoPagato: true,
+      }),
+    ).toBeNull()
+
+    expect(
+      validateTransitionState({
+        toStatus: 'CONSEGNA PIANIFICATA',
+        consegnaDataEffettiva: '2026-07-01',
+        vettoreId: 4,
+        bilici: 2,
+        accontoRichiesto: false,
+        accontoPagato: false,
       }),
     ).toBeNull()
   })

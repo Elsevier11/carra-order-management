@@ -58,7 +58,7 @@
       <div class="form-field">
         <label class="form-field__label">Commerciale</label>
         <select [(ngModel)]="app.formModel.commercialeId">
-          <option [ngValue]="null">Nessun commerciale</option>
+          <option [ngValue="null">- seleziona -</option>
           <option *ngFor="let c of app.commercialiRows" [ngValue]="c.id">{{ c.nome }}</option>
         </select>
       </div>
@@ -72,7 +72,14 @@
       <div class="detail-form-checks">
         <label class="kanban-toggle"><input type="checkbox" [(ngModel)]="app.formModel.trasporto" /><span>Trasporto a nostro carico</span></label>
         <label class="kanban-toggle"><input type="checkbox" [(ngModel)]="app.formModel.scaricoCarico" /><span>Scarico a nostro carico</span></label>
-        <label class="kanban-toggle"><input type="checkbox" [(ngModel)]="app.formModel.accontoPagato" /><span>Acconto pagato</span></label>
+        <div class="form-field form-field--span2">
+          <label class="form-field__label">Acconto</label>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+            <button type="button" class="segmented-toggle-btn" [class.active]="app.formModel.accontoRichiesto" (click)="app.setAccontoRichiesto(true)">SI</button>
+            <button type="button" class="segmented-toggle-btn" [class.active]="!app.formModel.accontoRichiesto" (click)="app.setAccontoRichiesto(false)">NO</button>
+          </div>
+        </div>
+        <label class="kanban-toggle" *ngIf="app.formModel.accontoRichiesto"><input type="checkbox" [(ngModel)]="app.formModel.accontoPagato" /><span>Acconto pagato</span></label>
       </div>
       <app-note-editor [value]="app.formModel.note" (valueChange)="app.formModel.note = $event" placeholder="Note operative..."></app-note-editor>
       <div class="detail-section">
@@ -131,7 +138,7 @@
               </span>
               <div class="attach-info">
                 <span class="attach-name">{{ attachment.fileName }}</span>
-                <span class="attach-meta">{{ app.formatFileSize(attachment.sizeBytes) }} Â· {{ attachment.uploadedBy || 'sistema' }}</span>
+                <span class="attach-meta">{{ app.formatFileSize(attachment.sizeBytes) }} | {{ attachment.uploadedBy || 'sistema' }}</span>
               </div>
               <div class="attach-btns">
                 <button type="button" class="ghost icon-btn" (click)="app.openAttachment(attachment)" title="Apri">
@@ -153,11 +160,11 @@
       <div class="detail-kv-grid">
         <div class="detail-kv">
           <span class="kv-label">Impianto</span>
-          <span class="kv-value kv-value--prominent">{{ detail.tipoImpianto || '—' }}</span>
+          <span class="kv-value kv-value--prominent">{{ detail.tipoImpianto || '-' }}</span>
         </div>
         <div class="detail-kv">
           <span class="kv-label">Cantiere</span>
-          <span class="kv-value">{{ detail.cantiere || '—' }}</span>
+          <span class="kv-value">{{ detail.cantiere || '-' }}</span>
         </div>
         <div class="detail-kv">
           <span class="kv-label">{{ detail.consegnaTassativa ? 'Data consegna TASSATIVA' : 'Data consegna' }}</span>
@@ -171,11 +178,11 @@
       <div class="detail-kv-grid detail-kv-grid--2col" *ngIf="detail.duplicatedFromRif || (detail.trancheNumber ?? 0) > 0" style="margin-top: 10px">
         <div class="detail-kv">
           <span class="kv-label">Duplicato da</span>
-          <span class="kv-value">{{ detail.duplicatedFromRif || 'â€”' }}</span>
+          <span class="kv-value">{{ detail.duplicatedFromRif || '-' }}</span>
         </div>
         <div class="detail-kv">
           <span class="kv-label">Tranche</span>
-          <span class="kv-value">{{ detail.trancheNumber ? detail.trancheNumber + 'a tranche' : 'â€”' }}</span>
+          <span class="kv-value">{{ detail.trancheNumber ? detail.trancheNumber + 'a tranche' : '-' }}</span>
         </div>
       </div>
       <div class="detail-kv-grid detail-kv-grid--2col detail-kv-grid--contact" style="margin-top: 10px">
@@ -189,21 +196,21 @@
         </div>
         <div class="detail-kv detail-kv--contact-name">
           <span class="kv-label">Referente 1</span>
-          <span class="kv-value">{{ detail.referente || '—' }}</span>
+          <span class="kv-value">{{ detail.referente || '-' }}</span>
         </div>
         <div class="detail-kv detail-kv--contact-phone">
           <span class="kv-label">Telefono 1</span>
-          <span class="kv-value">{{ detail.telefono || '—' }}</span>
+          <span class="kv-value">{{ detail.telefono || '-' }}</span>
         </div>
       </div>
       <div class="detail-kv-grid detail-kv-grid--2col detail-kv-grid--contact" style="margin-top: 10px">
         <div class="detail-kv detail-kv--contact-name">
           <span class="kv-label">Referente 2</span>
-          <span class="kv-value">{{ detail.referente2 || '—' }}</span>
+          <span class="kv-value">{{ detail.referente2 || '-' }}</span>
         </div>
         <div class="detail-kv detail-kv--contact-phone">
           <span class="kv-label">Telefono 2</span>
-          <span class="kv-value">{{ detail.telefono2 || '—' }}</span>
+          <span class="kv-value">{{ detail.telefono2 || '-' }}</span>
         </div>
       </div>
     </div>
@@ -213,7 +220,7 @@
       <div class="detail-pills-row">
         <div class="detail-pill-item"><span class="kv-label">Trasporto ns. carico</span><span [class]="detail.trasporto ? 'badge-ok' : 'badge-neutral'">{{ detail.trasporto ? 'SI' : 'NO' }}</span></div>
         <div class="detail-pill-item"><span class="kv-label">Scarico ns. carico</span><span [class]="detail.scaricoCarico ? 'badge-ok' : 'badge-neutral'">{{ detail.scaricoCarico ? 'SI' : 'NO' }}</span></div>
-        <div class="detail-pill-item"><span class="kv-label">Acconto pagato</span><span [class]="detail.accontoPagato ? 'badge-ok' : 'badge-neutral'">{{ detail.accontoPagato ? 'SI' : 'NO' }}</span></div>
+        <div class="detail-pill-item"><span class="kv-label">Acconto</span><span [class]="!detail.accontoRichiesto ? 'badge-neutral' : detail.accontoPagato ? 'badge-ok' : 'badge-neutral'">{{ !detail.accontoRichiesto ? 'Acconto non richiesto' : detail.accontoPagato ? 'Acconto pagato' : 'Acconto richiesto' }}</span></div>
       </div>
     </div>
 

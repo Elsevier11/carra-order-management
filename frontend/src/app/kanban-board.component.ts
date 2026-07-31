@@ -36,9 +36,11 @@ export interface KanbanBoardHost {
   kanbanCompactMode: boolean;
   kanbanScrollContentWidth: number;
   kanbanDeliveryBadgeText(item: ConsegnaRecord): string;
+  nomeResponsabile(id: number | null): string;
   nomeVettore(id: number | null | undefined): string;
+  responsabileColor(id: number | null | undefined): string | null;
   user: AuthUser | null;
-  responsabiliRows: Array<{ id: number; nome: string }>;
+  responsabiliRows: Array<{ id: number; nome: string; colore: string | null }>;
   loadingBoard: boolean;
   boardOperaiSummary(item: ConsegnaRecord): string[];
   boardOperaiWarning(item: ConsegnaRecord): string | null;

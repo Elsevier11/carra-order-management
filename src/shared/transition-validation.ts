@@ -17,6 +17,7 @@ export interface TransitionStateLike {
   vettoreSecondoId?: number | null;
   bilici?: number | null;
   biliciSecondi?: number | null;
+  accontoRichiesto?: boolean | null;
   accontoPagato?: boolean | null;
   secondaConsegna?: boolean;
   deliveryPlan?: Array<{ data: string; vettoreId: number | null; bilici: number | null }> | null;
@@ -81,7 +82,7 @@ export function validateTransitionState(state: TransitionStateLike): string | nu
     if (!Number.isFinite(deliveryPlan[0].bilici ?? NaN) || Number(deliveryPlan[0].bilici) < 0) {
       return 'Inserisci il numero di bilici.'
     }
-    if (state.accontoPagato === false) {
+    if (state.accontoRichiesto !== false && state.accontoPagato === false) {
       return 'L\'acconto deve risultare pagato prima della pianificazione consegna.'
     }
     for (let index = 1; index < deliveryPlan.length; index += 1) {

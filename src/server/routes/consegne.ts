@@ -187,6 +187,7 @@ const consegnaInputSchema = z.object({
   note: z.string().optional().nullable(),
   trasporto: z.boolean().optional().default(false),
   scaricoCarico: z.boolean().optional().default(false),
+  accontoRichiesto: z.boolean().optional().default(true),
   accontoPagato: z.boolean().optional().default(false),
   commercialeId: z.number().int().positive().optional().nullable(),
   responsabileInternoId: z.number().int().positive().optional().nullable(),
@@ -242,6 +243,7 @@ const transitionSchema = z.object({
   vettoreSecondoId: z.number().int().positive().optional().nullable(),
   bilici: z.number().int().min(0).optional(),
   biliciSecondi: z.number().int().min(0).optional(),
+  accontoRichiesto: z.boolean().optional(),
   accontoPagato: z.boolean().optional(),
   deliveryPlan: deliveryPlanSchema,
   secondaConsegna: z.boolean().optional().default(false),
@@ -466,6 +468,7 @@ function normalizeRow(row: typeof ordini.$inferSelect) {
     note: row.note,
     trasporto: row.trasporto ?? false,
     scaricoCarico: row.scaricoCarico ?? false,
+    accontoRichiesto: row.accontoRichiesto ?? true,
     accontoPagato: row.accontoPagato ?? false,
     commercialeId: row.commercialeId ?? null,
     responsabileInternoId: row.responsabileInternoId ?? null,
@@ -571,6 +574,7 @@ function readableFieldLabel(field: string): string {
     note: 'Note',
     trasporto: 'Trasporto',
     scaricoCarico: 'Scarico/carico',
+    accontoRichiesto: 'Acconto richiesto',
     accontoPagato: 'Acconto pagato',
     commercialeId: 'Commerciale',
     responsabileInternoId: 'Responsabile',
@@ -1010,7 +1014,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         'Telefono 2': row.telefono2 ?? '',
         Trasporto: yesNo(row.trasporto),
         'Scarico/Carico': yesNo(row.scaricoCarico),
-        'Acconto pagato': yesNo(row.accontoPagato),
+        Acconto: row.accontoRichiesto === false ? 'Acconto non richiesto' : yesNo(row.accontoPagato),
         CAM: yesNo(row.camSiNo),
         'Disegno spedito il': formatItalianDate(row.disegnoSpeditoAt),
         'Mittente disegno': mittente,
@@ -1125,7 +1129,7 @@ router.get('/export/xlsx', requireAuth, async (req: AuthenticatedRequest, res, n
         })
       }
     }
-    const booleanColumns = ['Trasporto', 'Scarico/Carico', 'Acconto pagato', 'CAM', 'DDT pronti', 'Bancale', 'Carico verificato']
+    const booleanColumns = ['Trasporto', 'Scarico/Carico', 'CAM', 'DDT pronti', 'Bancale', 'Carico verificato']
     const booleanColumnIndices = new Map(booleanColumns.map((header) => [header, orderHeaders.indexOf(header)]))
     exportedRows.forEach((row, rowIndex) => {
       const excelRow = rowIndex + 2
@@ -1433,7 +1437,7 @@ router.get('/stats', async (_req, res, next) => {
         .from(ordini)
         .where(and(gte(deliveryDateExpr, toSqlTimestamp(nextMonday)), lte(deliveryDateExpr, toSqlTimestamp(nextSunday)), activeFilter)),
       // acconti da incassare
-      db.select({ count: count() }).from(ordini).where(and(eq(ordini.accontoPagato, false), activeFilter)),
+      db.select({ count: count() }).from(ordini).where(and(eq(ordini.accontoRichiesto, true), eq(ordini.accontoPagato, false), activeFilter)),
       // ordini incompleti
       db
         .select({ count: count() })
@@ -2105,7 +2109,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       if (!Number.isFinite(payload.bilici ?? NaN) || Number(payload.bilici) < 0) {
         return res.status(400).json({ message: 'Numero bilici obbligatorio' })
       }
-      if (!(payload.accontoPagato ?? row.accontoPagato)) {
+      if ((row.accontoRichiesto ?? true) && !(payload.accontoPagato ?? row.accontoPagato)) {
         return res.status(400).json({
           message: "Impossibile avanzare a 'CONSEGNA PIANIFICATA': acconto non ancora registrato come pagato.",
         })
@@ -2183,7 +2187,8 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         const legacyDeliveryPlan = splitDeliveryPlanToLegacy(normalizedDeliveryPlan)
         updateData.vettoreId = payload.vettoreId ?? null
         updateData.bilici = payload.bilici ?? 0
-        updateData.accontoPagato = payload.accontoPagato ?? row.accontoPagato
+        updateData.accontoRichiesto = payload.accontoRichiesto ?? row.accontoRichiesto ?? true
+        updateData.accontoPagato = updateData.accontoRichiesto ? (payload.accontoPagato ?? row.accontoPagato) : false
         updateData.consegnaDataEffettivaSeconda = legacyDeliveryPlan.consegnaDataEffettivaSeconda ? parseInputDate(legacyDeliveryPlan.consegnaDataEffettivaSeconda) : null
         updateData.vettoreSecondoId = legacyDeliveryPlan.vettoreSecondoId ?? null
         updateData.biliciSecondi = legacyDeliveryPlan.biliciSecondi ?? 0
@@ -2224,6 +2229,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
             consegnaDataEffettiva: payload.consegnaDataEffettiva,
             vettoreId: payload.vettoreId ?? null,
             bilici: payload.bilici ?? 0,
+            accontoRichiesto: row.accontoRichiesto ?? true,
             accontoPagato: payload.accontoPagato ?? row.accontoPagato,
             secondaConsegna: payload.secondaConsegna ?? false,
             consegnaDataEffettivaSeconda: payload.secondaConsegna ? payload.consegnaDataEffettivaSeconda ?? null : null,
@@ -2521,6 +2527,7 @@ router.post('/:id/duplicate', requireAuth, requireRole(['admin', 'operativo']), 
           note: source.note,
           trasporto: source.trasporto ?? false,
           scaricoCarico: source.scaricoCarico ?? false,
+          accontoRichiesto: source.accontoRichiesto ?? true,
           accontoPagato: source.accontoPagato ?? false,
           commercialeId: source.commercialeId ?? null,
           responsabileInternoId: source.responsabileInternoId ?? null,
@@ -2679,7 +2686,8 @@ router.post('/', requireAuth, requireRole(['admin', 'operativo']), async (req, r
           note: payload.note ?? null,
           trasporto: payload.trasporto ?? false,
           scaricoCarico: payload.scaricoCarico ?? false,
-          accontoPagato: payload.accontoPagato ?? false,
+          accontoRichiesto: payload.accontoRichiesto ?? true,
+          accontoPagato: (payload.accontoRichiesto ?? true) ? (payload.accontoPagato ?? false) : false,
           commercialeId: payload.commercialeId ?? null,
           responsabileInternoId: payload.responsabileInternoId ?? null,
           folderLinkDocumenti: payload.folderLinkDocumenti ?? null,
@@ -2792,6 +2800,12 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('note' in payload) updateData.note = payload.note ?? null
     if ('trasporto' in payload) updateData.trasporto = payload.trasporto ?? false
     if ('scaricoCarico' in payload) updateData.scaricoCarico = payload.scaricoCarico ?? false
+    if ('accontoRichiesto' in payload) {
+      updateData.accontoRichiesto = payload.accontoRichiesto ?? true
+      if (payload.accontoRichiesto === false) {
+        updateData.accontoPagato = false
+      }
+    }
     if ('accontoPagato' in payload) updateData.accontoPagato = payload.accontoPagato ?? false
     if ('commercialeId' in payload) updateData.commercialeId = payload.commercialeId ?? null
     if ('responsabileInternoId' in payload) updateData.responsabileInternoId = payload.responsabileInternoId ?? null
@@ -2880,6 +2894,7 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('note' in payload) diffStr('note', existing.note, payload.note)
     if ('trasporto' in payload) diffBool('trasporto', existing.trasporto, payload.trasporto)
     if ('scaricoCarico' in payload) diffBool('scaricoCarico', existing.scaricoCarico, payload.scaricoCarico)
+    if ('accontoRichiesto' in payload) diffBool('accontoRichiesto', existing.accontoRichiesto, payload.accontoRichiesto)
     if ('accontoPagato' in payload) diffBool('accontoPagato', existing.accontoPagato, payload.accontoPagato)
     if ('commercialeId' in payload) diffNum('commercialeId', existing.commercialeId, payload.commercialeId)
     if ('responsabileInternoId' in payload) diffNum('responsabileInternoId', existing.responsabileInternoId, payload.responsabileInternoId)

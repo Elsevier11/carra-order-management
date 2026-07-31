@@ -914,6 +914,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
       stato: 'PRONTI & AVVISATI',
       dataConsegna: '2026-07-15',
       dataOrdine: '2026-07-01',
+      accontoRichiesto: true,
       accontoPagato: false,
       note: 'nota base',
     })
@@ -928,6 +929,7 @@ describe.runIf(runDbTests)('Consegne API', () => {
         consegnaDataEffettiva: '2026-07-13',
         bilici: 4,
         vettoreId: vettore.body.id,
+        accontoRichiesto: true,
         accontoPagato: true,
         note: 'nota da modal',
       })
@@ -948,6 +950,51 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(detail.body.accontoPagato).toBe(true)
     expect(String(detail.body.note)).toContain('nota base')
     expect(String(detail.body.note)).toContain('nota da modal')
+
+    await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
+    await request(app).delete(`/api/vettori/${vettore.body.id}`).set('Authorization', `Bearer ${token}`)
+  })
+
+  it('POST /api/consegne/:id/transition allows CONSEGNA PIANIFICATA without paid deposit when not required', async () => {
+    const vettore = await request(app)
+      .post('/api/vettori')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nome: '__TEST__VETTORE-PIAN-NR' })
+    expect(vettore.status).toBe(201)
+
+    const create = await request(app).post('/api/consegne').set('Authorization', `Bearer ${token}`).send({
+      rif: '__TEST__CP-002',
+      cliente: 'Cliente Consegna Pianificata Non Richiesto',
+      stato: 'PRONTI & AVVISATI',
+      dataConsegna: '2026-07-15',
+      dataOrdine: '2026-07-01',
+      accontoRichiesto: false,
+      accontoPagato: false,
+      note: 'nota base',
+    })
+    expect(create.status).toBe(201)
+    const id = create.body.id as number
+
+    const transition = await request(app)
+      .post(`/api/consegne/${id}/transition`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        toStatus: 'CONSEGNA PIANIFICATA',
+        consegnaDataEffettiva: '2026-07-13',
+        bilici: 4,
+        vettoreId: vettore.body.id,
+        accontoRichiesto: false,
+        note: 'nota da modal',
+      })
+    expect(transition.status).toBe(200)
+    expect(transition.body.stato).toBe('CONSEGNA PIANIFICATA')
+    expect(transition.body.accontoRichiesto).toBe(false)
+    expect(transition.body.accontoPagato).toBe(false)
+
+    const detail = await request(app).get(`/api/consegne/${id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.accontoRichiesto).toBe(false)
+    expect(detail.body.accontoPagato).toBe(false)
 
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
     await request(app).delete(`/api/vettori/${vettore.body.id}`).set('Authorization', `Bearer ${token}`)

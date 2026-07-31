@@ -28,6 +28,7 @@ export interface TransitionModalModel {
   conclusiMode: 'week' | 'date';
   conclusiWeek: string;
   conclusiDate: string;
+  accontoRichiesto: boolean;
   accontoPagato: boolean;
   deliveryPlan: DeliveryPlanEntry[];
   secondaConsegna?: boolean;

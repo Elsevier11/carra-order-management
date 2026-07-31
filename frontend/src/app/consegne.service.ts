@@ -232,11 +232,11 @@ export class ConsegneService {
     return this.http.get<{ data: ResponsabileRecord[] }>(this.responsabiliUrl);
   }
 
-  createResponsabile(payload: { nome: string }): Observable<ResponsabileRecord> {
+  createResponsabile(payload: { nome: string; colore?: string | null }): Observable<ResponsabileRecord> {
     return this.http.post<ResponsabileRecord>(this.responsabiliUrl, payload);
   }
 
-  updateResponsabile(id: number, payload: { nome: string }): Observable<ResponsabileRecord> {
+  updateResponsabile(id: number, payload: { nome: string; colore?: string | null }): Observable<ResponsabileRecord> {
     return this.http.put<ResponsabileRecord>(`${this.responsabiliUrl}/${id}`, payload);
   }
 
