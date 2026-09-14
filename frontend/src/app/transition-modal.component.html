@@ -12,14 +12,14 @@
         </p>
         <div class="modal-grid">
         @if (modal.toStatus === 'DISEGNO IN GESTIONE') {
-          <label class="form-field">
+          <label class="form-field transition-disegno-field transition-disegno-date">
             <span>Data spedizione disegno</span>
             <div class="date-field">
               <input #disegnoSpeditoInput type="date" [(ngModel)]="modal.disegnoSpeditoAt" />
               <button type="button" class="date-field__button ghost" (click)="openDatePicker(disegnoSpeditoInput)" aria-label="Apri calendario">Cal</button>
             </div>
           </label>
-          <label class="form-field">
+          <label class="form-field transition-disegno-field">
             <span>Mittente</span>
             <select [(ngModel)]="modal.disegnoMittenteId">
               <option [ngValue]="null">Seleziona mittente</option>
@@ -35,6 +35,14 @@
               <input #disegnoApprovatoInput type="date" [(ngModel)]="modal.disegnoApprovatoAt" />
               <button type="button" class="date-field__button ghost" (click)="openDatePicker(disegnoApprovatoInput)" aria-label="Apri calendario">Cal</button>
             </div>
+          </label>
+          <label class="form-field form-field--full">
+            <span>Massicciata</span>
+            <app-note-editor [value]="modal.massicciataNota" (valueChange)="modal.massicciataNota = $event" placeholder="Note massicciata..."></app-note-editor>
+          </label>
+          <label class="form-field form-field--full">
+            <span>Carrabilità</span>
+            <app-note-editor [value]="modal.tipoCariciNota" (valueChange)="modal.tipoCariciNota = $event" placeholder="Note carrabilità..."></app-note-editor>
           </label>
         } @else if (modal.toStatus === 'ASSEGNATO') {
           <label class="form-field">

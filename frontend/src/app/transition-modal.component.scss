@@ -171,6 +171,27 @@
   gap: 4px;
 }
 
+.transition-disegno-field {
+  min-width: 0;
+}
+
+.transition-disegno-date {
+  grid-column: span 2;
+}
+
+.transition-disegno-field > span {
+  min-height: 2.35em;
+  display: flex;
+  align-items: flex-start;
+}
+
+.transition-disegno-field .date-field input,
+.transition-disegno-field select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .form-field--full {
   grid-column: 1 / -1;
 }
@@ -293,7 +314,7 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 1) 100%);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .modal-backdrop {
     padding: 12px;
   }
@@ -305,6 +326,10 @@
 
   .modal-grid {
     grid-template-columns: 1fr;
+  }
+
+  .transition-disegno-date {
+    grid-column: auto;
   }
 
   .transition-second-grid {

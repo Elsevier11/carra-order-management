@@ -1,4 +1,8 @@
 <div class="detail-section" *ngIf="app.activeDetailTab === 'gestione'">
+  <div class="detail-kv detail-kv--order-date">
+    <label class="kv-label">Data ordine</label>
+    <span class="kv-value">{{ detail.dataOrdine ? (detail.dataOrdine | date:'dd/MM/yyyy') : '—' }}</span>
+  </div>
   <ng-container [ngSwitch]="detail.stato">
     <ng-container *ngSwitchCase="'DISEGNO IN GESTIONE'">
       <div class="detail-section-title">Gestione Disegno</div>
@@ -33,11 +37,7 @@
 
     <ng-container *ngSwitchCase="'DISEGNO APPROVATO'">
       <div class="detail-section-title">Disegno Approvato</div>
-      <div class="detail-kv-grid">
-        <div class="detail-kv">
-          <label class="kv-label">Data ordine</label>
-          <span class="kv-value">{{ detail.dataOrdine ? (detail.dataOrdine | date:'dd/MM/yyyy') : '—' }}</span>
-        </div>
+      <div class="detail-kv-grid detail-kv-grid--disegno">
         <div class="detail-kv">
           <label class="kv-label">Data approvazione disegno</label>
           <input *ngIf="app.canWrite && app.editMode; else disegnoApprovatoRead" type="date" [(ngModel)]="detail.disegnoApprovatoAt" />
@@ -53,8 +53,8 @@
           </ng-template>
         </div>
         <div class="detail-kv detail-kv--full">
-          <label class="kv-label">Tipologia carichi</label>
-          <app-note-editor *ngIf="app.canWrite && app.editMode; else tipoCarichiRead" [value]="detail.tipoCariciNota ?? ''" (valueChange)="detail.tipoCariciNota = $event" placeholder="Note tipologia carichi..."></app-note-editor>
+          <label class="kv-label">Carrabilità</label>
+          <app-note-editor *ngIf="app.canWrite && app.editMode; else tipoCarichiRead" [value]="detail.tipoCariciNota ?? ''" (valueChange)="detail.tipoCariciNota = $event" placeholder="Note carrabilità..."></app-note-editor>
           <ng-template #tipoCarichiRead>
             <span class="kv-value note-display" [innerHTML]="app.renderNoteHtml(detail.tipoCariciNota)"></span>
           </ng-template>
@@ -271,17 +271,30 @@
 
     <ng-container *ngSwitchCase="'CONCLUSI'">
       <div class="detail-section-title">A.M.P.</div>
-      <div class="detail-kv-grid">
+      <div class="detail-kv-grid" *ngIf="app.canWrite && app.editMode; else conclusiRead">
         <div class="detail-kv">
-          <label class="kv-label">Settimana</label>
-          <span class="kv-value">{{ app.conclusiWeekLabel(detail.conclusiWeek) }}</span>
+          <label class="kv-label">Tipo A.M.P.</label>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+            <button type="button" class="segmented-toggle-btn" [class.active]="detail.conclusiMode !== 'date'" (click)="app.setAmpMode('week')">Settimana</button>
+            <button type="button" class="segmented-toggle-btn" [class.active]="detail.conclusiMode === 'date'" (click)="app.setAmpMode('date')">Data</button>
+          </div>
         </div>
         <div class="detail-kv">
-          <label class="kv-label">Data</label>
-          <span class="kv-value">{{ detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : '—' }}</span>
+          <label class="kv-label">{{ detail.conclusiMode === 'date' ? 'Data' : 'Settimana' }}</label>
+          <input *ngIf="detail.conclusiMode !== 'date'; else conclusiDateEdit" type="week" [(ngModel)]="detail.conclusiWeek" />
+          <ng-template #conclusiDateEdit><input type="date" [(ngModel)]="detail.conclusiDate" /></ng-template>
         </div>
       </div>
-      <p class="tab-save-hint">Questo dato viene confermato nel passaggio da <strong>CONCLUSI</strong> a <strong>PRONTI &amp; AVVISATI</strong>.</p>
+      <ng-template #conclusiRead>
+        <div class="detail-kv-grid">
+          <div class="detail-kv"><label class="kv-label">Settimana</label><span class="kv-value">{{ app.conclusiWeekLabel(detail.conclusiWeek) }}</span></div>
+          <div class="detail-kv"><label class="kv-label">Data</label><span class="kv-value">{{ detail.conclusiDate ? (detail.conclusiDate | date:'dd/MM/yyyy') : '—' }}</span></div>
+        </div>
+      </ng-template>
+      <p *ngIf="app.canWrite && app.editMode" class="tab-save-hint">Modifica il tipo o il valore A.M.P. e premi <strong>Salva</strong>.</p>
+      <div class="detail-kv-grid" *ngIf="detail.operaiAssegnati?.length">
+        <div class="detail-kv detail-kv--full"><label class="kv-label">Operai assegnati</label><span class="kv-value">{{ app.operaiNomiLabel(detail.operaiAssegnati) }}</span></div>
+      </div>
     </ng-container>
 
     <ng-container *ngSwitchDefault>

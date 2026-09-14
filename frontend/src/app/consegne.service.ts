@@ -75,6 +75,8 @@ export class ConsegneService {
       disegnoSpeditoAt?: string | null;
       disegnoMittenteId?: number | null;
       disegnoApprovatoAt?: string | null;
+      massicciataNota?: string | null;
+      tipoCariciNota?: string | null;
       lavorazioneAssegnataAt?: string | null;
       consegnaDataEffettiva?: string | null;
       consegnaDataEffettivaSeconda?: string | null;

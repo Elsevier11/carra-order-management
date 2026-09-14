@@ -24,7 +24,10 @@ if not exist "frontend\\node_modules" (
   call npm --prefix frontend install || exit /b 1
 )
 
-echo [INFO] Avvio backend + frontend in dev mode...
-call npm run dev
+echo [INFO] Avvio backend in una finestra separata...
+start "Carra Backend" cmd /k "cd /d ""%~dp0"" && npm run dev:backend"
+
+echo [INFO] Avvio frontend in dev mode senza HMR e prebundling Vite...
+call npm --prefix frontend run start -- --no-hmr --no-prebundle
 
 endlocal

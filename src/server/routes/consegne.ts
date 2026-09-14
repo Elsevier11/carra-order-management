@@ -150,7 +150,7 @@ function buildListFilters(query: ListQuery) {
   }
 
   if (query.vettoreId) {
-    filters.push(eq(ordini.vettoreId, query.vettoreId))
+    filters.push(or(eq(ordini.vettoreId, query.vettoreId), eq(ordini.vettoreSecondoId, query.vettoreId)))
   }
 
   if (query.fromDate) {
@@ -235,6 +235,8 @@ const transitionSchema = z.object({
   disegnoSpeditoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoSpeditoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   disegnoMittenteId: z.number().int().positive().optional().nullable(),
   disegnoApprovatoAt: z.string().regex(dateOrDateTimeRegex, 'disegnoApprovatoAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
+  massicciataNota: z.string().optional().nullable(),
+  tipoCariciNota: z.string().optional().nullable(),
   lavorazioneAssegnataAt: z.string().regex(dateOrDateTimeRegex, 'lavorazioneAssegnataAt must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   consegnaDataEffettiva: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettiva must be YYYY-MM-DD or ISO datetime').optional().nullable(),
   consegnaDataEffettivaSeconda: z.string().regex(dateOrDateTimeRegex, 'consegnaDataEffettivaSeconda must be YYYY-MM-DD or ISO datetime').optional().nullable(),
@@ -640,7 +642,12 @@ function summarizeActivityEvent(eventType: string, fromStatus: string | null, to
       return `${readableFieldLabel(field)}: ${fromValue} → ${toValue}`
     }
   }
-  if (eventType === 'OPERAI_UPDATED') return 'Operai assegnati o modificati'
+  if (eventType === 'OPERAI_UPDATED') {
+    const names = Array.isArray(details?.operaiNomi)
+      ? details.operaiNomi.filter((name): name is string => typeof name === 'string' && !!name.trim())
+      : []
+    return names.length ? `Operai: ${names.join(', ')}` : 'Operai assegnati o modificati'
+  }
   if (eventType === 'CEMENTI_UPDATED') return 'Cementi aggiornati'
   if (eventType === 'ACCESSORI_UPDATED') return 'Accessori aggiornati'
   if (eventType === 'ATTACHMENT_ADDED') return `Allegato aggiunto${details?.['fileName'] ? `: ${details['fileName']}` : ''}`
@@ -2177,6 +2184,10 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       if (payload.toStatus === 'DISEGNO APPROVATO' && disegnoApprovatoAtValue) {
         updateData.disegnoApprovatoAt = disegnoApprovatoAtValue
       }
+      if (payload.toStatus === 'DISEGNO APPROVATO') {
+        updateData.massicciataNota = payload.massicciataNota ?? row.massicciataNota ?? null
+        updateData.tipoCariciNota = payload.tipoCariciNota ?? row.tipoCariciNota ?? null
+      }
       if (payload.toStatus === 'CONSEGNA PIANIFICATA' || payload.toStatus === 'CONSEGNA EFFETTUATA') {
         updateData.consegnaDataEffettiva = parseInputDate(payload.consegnaDataEffettiva!)
       }
@@ -2202,6 +2213,15 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
       return result ? [result] : []
     })
 
+    const transitionOperai = ['ASSEGNATO', 'CONCLUSI'].includes(payload.toStatus)
+      ? await db
+        .select({ id: operaiTable.id, nome: operaiTable.nome })
+        .from(orderOperai)
+        .innerJoin(operaiTable, eq(orderOperai.operaioId, operaiTable.id))
+        .where(eq(orderOperai.orderId, id))
+        .orderBy(asc(operaiTable.nome))
+      : []
+
     const transitionDetails =
       payload.toStatus === 'DISEGNO IN GESTIONE'
         ? {
@@ -2211,11 +2231,14 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
         : payload.toStatus === 'DISEGNO APPROVATO'
           ? {
             disegnoApprovatoAt: disegnoApprovatoAtValue ? disegnoApprovatoAtValue.toISOString().slice(0, 10) : null,
+            massicciataNota: payload.massicciataNota ?? row.massicciataNota ?? null,
+            tipoCariciNota: payload.tipoCariciNota ?? row.tipoCariciNota ?? null,
           }
         : payload.toStatus === 'ASSEGNATO'
           ? {
             lavorazioneAssegnataAt: payload.lavorazioneAssegnataAt,
             operaiIds: payload.operaiIds ?? [],
+            operaiNomi: transitionOperai.map((operaio) => operaio.nome),
             skipAssegnazione: payload.skipAssegnazione ?? false,
           }
         : payload.toStatus === 'CONCLUSI' || payload.toStatus === 'PRONTI & AVVISATI'
@@ -2223,6 +2246,7 @@ router.post('/:id/transition', requireAuth, requireRole(['admin', 'operativo']),
             conclusiMode: payload.conclusiMode ?? 'week',
             conclusiWeek: (payload.conclusiMode ?? 'week') === 'week' ? payload.conclusiWeek ?? null : null,
             conclusiDate: (payload.conclusiMode ?? 'week') === 'date' ? payload.conclusiDate ?? null : null,
+            ...(payload.toStatus === 'CONCLUSI' ? { operaiNomi: transitionOperai.map((operaio) => operaio.nome) } : {}),
           }
         : payload.toStatus === 'CONSEGNA PIANIFICATA'
           ? {
@@ -2829,6 +2853,9 @@ router.put('/:id', requireAuth, requireRole(['admin', 'operativo']), async (req:
     if ('problemiScaricoNota' in payload) updateData.problemiScaricoNota = payload.problemiScaricoNota ?? null
     if ('vettoreId' in payload) updateData.vettoreId = payload.vettoreId ?? null
     if ('bilici' in payload) updateData.bilici = payload.bilici ?? 0
+    if ('deliveryPlan' in payload) {
+      updateData.consegneProgrammate = normalizeDeliveryPlanEntries(payload.deliveryPlan ?? []) as never
+    }
     if ('ddtPronti' in payload) updateData.ddtPronti = payload.ddtPronti ?? false
     if ('bancale' in payload) updateData.bancale = payload.bancale ?? false
     if ('chiusini' in payload) updateData.chiusini = payload.chiusini ?? false
@@ -3023,6 +3050,12 @@ router.put('/:id/operai', requireAuth, requireRole(['admin', 'operativo']), asyn
 
     await db.transaction(async (tx) => {
       await replaceOrderOperai(tx, id, operaiIds)
+      const operaiRows = await tx
+        .select({ id: operaiTable.id, nome: operaiTable.nome })
+        .from(orderOperai)
+        .innerJoin(operaiTable, eq(orderOperai.operaioId, operaiTable.id))
+        .where(eq(orderOperai.orderId, id))
+        .orderBy(asc(operaiTable.nome))
       await tx.execute(sql`
         insert into order_events (order_id, event_type, from_status, to_status, note, actor, details)
         values (
@@ -3032,7 +3065,7 @@ router.put('/:id/operai', requireAuth, requireRole(['admin', 'operativo']), asyn
           ${null},
           ${null},
           ${req.user?.username ?? null},
-          ${JSON.stringify({ operaiIds })}
+          ${JSON.stringify({ operaiIds, operaiNomi: operaiRows.map((operaio) => operaio.nome) })}
         )
       `)
     })

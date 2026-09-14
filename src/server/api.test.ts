@@ -601,7 +601,8 @@ describe.runIf(runDbTests)('Consegne API', () => {
     const operaiSeed = await request(app).get('/api/operai').set('Authorization', `Bearer ${token}`)
     expect(operaiSeed.status).toBe(200)
 
-    let operaiIds = (operaiSeed.body.data as Array<{ id: number }>).slice(0, 2).map((item) => item.id)
+    const seededOperai = operaiSeed.body.data as Array<{ id: number; nome: string }>
+    let operaiIds = seededOperai.slice(0, 2).map((item) => item.id)
     while (operaiIds.length < 2) {
       const createdOperaio = await request(app).post('/api/operai').set('Authorization', `Bearer ${token}`).send({
         nome: `__TEST__OP_${operaiIds.length + 1}_${Date.now()}`,
@@ -647,11 +648,13 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(conclusiDetail.status).toBe(200)
     expect(conclusiDetail.body.conclusiMode).toBe('week')
     expect(conclusiDetail.body.conclusiWeek).toBe('2026-W19')
+    expect((conclusiDetail.body.operaiAssegnati ?? []).map((op: { id: number }) => op.id)).toEqual(operaiIds)
 
     const historyAfterClose = await request(app).get(`/api/consegne/${id}/history`)
     expect(historyAfterClose.status).toBe(200)
     expect(historyAfterClose.body.data[0]?.details?.conclusiMode).toBe('week')
     expect(historyAfterClose.body.data[0]?.details?.conclusiWeek).toBe('2026-W19')
+    expect(historyAfterClose.body.data[0]?.details?.operaiNomi).toHaveLength(operaiIds.length)
 
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
   })
@@ -676,6 +679,8 @@ describe.runIf(runDbTests)('Consegne API', () => {
     const toApprovato = await request(app).post(`/api/consegne/${id}/transition`).set('Authorization', `Bearer ${token}`).send({
       toStatus: 'DISEGNO APPROVATO',
       note: 'Disegno approvato dal cliente',
+      massicciataNota: 'Massicciata verificata',
+      tipoCariciNota: 'Carrabilità verificata',
     })
     expect(toApprovato.status).toBe(200)
     expect(toApprovato.body.stato).toBe('DISEGNO APPROVATO')
@@ -683,6 +688,8 @@ describe.runIf(runDbTests)('Consegne API', () => {
     const detail = await request(app).get(`/api/consegne/${id}`)
     expect(detail.status).toBe(200)
     expect(detail.body.disegnoApprovatoAt).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(detail.body.massicciataNota).toBe('Massicciata verificata')
+    expect(detail.body.tipoCariciNota).toBe('Carrabilità verificata')
 
     const history = await request(app).get(`/api/consegne/${id}/history`)
     expect(history.status).toBe(200)
@@ -950,6 +957,25 @@ describe.runIf(runDbTests)('Consegne API', () => {
     expect(detail.body.accontoPagato).toBe(true)
     expect(String(detail.body.note)).toContain('nota base')
     expect(String(detail.body.note)).toContain('nota da modal')
+
+    const updateDate = await request(app)
+      .put(`/api/consegne/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        consegnaDataEffettiva: '2026-07-18',
+        deliveryPlan: [{ data: '2026-07-18', vettoreId: vettore.body.id, bilici: 4 }],
+        vettoreId: vettore.body.id,
+        bilici: 4,
+      })
+    expect(updateDate.status).toBe(200)
+    expect(updateDate.body.consegnaDataEffettiva).toContain('2026-07-18')
+    expect(updateDate.body.deliveryPlan[0].data).toBe('2026-07-18')
+
+    const board = await request(app).get('/api/consegne/board')
+    expect(board.status).toBe(200)
+    const planned = board.body.columns.find((column: { status: string }) => column.status === 'CONSEGNA PIANIFICATA')
+    const boardItem = planned?.items.find((row: { id: number }) => row.id === id)
+    expect(boardItem?.consegnaDataEffettiva).toContain('2026-07-18')
 
     await request(app).delete(`/api/consegne/${id}`).set('Authorization', `Bearer ${token}`)
     await request(app).delete(`/api/vettori/${vettore.body.id}`).set('Authorization', `Bearer ${token}`)

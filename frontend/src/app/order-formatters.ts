@@ -77,9 +77,6 @@ export function boardAccessoriSummary(item: ConsegnaRecord): Array<{ nome: strin
 }
 
 export function boardOperaiSummary(item: ConsegnaRecord): string[] {
-  if (['PRONTI & AVVISATI', 'CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'].includes(item.stato)) {
-    return [];
-  }
   return item.operaiAssegnati?.map((operaio) => operaio.nome).filter(Boolean) ?? [];
 }
 
@@ -89,10 +86,9 @@ export function boardOperaiWarning(item: ConsegnaRecord): string | null {
 }
 
 export function boardResiduiLavorazioneBadges(item: ConsegnaRecord): BoardInfoBadge[] {
-  if (!['ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI'].includes(item.stato)) return [];
-
   const badges: BoardInfoBadge[] = [];
   if (item.camSiNo) badges.push({ text: 'C.A.M.', tone: 'cam' });
+  if (!['ASSEGNATO', 'CONCLUSI', 'PRONTI & AVVISATI'].includes(item.stato)) return badges;
   if (item.lavorazioneParziale) badges.push({ text: 'Lavorazione parziale', tone: 'residui' });
   if (item.attesaMateriale) badges.push({ text: 'In attesa materiale', tone: 'residui' });
   const note = item.residuiLavorazioneNote?.trim();

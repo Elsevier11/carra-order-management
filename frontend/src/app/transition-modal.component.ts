@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { MittenteDisegno, Operaio, Vettore } from './consegne.types';
 import { NoteEditorComponent } from './note-editor.component';
 import type { ConsegnaStatus } from '../../../src/shared/order-flow';
-import { validateTransitionState } from '../../../src/shared/transition-validation';
 import type { DeliveryPlanEntry } from '../../../src/shared/delivery-plan';
 
 export interface TransitionModalModel {
@@ -15,6 +14,8 @@ export interface TransitionModalModel {
   disegnoSpeditoAt: string;
   disegnoMittenteId: number | null;
   disegnoApprovatoAt: string;
+  massicciataNota: string;
+  tipoCariciNota: string;
   lavorazioneAssegnataAt: string;
   consegnaDataEffettiva?: string;
   consegnaDataEffettivaSeconda?: string;

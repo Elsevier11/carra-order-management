@@ -1005,6 +1005,9 @@
                   @if (event.note) {
                     <div class="timeline-note" [innerHTML]="renderNoteHtml(event.note)"></div>
                   }
+                  @if (historyOperai(event); as operai) {
+                    <div class="timeline-note"><strong>Operai:</strong> {{ operai }}</div>
+                  }
                   @if (getDiffEntries(event).length > 0) {
                     <table class="diff-table">
                       <thead><tr><th>Campo</th><th>Prima</th><th>Dopo</th></tr></thead>

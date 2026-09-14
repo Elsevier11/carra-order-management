@@ -192,6 +192,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     disegnoSpeditoAt: '',
     disegnoMittenteId: null,
     disegnoApprovatoAt: '',
+    massicciataNota: '',
+    tipoCariciNota: '',
     lavorazioneAssegnataAt: '',
     consegnaDataEffettiva: '',
     consegnaDataEffettivaSeconda: '',
@@ -1183,7 +1185,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   boardConsegnaPianificataBadges(item: ConsegnaRecord) {
     if (item.stato === 'CONSEGNA EFFETTUATA') {
-      const deliveryDate = deliveryDateValueHelper(item);
       const badges: Array<{
         text: string;
         tone: 'info' | 'warning' | 'positive' | 'muted' | 'danger' | 'cam' | 'residui';
@@ -1217,8 +1218,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return boardProntiAvvisatiBadgesHelper(item);
   }
 
-  showKanbanMeta(item: ConsegnaRecord): boolean {
-    return !['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA', 'SOSPESO'].includes(item.stato);
+  showKanbanMeta(_item: ConsegnaRecord): boolean {
+    return true;
   }
 
   showKanbanEstimatedDelivery(item: ConsegnaRecord): boolean {
@@ -1233,9 +1234,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   boardMetaPrimaryText(item: ConsegnaRecord): string {
-    if (item.stato === 'DISEGNO APPROVATO') {
-      return `Data approvazione disegno ${item.disegnoApprovatoAt ? this.formatKanbanMetaDate(item.disegnoApprovatoAt) : '-'}`
-    }
     return `Ordine ${item.dataOrdine ? this.formatKanbanMetaDate(item.dataOrdine) : '-'}`
   }
 
@@ -1332,6 +1330,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoSpeditoAt: '',
       disegnoMittenteId: null,
       disegnoApprovatoAt: '',
+      massicciataNota: '',
+      tipoCariciNota: '',
       lavorazioneAssegnataAt: '',
       consegnaDataEffettiva: '',
       consegnaDataEffettivaSeconda: '',
@@ -1372,6 +1372,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoSpeditoAt: toStatus === 'DISEGNO IN GESTIONE' ? (order.disegnoSpeditoAt ?? this.todayIsoDate()) : '',
       disegnoMittenteId: toStatus === 'DISEGNO IN GESTIONE' ? (order.disegnoMittenteId ?? null) : null,
       disegnoApprovatoAt: toStatus === 'DISEGNO APPROVATO' ? (order.disegnoApprovatoAt ?? this.todayIsoDate()) : '',
+      massicciataNota: toStatus === 'DISEGNO APPROVATO' ? (order.massicciataNota ?? '') : '',
+      tipoCariciNota: toStatus === 'DISEGNO APPROVATO' ? (order.tipoCariciNota ?? '') : '',
       lavorazioneAssegnataAt: toStatus === 'ASSEGNATO' ? (order.lavorazioneAssegnataAt ?? this.todayIsoDate()) : '',
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(toStatus) ? (order.consegnaDataEffettiva ?? deliveryDateValueHelper(order) ?? this.todayIsoDate()) : '',
       consegnaDataEffettivaSeconda: toStatus === 'CONSEGNA PIANIFICATA' ? (order.consegnaDataEffettivaSeconda ?? '') : '',
@@ -1412,6 +1414,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       disegnoSpeditoAt: modal.toStatus === 'DISEGNO IN GESTIONE' ? modal.disegnoSpeditoAt : undefined,
       disegnoMittenteId: modal.toStatus === 'DISEGNO IN GESTIONE' ? modal.disegnoMittenteId : undefined,
       disegnoApprovatoAt: modal.toStatus === 'DISEGNO APPROVATO' ? modal.disegnoApprovatoAt : undefined,
+      massicciataNota: modal.toStatus === 'DISEGNO APPROVATO' ? (modal.massicciataNota.trim() || null) : undefined,
+      tipoCariciNota: modal.toStatus === 'DISEGNO APPROVATO' ? (modal.tipoCariciNota.trim() || null) : undefined,
       lavorazioneAssegnataAt: modal.toStatus === 'ASSEGNATO' && !skipAssegnazione ? modal.lavorazioneAssegnataAt : undefined,
       consegnaDataEffettiva: ['CONSEGNA PIANIFICATA', 'CONSEGNA EFFETTUATA'].includes(modal.toStatus) ? modal.consegnaDataEffettiva : undefined,
       problemiScaricoNota: modal.toStatus === 'CONSEGNA EFFETTUATA' ? (modal.problemiScaricoNota.trim() || null) : undefined,
@@ -2480,6 +2484,16 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const entries = this.getDiffEntries(event);
     if (!entries.length) return '';
     return entries.map((e) => e.field).join(', ');
+  }
+
+  historyOperai(event: OrderEvent): string {
+    let raw: unknown = event.details;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch { return ''; }
+    }
+    const names = (raw as { operaiNomi?: unknown } | null)?.operaiNomi;
+    if (!Array.isArray(names)) return '';
+    return names.filter((name): name is string => typeof name === 'string' && !!name.trim()).join(', ');
   }
 
   private fieldLabel(field: string): string {
