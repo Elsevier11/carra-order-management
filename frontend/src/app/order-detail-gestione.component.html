@@ -253,7 +253,7 @@
       <div class="detail-kv-grid">
         <div class="detail-kv">
           <label class="kv-label">Data consegna effettiva</label>
-          <input *ngIf="app.canWrite && app.editMode; else consegnaEffettivaEffRead" type="date" [(ngModel)]="detail.consegnaDataEffettiva" />
+          <input *ngIf="app.canWrite && app.editMode; else consegnaEffettivaEffRead" type="date" [ngModel]="detail.consegnaDataEffettiva" (ngModelChange)="app.updateDetailDeliveryPlanEntry(0, 'data', $event)" />
           <ng-template #consegnaEffettivaEffRead>
             <span class="kv-value">{{ detail.consegnaDataEffettiva ? (detail.consegnaDataEffettiva | date:'dd/MM/yyyy') : '—' }}</span>
           </ng-template>

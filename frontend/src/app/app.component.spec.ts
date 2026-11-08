@@ -3,6 +3,8 @@ import { BehaviorSubject, of } from 'rxjs';
 import { AppComponent } from './app.component';
 import { ConsegneService } from './consegne.service';
 import { AuthService } from './auth.service';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 describe('AppComponent', () => {
   const userSubject = new BehaviorSubject({ username: 'admin', role: 'admin' as const });
@@ -15,7 +17,11 @@ describe('AppComponent', () => {
       }),
     stats: () =>
       of({
-        kpi: { consegneSettimanaCorrente: 0, consegneProssimaSettimana: 0, ritardi: 0, totaleAttivi: 0, accontiDaIncassare: 0 },
+        kpi: {
+          consegneSettimanaCorrente: 0, consegneProssimaSettimana: 0, ritardi: 0,
+          totaleAttivi: 0, accontiDaIncassare: 0, ordiniIncompleti: 0,
+          senzaResponsabile: 0, senzaDocumenti: 0, senzaFoto: 0,
+        },
         byCarrier: [],
         byCarrierWithLate: [],
         byStatus: [],
@@ -25,16 +31,22 @@ describe('AppComponent', () => {
         byClienteAttivi: [],
       }),
     filters: () => of({ clienti: [], vettori: [], stati: [] }),
+    listVettori: () => of({ data: [] }),
+    listCommerciali: () => of({ data: [] }),
+    listResponsabili: () => of({ data: [] }),
     board: () => of({ columns: [] }),
     history: () => of({ data: [] }),
     listAttachments: () => of({ data: [] }),
-    uploadAttachment: () => of({}),
+    uploadAttachment: (orderId, file) => of({
+      id: 1, orderId, fileName: file.name, mimeType: file.type,
+      sizeBytes: file.size, uploadedBy: 'admin', createdAt: null,
+    }),
     downloadAttachment: () => of(new Blob(['x'])),
     deleteAttachment: () => of(undefined),
     listAudit: () => of({ data: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } }),
     exportAuditCsv: () => of('id,action'),
     listUsers: () => of({ data: [] }),
-    createUser: () => of({ id: 1, username: 'u', role: 'operativo', isActive: true, createdAt: null, updatedAt: null }),
+    createUser: () => of({ id: 1, username: 'u', role: 'operativo', isActive: true, createdAt: null, updatedAt: null, generatedPassword: 'test-password' }),
     updateUser: () => of({ id: 1, username: 'u', role: 'operativo', isActive: true, createdAt: null, updatedAt: null }),
     resetUserPassword: () => of(undefined),
     exportCsv: () => of('rif,cliente'),
@@ -56,6 +68,8 @@ describe('AppComponent', () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: ConsegneService, useValue: serviceMock },
         { provide: AuthService, useValue: authMock },
       ],
@@ -68,10 +82,11 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render dashboard title', () => {
+  it('should render the orders view for an authenticated user', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Dashboard Consegne Carra');
+    expect(compiled.querySelector('app-kanban-board')).not.toBeNull();
+    expect(compiled.querySelector('.kanban-top-action--primary')?.textContent).toContain('Nuovo ordine');
   });
 });
